@@ -1,16 +1,17 @@
-#include <stdlib.h>
-
-#include "driver/ledc.h"
-#include "driver/gpio.h"
-#include "esp_log.h"
-
 #include "backlight.h"
 
-static const char *TAG = "backlight";
+#include <stdlib.h>
 
-esp_err_t backlight_init(const backlight_config_t *config, backlight_handle_t *handle)
+#include "driver/gpio.h"
+#include "driver/ledc.h"
+#include "esp_log.h"
+
+static const char* TAG = "backlight";
+
+esp_err_t backlight_init(const backlight_config_t* config, backlight_handle_t* handle)
 {
-    if (!config || !handle) {
+    if (!config || !handle)
+    {
         ESP_LOGE(TAG, "Invalid argument: config or handle is NULL");
         return ESP_ERR_INVALID_ARG;
     }
@@ -23,9 +24,10 @@ esp_err_t backlight_init(const backlight_config_t *config, backlight_handle_t *h
         .timer_sel = config->leds_timer,
         .duty = 0,
         .hpoint = 0,
-        .flags = {
-            .output_invert = 0,
-        }
+        .flags =
+            {
+                .output_invert = 0,
+            },
     };
 
     const ledc_timer_config_t timer_config = {
@@ -46,14 +48,16 @@ esp_err_t backlight_init(const backlight_config_t *config, backlight_handle_t *h
     return ESP_OK;
 }
 
-esp_err_t backlight_set_brightness(const backlight_handle_t *handle, uint8_t brightness_percent)
+esp_err_t backlight_set_brightness(const backlight_handle_t* handle, uint8_t brightness_percent)
 {
-    if (!handle) {
+    if (!handle)
+    {
         ESP_LOGE(TAG, "Invalid argument: handle is NULL");
         return ESP_ERR_INVALID_ARG;
     }
 
-    if (brightness_percent < 0 || brightness_percent > 100) {
+    if (brightness_percent > 100)
+    {
         ESP_LOGE(TAG, "Invalid argument: brightness_percent is out of range");
         return ESP_ERR_INVALID_ARG;
     }

@@ -1,0 +1,56 @@
+---
+Language: Cpp
+BasedOnStyle: Google
+
+# [Indentation / whitespace]
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+
+SpaceAfterLogicalNot: false
+
+# [Line length & comments]
+ColumnLimit: 120
+ReflowComments: true
+AlignTrailingComments: true
+
+CommentPragmas: '^ IWYU pragma:'
+
+# [ Braces ]
+BreakBeforeBraces: Custom
+BraceWrapping:
+  # New-line braces for "code blocks"
+  AfterFunction: true
+  AfterControlStatement: true
+  BeforeElse: true
+  BeforeCatch: true
+
+  # Keep these compact (same-line braces)
+  AfterStruct: false
+  AfterUnion: false
+  AfterEnum: false
+  AfterExternBlock: false
+  AfterNamespace: false
+
+  # Compact empty blocks
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
+
+# [Initializer lists / alignment]
+AlignAfterOpenBracket: DontAlign
+
+Cpp11BracedListStyle: true
+BinPackArguments: false
+BinPackParameters: false
+BinPackInitializerLists: false
+
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: Consecutive
+
+# [Includes & macros]
+SortIncludes: true
+
+MacroBlockBegin: ''
+MacroBlockEnd: ''

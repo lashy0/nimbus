@@ -1,4 +1,10 @@
+# ESP-IDF build output
 build/
+
+# ESP-IDF Component Manager
 managed_components/
 dependencies.lock
+
+# Local project configuration
 sdkconfig
+sdkconfig.old
