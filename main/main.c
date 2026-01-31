@@ -1,17 +1,64 @@
 #include <stdio.h>
 
 #include "backlight.h"
+#include "button_gpio.h"
 #include "display.h"
+#include "driver/gpio.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_log.h"
 #include "esp_lvgl_port.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "lv_demos.h"
+#include "iot_button.h"
 #include "lvgl.h"
+#include "screens.h"
+#include "ui.h"
 
 static const char* TAG = "main";
+
+#define BUTTON_PREV_GPIO GPIO_NUM_0
+#define BUTTON_NEXT_GPIO GPIO_NUM_35
+
+static const enum ScreensEnum screen_list[] = {
+    SCREEN_ID_IAQ,
+    SCREEN_ID_TEMP,
+    SCREEN_ID_HUM,
+};
+static int       current_screen_index = 0;
+static const int screen_count = sizeof(screen_list) / sizeof(screen_list[0]);
+
+static void ui_tick_timer_cb(lv_timer_t* t) { ui_tick(); }
+
+static void button_press_cb(void* arg, void* data)
+{
+    int  btn_id = (int)data;
+    bool screen_changed = false;
+
+    if (btn_id == 0)
+    {
+        ESP_LOGI(TAG, "Button PREV pressed");
+        current_screen_index--;
+        if (current_screen_index < 0) current_screen_index = screen_count - 1;
+        screen_changed = true;
+    }
+    else
+    {
+        ESP_LOGI(TAG, "Button NEXT pressed");
+        current_screen_index++;
+        if (current_screen_index >= screen_count) current_screen_index = 0;
+        screen_changed = true;
+    }
+
+    if (screen_changed)
+    {
+        if (lvgl_port_lock(0))
+        {
+            loadScreen(screen_list[current_screen_index]);
+            lvgl_port_unlock();
+        }
+    }
+}
 
 void app_main(void)
 {
@@ -47,14 +94,14 @@ void app_main(void)
         .panel_handle = disp_hw.panel_handle,
         .buffer_size = HEIGHT * 20,
         .double_buffer = true,
-        .hres = HEIGHT,
-        .vres = WIDTH,
+        .hres = WIDTH,
+        .vres = HEIGHT,
         .monochrome = false,
         .rotation =
             {
-                .swap_xy = true,
+                .swap_xy = false,
                 .mirror_x = false,
-                .mirror_y = true,
+                .mirror_y = false,
             },
         .flags =
             {
@@ -64,11 +111,57 @@ void app_main(void)
             },
     };
 
-    lvgl_port_add_disp(&disp_cfg);
+    lv_disp_t* disp = lvgl_port_add_disp(&disp_cfg);
+
+    // Buttons
+    const button_config_t btn_cfg = {
+        .long_press_time = 1000,
+        .short_press_time = 50,
+    };
+
+    button_gpio_config_t gpio_cfg_prev = {
+        .gpio_num = BUTTON_PREV_GPIO,
+        .active_level = 0,
+    };
+
+    button_gpio_config_t gpio_cfg_next = {
+        .gpio_num = BUTTON_NEXT_GPIO,
+        .active_level = 0,
+        .disable_pull = true,
+    };
+
+    button_handle_t btn_prev_handle = NULL;
+    button_handle_t btn_next_handle = NULL;
+
+    esp_err_t err_btn;
+    ESP_LOGI(TAG, "Creating PREV button on GPIO %d...", BUTTON_PREV_GPIO);
+    err_btn = iot_button_new_gpio_device(&btn_cfg, &gpio_cfg_prev, &btn_prev_handle);
+    if (err_btn != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Button PREV create failed with error: %s", esp_err_to_name(err_btn));
+    }
+    else
+    {
+        ESP_LOGI(TAG, "Button PREV created successfully");
+        iot_button_register_cb(btn_prev_handle, BUTTON_PRESS_DOWN, NULL, button_press_cb, (void*)0);
+    }
+
+    ESP_LOGI(TAG, "Creating NEXT button on GPIO %d...", BUTTON_NEXT_GPIO);
+    err_btn = iot_button_new_gpio_device(&btn_cfg, &gpio_cfg_next, &btn_next_handle);
+    if (err_btn != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Button NEXT create failed with error: %s", esp_err_to_name(err_btn));
+    }
+    else
+    {
+        ESP_LOGI(TAG, "Button NEXT created successfully");
+        iot_button_register_cb(btn_next_handle, BUTTON_PRESS_DOWN, NULL, button_press_cb, (void*)1);
+    }
 
     if (lvgl_port_lock(0))
     {
-        lv_demo_music();
+        ui_init();
+        lv_timer_create(ui_tick_timer_cb, 5, NULL);
 
         lvgl_port_unlock();
     }
