@@ -26,7 +26,7 @@ display_handles_t display_init(void)
         .miso_io_num = PIN_NUM_MISO,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
-        .max_transfer_sz = 135 * 240 * sizeof(uint16_t),
+        .max_transfer_sz = WIDTH * HEIGHT * sizeof(uint16_t),
     };
     ESP_ERROR_CHECK(spi_bus_initialize(LCD_HOST, &buscfg, SPI_DMA_CH_AUTO));
 
@@ -53,7 +53,7 @@ display_handles_t display_init(void)
     ESP_ERROR_CHECK(esp_lcd_panel_invert_color(handles.panel_handle, true));
     ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(handles.panel_handle, true));
     ESP_ERROR_CHECK(esp_lcd_panel_mirror(handles.panel_handle, false, true));
-    ESP_ERROR_CHECK(esp_lcd_panel_set_gap(handles.panel_handle, 53, 40));
+    ESP_ERROR_CHECK(esp_lcd_panel_set_gap(handles.panel_handle, 52, 40));
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(handles.panel_handle, true));
 
     return handles;

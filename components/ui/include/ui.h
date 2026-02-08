@@ -1,33 +1,31 @@
-#ifndef EEZ_LVGL_UI_GUI_H
-#define EEZ_LVGL_UI_GUI_H
+#pragma once
 
 #include <lvgl.h>
-
-
-
-#if defined(EEZ_FOR_LVGL)
-#include <eez/flow/lvgl_api.h>
-#endif
-
-#if !defined(EEZ_FOR_LVGL)
+#include <stdbool.h>
 #include "screens.h"
-#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-
-
 void ui_init();
+
 void ui_tick();
 
-#if !defined(EEZ_FOR_LVGL)
+void ui_update_iaq(int value);
+
+void ui_update_temp(int value);
+
+void ui_update_hum(int value);
+
+void ui_update_battery(int percent, bool charging);
+
+void ui_switch_next(void);
+
+void ui_switch_prev(void);
+
 void loadScreen(enum ScreensEnum screenId);
-#endif
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif // EEZ_LVGL_UI_GUI_H
