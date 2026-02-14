@@ -39,6 +39,7 @@ const img_info_t IMG_INFO_BASE_CENTER         = { IMG_BASE,              32, 50,
 const img_info_t IMG_INFO_CHARGING            = { IMG_CHARGING,          35, 60,  65, 120 };
 const img_info_t IMG_INFO_NO_CHARGING         = { IMG_DEAD,              32, 80,  71, 73 };
 const img_info_t IMG_INFO_CAT_HUH_CENTER      = { IMG_CAT_HUH,           27, 70,  82, 87 };
+const img_info_t IMG_INFO_CAT_HUH_CALIB       = { IMG_CAT_HUH,           27, 70,  82, 87 };
 const img_info_t IMG_INFO_ORDINARY_NIMBUS     = { IMG_ORDINARY_NIMBUS,   27, 50,  82, 87 };
 
 void img_set(lv_obj_t* img_obj, const img_info_t* info)

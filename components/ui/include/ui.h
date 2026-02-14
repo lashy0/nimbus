@@ -15,6 +15,7 @@ void ui_tick();
 void ui_update_iaq(int value);
 void ui_update_temp(int value);
 void ui_update_hum(int value);
+void ui_update_calibration_status(bool stabilization_done, bool run_in_done);
 void ui_update_battery(int percent, bool charging);
 
 void ui_switch_next(void);

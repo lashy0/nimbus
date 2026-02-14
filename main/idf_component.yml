@@ -5,3 +5,4 @@ dependencies:
   lvgl/lvgl: ^8.4.0
   espressif/esp_lvgl_port: ^2.7.0
   espressif/button: ^4.1.5
+  espressif/i2c_bus: "^1.5.0"

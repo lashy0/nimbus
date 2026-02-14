@@ -17,6 +17,7 @@ void app_init(const app_config_t* config);
 
 void app_on_button_short_press(button_id_t btn_id);
 void app_on_button_long_press(button_id_t btn_id);
+void app_process_idle(void);
 
 #ifdef __cplusplus
 }

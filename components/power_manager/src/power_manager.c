@@ -4,6 +4,7 @@
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "bme680_sensor.h"
 #include "ui.h"
 #include "esp_lvgl_port.h"
 
@@ -61,6 +62,7 @@ void power_manager_shutdown(void)
     }
 
     esp_sleep_enable_ext0_wakeup(WAKEUP_GPIO, 0);
+    bme680_sensor_deinit();
 
     ESP_LOGI(TAG, "Entering deep sleep. Press button to wake up.");
 

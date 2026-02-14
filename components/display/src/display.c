@@ -6,7 +6,7 @@
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_vendor.h"
 
-#define PIN_NUM_MISO 21
+#define PIN_NUM_MISO -1
 #define PIN_NUM_MOSI 19
 #define PIN_NUM_SCLK 18
 #define PIN_NUM_CS 5

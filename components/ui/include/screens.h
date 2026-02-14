@@ -94,6 +94,8 @@ void create_screen_no_charging(void);
 
 void create_screen_charging(void);
 
+void create_screen_calibration(void);
+
 void create_screen_question(const char* text);
 
 void tick_screen_by_id(enum ScreensEnum screenId);

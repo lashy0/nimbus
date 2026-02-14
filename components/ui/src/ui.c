@@ -10,6 +10,8 @@ static int current_temp = 0;
 static int current_hum = 0;
 static int current_batt_pct = 100;
 static bool current_batt_charging = false;
+static bool current_stabilization_done = false;
+static bool current_run_in_done = false;
 
 static const enum ScreensEnum screen_list[] = {
 #define X(name) name,
@@ -27,6 +29,21 @@ static void (*question_on_yes)(void) = NULL;
 static void (*question_on_no)(void) = NULL;
 static bool question_selected_yes = true;
 
+static void ui_apply_calibration_status_text(void)
+{
+    if (!ui_objects.lbl_calibration_text) {
+        return;
+    }
+
+    char buf[96];
+    snprintf(buf,
+             sizeof(buf),
+             "Calibrating...\nStab:%s Run:%s",
+             current_stabilization_done ? "ok" : "wait",
+             current_run_in_done ? "ok" : "wait");
+    lv_label_set_text(ui_objects.lbl_calibration_text, buf);
+}
+
 static void ui_show_startup_error_indicator(void)
 {
     if (!startup_non_critical_error || startup_error_icon) {
@@ -34,9 +51,8 @@ static void ui_show_startup_error_indicator(void)
     }
 
     startup_error_icon = lv_img_create(lv_layer_top());
-    lv_img_set_src(startup_error_icon, IMG_INFO_DEAD.path);
+    img_set(startup_error_icon, &IMG_INFO_DEAD);
     lv_obj_set_pos(startup_error_icon, 2, 2);
-    lv_img_set_zoom(startup_error_icon, 128);
     lv_obj_clear_flag(startup_error_icon, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
 }
 
@@ -140,6 +156,7 @@ static void ui_apply_current_values(void)
                 snprintf(buf, sizeof(buf), "%d %%", current_batt_pct);
                 lv_label_set_text(ui_objects.lbl_calibration_batt_pct, buf);
             }
+            ui_apply_calibration_status_text();
             break;
         
         case SCREEN_ID_QUESTION:
@@ -239,7 +256,9 @@ void ui_finish_startup(bool has_non_critical_error)
 {
     startup_non_critical_error = has_non_critical_error;
 
-    if (currentScreenId == SCREEN_ID_START) {
+    if (startup_non_critical_error) {
+        ui_show_no_charging();
+    } else if (currentScreenId == SCREEN_ID_START) {
         loadScreen(SCREEN_ID_IAQ);
     }
 
@@ -310,6 +329,16 @@ void ui_update_hum(int value)
         if (ui_objects.img_hum_status) {
             img_set_info(ui_objects.img_hum_status, get_hum_status_info(value));
         }
+    }
+}
+
+void ui_update_calibration_status(bool stabilization_done, bool run_in_done)
+{
+    current_stabilization_done = stabilization_done;
+    current_run_in_done = run_in_done;
+
+    if (currentScreenId == SCREEN_ID_CALIBRATION) {
+        ui_apply_calibration_status_text();
     }
 }
 
@@ -406,6 +435,19 @@ void ui_show_no_charging(void)
     lv_scr_load(ui_objects.screen_no_charging);
     if (oldScreen) lv_obj_del(oldScreen);
     currentScreenId = SCREEN_ID_NO_CHARGING;
+}
+
+void ui_show_calibration(void)
+{
+    previousScreenId = currentScreenId;
+
+    lv_obj_t* oldScreen = lv_scr_act();
+    create_screen_calibration();
+
+    lv_scr_load(ui_objects.screen_calibration);
+    if (oldScreen) lv_obj_del(oldScreen);
+    currentScreenId = SCREEN_ID_CALIBRATION;
+    ui_apply_current_values();
 }
 
 void ui_show_question(const char* text, void (*on_yes)(void), void (*on_no)(void), bool select_yes)

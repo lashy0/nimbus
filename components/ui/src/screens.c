@@ -230,17 +230,17 @@ void create_screen_calibration(void)
 
     // Text
     ui_objects.lbl_calibration_text = lv_label_create(obj);
-    lv_obj_set_pos(ui_objects.lbl_calibration_text, 0, 145);
+    lv_obj_set_pos(ui_objects.lbl_calibration_text, 0, 160);
     lv_obj_set_width(ui_objects.lbl_calibration_text, 135);
     lv_obj_set_style_text_color(ui_objects.lbl_calibration_text, lv_color_hex(0xffffffff), 0);
-    lv_obj_set_style_text_font(ui_objects.lbl_calibration_text, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(ui_objects.lbl_calibration_text, &ui_font_sf_b_10_digits, 0);
     lv_obj_set_style_text_align(ui_objects.lbl_calibration_text, LV_TEXT_ALIGN_CENTER, 0);
-    lv_label_set_text(ui_objects.lbl_calibration_text, "Sensor\ncalibration...");
+    lv_label_set_text(ui_objects.lbl_calibration_text, "Calibrating...\nStab:wait Run:wait");
 
     // Спиннер
     ui_objects.spinner_calibration = lv_spinner_create(obj, 1000, 60);
-    lv_obj_set_size(ui_objects.spinner_calibration, 40, 40);
-    lv_obj_align(ui_objects.spinner_calibration, LV_ALIGN_BOTTOM_MID, 0, -20);
+    lv_obj_set_size(ui_objects.spinner_calibration, 32, 32);
+    lv_obj_align(ui_objects.spinner_calibration, LV_ALIGN_BOTTOM_MID, 0, -12);
     lv_obj_set_style_arc_color(ui_objects.spinner_calibration, lv_color_hex(0xffffffff), LV_PART_INDICATOR);
     lv_obj_set_style_arc_color(ui_objects.spinner_calibration, lv_color_hex(0xff333333), LV_PART_MAIN);
     lv_obj_set_style_arc_width(ui_objects.spinner_calibration, 4, LV_PART_INDICATOR);
@@ -265,7 +265,7 @@ void create_screen_question(const char* text)
     lv_obj_set_pos(ui_objects.lbl_question_text, 0, 155);
     lv_obj_set_width(ui_objects.lbl_question_text, 135);
     lv_obj_set_style_text_color(ui_objects.lbl_question_text, lv_color_hex(0xffffffff), 0);
-    lv_obj_set_style_text_font(ui_objects.lbl_question_text, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(ui_objects.lbl_question_text, &ui_font_sf_b_10_digits, 0);
     lv_obj_set_style_text_align(ui_objects.lbl_question_text, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_text(ui_objects.lbl_question_text, text ? text : "Question?");
 
