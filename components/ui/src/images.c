@@ -11,7 +11,6 @@ const img_info_t IMG_INFO_TEMP_NORMAL = {IMG_TEMP_NORMAL, 31, 127, 82, 83};
 const img_info_t IMG_INFO_TEMP_PLUS = {IMG_TEMP_PLUS, 31, 127, 84, 83};
 const img_info_t IMG_INFO_DIVER = {IMG_DIVER, 32, 137, 81, 81};
 const img_info_t IMG_INFO_CAT_HUH = {IMG_CAT_HUH, 32, 137, 82, 87};
-const img_info_t IMG_INFO_ORDINARY_NIMBUS = {IMG_ORDINARY_NIMBUS, 32, 137, 80, 76};
 
 const img_info_t IMG_INFO_GOOD    = { IMG_GOOD,    67, 34, 56, 28 };
 const img_info_t IMG_INFO_MID     = { IMG_MID,     67, 34, 56, 28 };
@@ -36,6 +35,12 @@ const img_info_t IMG_INFO_BATT_3_NOT_CHARGING    = { IMG_BATT_3_NOT_CHARGING,   
 const img_info_t IMG_INFO_BATT_2_NOT_CHARGING    = { IMG_BATT_2_NOT_CHARGING,    74, 11, 21, 10 };
 const img_info_t IMG_INFO_BATT_1_NOT_CHARGING    = { IMG_BATT_1_NOT_CHARGING,    74, 11, 21, 10 };
 
+const img_info_t IMG_INFO_BASE_CENTER         = { IMG_BASE,              32, 50,  71, 73 };
+const img_info_t IMG_INFO_CHARGING            = { IMG_CHARGING,          35, 60,  65, 120 };
+const img_info_t IMG_INFO_NO_CHARGING         = { IMG_DEAD,              32, 80,  71, 73 };
+const img_info_t IMG_INFO_CAT_HUH_CENTER      = { IMG_CAT_HUH,           27, 70,  82, 87 };
+const img_info_t IMG_INFO_ORDINARY_NIMBUS     = { IMG_ORDINARY_NIMBUS,   27, 50,  82, 87 };
+
 void img_set(lv_obj_t* img_obj, const img_info_t* info)
 {
     if (!img_obj || !info) return;
@@ -56,10 +61,6 @@ void img_set_info(lv_obj_t* img_obj, const img_info_t* info)
     lv_img_set_src(img_obj, info->path);
 }
 
-const char* get_battery_icon(int percent, bool charging) {
-    return get_battery_info(percent, charging)->path;
-}
-
 const img_info_t* get_battery_info(int percent, bool charging) {
     if (charging) {
         if (percent >= 90) return &IMG_INFO_BATT_FULL_CHARGING;
@@ -74,10 +75,6 @@ const img_info_t* get_battery_info(int percent, bool charging) {
     }
 }
 
-const char* get_iaq_icon(int iaq) {
-    return get_iaq_info(iaq)->path;
-}
-
 const img_info_t* get_iaq_info(int iaq) {
     if (iaq <= 50)  return &IMG_INFO_ULTRA_HAPPY;
     if (iaq <= 100)  return &IMG_INFO_HAPPY;
@@ -85,10 +82,6 @@ const img_info_t* get_iaq_info(int iaq) {
     if (iaq <= 300) return &IMG_INFO_SAD;
     if (iaq <= 400) return &IMG_INFO_DIZZY;
     return &IMG_INFO_DEAD;
-}
-
-const char* get_iaq_status_icon(int iaq) {
-    return get_iaq_status_info(iaq)->path;
 }
 
 const img_info_t* get_iaq_status_info(int iaq) {
@@ -100,18 +93,10 @@ const img_info_t* get_iaq_status_info(int iaq) {
     return &IMG_INFO_CRIT;
 }
 
-const char* get_temp_icon(int temp) {
-    return get_temp_info(temp)->path;
-}
-
 const img_info_t* get_temp_info(int temp) {
     if (temp < 0)  return &IMG_INFO_TEMP_MINUS;
     if (temp <= 25) return &IMG_INFO_TEMP_NORMAL;
     return &IMG_INFO_TEMP_PLUS;
-}
-
-const char* get_temp_status_icon(int temp) {
-    return get_temp_status_info(temp)->path;
 }
 
 const img_info_t* get_temp_status_info(int temp) {
@@ -120,18 +105,10 @@ const img_info_t* get_temp_status_info(int temp) {
     return &IMG_INFO_PLUS;
 }
 
-const char* get_hum_icon(int hum) {
-    return get_hum_info(hum)->path;
-}
-
 const img_info_t* get_hum_info(int hum) {
     if (hum < 30)  return &IMG_INFO_ORDINARY;
     if (hum < 70) return &IMG_INFO_HAPPY;
     return &IMG_INFO_DIVER;
-}
-
-const char* get_hum_status_icon(int hum) {
-    return get_hum_status_info(hum)->path;
 }
 
 const img_info_t* get_hum_status_info(int hum) {

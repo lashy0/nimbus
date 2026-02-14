@@ -52,5 +52,11 @@ AlignConsecutiveDeclarations: Consecutive
 # [Includes & macros]
 SortIncludes: true
 
+ndentPPDirectives: AfterHash
+PPIndentWidth: 4
+
+AlignConsecutiveMacros: Consecutive
+SpacesBeforeTrailingComments: 1
+
 MacroBlockBegin: ''
 MacroBlockEnd: ''

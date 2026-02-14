@@ -18,6 +18,11 @@ enum ScreensEnum {
     SCREEN_LIST_X
 #undef X
 
+    SCREEN_ID_START,
+    SCREEN_ID_NO_CHARGING,
+    SCREEN_ID_CHARGING,
+    SCREEN_ID_CALIBRATION,
+    SCREEN_ID_QUESTION,
     SCREEN_COUNT_TOTAL
 };
 
@@ -45,18 +50,51 @@ typedef struct {
     lv_obj_t* img_hum_icon;
     lv_obj_t* img_hum_status;
     lv_obj_t* img_hum_battery;
+
+    lv_obj_t* screen_start;
+    lv_obj_t* img_start_icon;
+    lv_obj_t* spinner_start;
+
+    lv_obj_t* screen_no_charging;
+    lv_obj_t* img_no_charging_icon;
+
+    lv_obj_t* screen_charging;
+    lv_obj_t* img_charging_icon;
+
+    lv_obj_t* screen_calibration;
+    lv_obj_t* img_calibration_icon;
+    lv_obj_t* lbl_calibration_text;
+    lv_obj_t* spinner_calibration;
+    lv_obj_t* lbl_calibration_batt_pct;
+    lv_obj_t* img_calibration_battery;
+
+    lv_obj_t* screen_question;
+    lv_obj_t* img_question_icon;
+    lv_obj_t* lbl_question_text;
+    lv_obj_t* btn_question_yes;
+    lv_obj_t* btn_question_no;
+    lv_obj_t* lbl_question_batt_pct;
+    lv_obj_t* img_question_battery;
 } ui_objects_t;
 
 extern ui_objects_t ui_objects;
 
-void create_screen_iaq();
+void create_screen_iaq(void);
 void tick_screen_iaq();
 
-void create_screen_temp();
+void create_screen_temp(void);
 void tick_screen_temp();
 
-void create_screen_hum();
+void create_screen_hum(void);
 void tick_screen_hum();
+
+void create_screen_start(void);
+
+void create_screen_no_charging(void);
+
+void create_screen_charging(void);
+
+void create_screen_question(const char* text);
 
 void tick_screen_by_id(enum ScreensEnum screenId);
 void tick_screen(int screen_index);

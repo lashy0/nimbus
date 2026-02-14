@@ -43,7 +43,7 @@ static void create_page_indicators(lv_obj_t* parent, int active_index)
     }
 }
 
-void create_screen_iaq()
+void create_screen_iaq(void)
 {
     lv_obj_t* obj = lv_obj_create(0);
     ui_objects.screen_iaq = obj;
@@ -85,7 +85,7 @@ void create_screen_iaq()
 
 void tick_screen_iaq() {}
 
-void create_screen_temp()
+void create_screen_temp(void)
 {
     lv_obj_t* obj = lv_obj_create(0);
     ui_objects.screen_temp = obj;
@@ -127,7 +127,7 @@ void create_screen_temp()
 
 void tick_screen_temp() {}
 
-void create_screen_hum()
+void create_screen_hum(void)
 {
     lv_obj_t* obj = lv_obj_create(0);
     ui_objects.screen_hum = obj;
@@ -168,6 +168,133 @@ void create_screen_hum()
 }
 
 void tick_screen_hum() {}
+
+void create_screen_start(void)
+{
+    lv_obj_t* obj = lv_obj_create(0);
+    ui_objects.screen_start = obj;
+    lv_obj_set_pos(obj, 0, 0);
+    lv_obj_set_size(obj, 135, 240);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_objects.img_start_icon = lv_img_create(obj);
+    img_set(ui_objects.img_start_icon, &IMG_INFO_BASE_CENTER);
+
+    ui_objects.spinner_start = lv_spinner_create(obj, 1000, 60);
+    lv_obj_set_size(ui_objects.spinner_start, 40, 40);
+    lv_obj_align(ui_objects.spinner_start, LV_ALIGN_BOTTOM_MID, 0, -40);
+    lv_obj_set_style_arc_color(ui_objects.spinner_start, lv_color_hex(0xffffffff), LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(ui_objects.spinner_start, lv_color_hex(0xff333333), LV_PART_MAIN);
+    lv_obj_set_style_arc_width(ui_objects.spinner_start, 4, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_width(ui_objects.spinner_start, 4, LV_PART_MAIN);
+}
+
+void create_screen_no_charging(void)
+{
+    lv_obj_t* obj = lv_obj_create(0);
+    ui_objects.screen_no_charging = obj;
+    lv_obj_set_pos(obj, 0, 0);
+    lv_obj_set_size(obj, 135, 240);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+    
+    ui_objects.img_no_charging_icon = lv_img_create(obj);
+    img_set(ui_objects.img_no_charging_icon, &IMG_INFO_NO_CHARGING);
+}
+
+void create_screen_charging(void)
+{
+    lv_obj_t* obj = lv_obj_create(0);
+    ui_objects.screen_charging = obj;
+    lv_obj_set_pos(obj, 0, 0);
+    lv_obj_set_size(obj, 135, 240);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_objects.img_charging_icon = lv_img_create(obj);
+    img_set(ui_objects.img_charging_icon, &IMG_INFO_CHARGING);
+}
+
+void create_screen_calibration(void)
+{
+    lv_obj_t* obj = lv_obj_create(0);
+    ui_objects.screen_calibration = obj;
+    lv_obj_set_pos(obj, 0, 0);
+    lv_obj_set_size(obj, 135, 240);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    // Status bar
+    create_status_bar(obj, &ui_objects.img_calibration_battery, &ui_objects.lbl_calibration_batt_pct);
+
+    // Icon
+    ui_objects.img_calibration_icon = lv_img_create(obj);
+    img_set(ui_objects.img_calibration_icon, &IMG_INFO_CAT_HUH_CALIB);
+
+    // Text
+    ui_objects.lbl_calibration_text = lv_label_create(obj);
+    lv_obj_set_pos(ui_objects.lbl_calibration_text, 0, 145);
+    lv_obj_set_width(ui_objects.lbl_calibration_text, 135);
+    lv_obj_set_style_text_color(ui_objects.lbl_calibration_text, lv_color_hex(0xffffffff), 0);
+    lv_obj_set_style_text_font(ui_objects.lbl_calibration_text, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_align(ui_objects.lbl_calibration_text, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_text(ui_objects.lbl_calibration_text, "Sensor\ncalibration...");
+
+    // Спиннер
+    ui_objects.spinner_calibration = lv_spinner_create(obj, 1000, 60);
+    lv_obj_set_size(ui_objects.spinner_calibration, 40, 40);
+    lv_obj_align(ui_objects.spinner_calibration, LV_ALIGN_BOTTOM_MID, 0, -20);
+    lv_obj_set_style_arc_color(ui_objects.spinner_calibration, lv_color_hex(0xffffffff), LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(ui_objects.spinner_calibration, lv_color_hex(0xff333333), LV_PART_MAIN);
+    lv_obj_set_style_arc_width(ui_objects.spinner_calibration, 4, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_width(ui_objects.spinner_calibration, 4, LV_PART_MAIN);
+}
+
+void create_screen_question(const char* text)
+{
+    lv_obj_t* obj = lv_obj_create(0);
+    ui_objects.screen_question = obj;
+    lv_obj_set_pos(obj, 0, 0);
+    lv_obj_set_size(obj, 135, 240);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    // Status bar
+    create_status_bar(obj, &ui_objects.img_question_battery, &ui_objects.lbl_question_batt_pct);
+
+    ui_objects.img_question_icon = lv_img_create(obj);
+    img_set(ui_objects.img_question_icon, &IMG_INFO_CAT_HUH_CENTER);
+    
+    ui_objects.lbl_question_text = lv_label_create(obj);
+    lv_obj_set_pos(ui_objects.lbl_question_text, 0, 155);
+    lv_obj_set_width(ui_objects.lbl_question_text, 135);
+    lv_obj_set_style_text_color(ui_objects.lbl_question_text, lv_color_hex(0xffffffff), 0);
+    lv_obj_set_style_text_font(ui_objects.lbl_question_text, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_align(ui_objects.lbl_question_text, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_text(ui_objects.lbl_question_text, text ? text : "Question?");
+
+    // Кнопка ДА
+    ui_objects.btn_question_yes = lv_btn_create(obj);
+    lv_obj_set_pos(ui_objects.btn_question_yes, 15, 200);
+    lv_obj_set_size(ui_objects.btn_question_yes, 50, 28);
+    lv_obj_set_style_bg_color(ui_objects.btn_question_yes, lv_color_hex(0xff333333), LV_PART_MAIN);
+    lv_obj_set_style_radius(ui_objects.btn_question_yes, 4, LV_PART_MAIN);
+    lv_obj_clear_flag(ui_objects.btn_question_yes, LV_OBJ_FLAG_CLICKABLE);
+
+    lv_obj_t* lbl_yes = lv_label_create(ui_objects.btn_question_yes);
+    lv_label_set_text(lbl_yes, "Yes");
+    lv_obj_set_style_text_color(lbl_yes, lv_color_hex(0xffffffff), 0);
+    lv_obj_center(lbl_yes);
+
+    // Кнопка НЕТ
+    ui_objects.btn_question_no = lv_btn_create(obj);
+    lv_obj_set_pos(ui_objects.btn_question_no, 70, 200);
+    lv_obj_set_size(ui_objects.btn_question_no, 50, 28);
+    lv_obj_set_style_bg_color(ui_objects.btn_question_no, lv_color_hex(0xff333333), LV_PART_MAIN);
+    lv_obj_set_style_radius(ui_objects.btn_question_no, 4, LV_PART_MAIN);
+    lv_obj_clear_flag(ui_objects.btn_question_no, LV_OBJ_FLAG_CLICKABLE);
+
+    lv_obj_t* lbl_no = lv_label_create(ui_objects.btn_question_no);
+    lv_label_set_text(lbl_no, "No");
+    lv_obj_set_style_text_color(lbl_no, lv_color_hex(0xffffffff), 0);
+    lv_obj_center(lbl_no);
+}
 
 typedef void (*tick_screen_func_t)();
 tick_screen_func_t tick_screen_funcs[] = {

@@ -1,17 +1,16 @@
 #include <stdio.h>
+#include <stdbool.h>
 
+#include "app.h"
 #include "backlight.h"
-#include "button_gpio.h"
+#include "buttons.h"
 #include "display.h"
 #include "driver/gpio.h"
-#include "esp_lcd_panel_ops.h"
 #include "esp_log.h"
 #include "esp_lvgl_port.h"
 #include "esp_spiffs.h"
-#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "iot_button.h"
 #include "lvgl.h"
 #include "ui.h"
 
@@ -20,6 +19,13 @@ static const char* TAG = "main";
 #define BUTTON_PREV_GPIO GPIO_NUM_0
 #define BUTTON_NEXT_GPIO GPIO_NUM_35
 
+static backlight_handle_t bl_handle;
+static display_handles_t  disp_hw;
+
+static void on_short_press(button_id_t btn_id) { app_on_button_short_press(btn_id); }
+
+static void on_long_press(button_id_t btn_id) { app_on_button_long_press(btn_id); }
+
 static void ui_tick_timer_cb(lv_timer_t* t) { ui_tick(); }
 
 // Test ui
@@ -27,7 +33,7 @@ static void sensor_timer_cb(lv_timer_t* t)
 {
     static int counter = 0;
     counter++;
-    
+
     if (lvgl_port_lock(10))
     {
         ui_update_iaq((counter * 7) % 500);
@@ -38,94 +44,43 @@ static void sensor_timer_cb(lv_timer_t* t)
     }
 }
 
-static void button_press_cb(void* arg, void* data)
-{
-    int btn_id = (int)data;
-
-    if (lvgl_port_lock(-1))
-    {
-        if (btn_id == 0)
-        {
-            ESP_LOGI(TAG, "Button PREV pressed");
-            ui_switch_prev();
-        }
-        else
-        {
-            ESP_LOGI(TAG, "Button NEXT pressed");
-            ui_switch_next();
-        }
-
-        lvgl_port_unlock();
-    }
-}
-
-void mount_spiffs(void)
+static bool mount_spiffs(void)
 {
     esp_vfs_spiffs_conf_t conf = {
-        .base_path = "/spiffs", .partition_label = "storage", .max_files = 5, .format_if_mount_failed = true};
+        .base_path = "/spiffs",
+        .partition_label = "storage",
+        .max_files = 5,
+        .format_if_mount_failed = true,
+    };
 
     esp_err_t ret = esp_vfs_spiffs_register(&conf);
 
     if (ret != ESP_OK)
     {
-        if (ret == ESP_FAIL)
-        {
-            ESP_LOGE("SPIFFS", "Failed to mount or format filesystem");
-        }
-        else if (ret == ESP_ERR_NOT_FOUND)
-        {
-            ESP_LOGE("SPIFFS", "Failed to find SPIFFS partition");
-        }
-        else
-        {
-            ESP_LOGE("SPIFFS", "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
-        }
-        return;
+        ESP_LOGE(TAG, "SPIFFS mount failed: %s", esp_err_to_name(ret));
+        return false;
     }
 
     size_t total = 0, used = 0;
     ret = esp_spiffs_info(conf.partition_label, &total, &used);
-    if (ret != ESP_OK)
+    if (ret == ESP_OK)
     {
-        ESP_LOGE("SPIFFS", "Failed to get SPIFFS partition information (%s)", esp_err_to_name(ret));
+        ESP_LOGI(TAG, "SPIFFS: total=%d, used=%d", total, used);
     }
-    else
-    {
-        ESP_LOGI("SPIFFS", "Partition size: total: %d, used: %d", total, used);
-    }
+
+    return true;
 }
 
-void app_main(void)
+static void init_lvgl(void)
 {
-    ESP_LOGI(TAG, "Initializing Display...");
-    display_handles_t disp_hw = display_init();
-
-    ESP_LOGI(TAG, "Initializing Backlight...");
-    backlight_config_t bl_config = {
-        .gpio_num = PIN_NUM_BL,
-        .leds_mode = LEDC_LOW_SPEED_MODE,
-        .leds_channel = LEDC_CHANNEL_0,
-        .leds_timer = LEDC_TIMER_0,
-        .duty_resolution = LEDC_TIMER_10_BIT,
-        .freq_hz = 5000,
-    };
-    backlight_handle_t bl_handle;
-    ESP_ERROR_CHECK(backlight_init(&bl_config, &bl_handle));
-    ESP_ERROR_CHECK(backlight_set_brightness(&bl_handle, 100));
-
-    mount_spiffs();
-
-    ESP_LOGI(TAG, "Init LVGL Port...");
     const lvgl_port_cfg_t lvgl_cfg = {
         .task_priority = 4,
         .task_stack = 4096,
         .task_affinity = -1,
         .timer_period_ms = 2,
     };
-    esp_err_t err = lvgl_port_init(&lvgl_cfg);
-    ESP_ERROR_CHECK(err);
+    ESP_ERROR_CHECK(lvgl_port_init(&lvgl_cfg));
 
-    ESP_LOGI(TAG, "Add Display to LVGL...");
     const lvgl_port_display_cfg_t disp_cfg = {
         .io_handle = disp_hw.io_handle,
         .panel_handle = disp_hw.panel_handle,
@@ -149,59 +104,68 @@ void app_main(void)
     };
 
     lvgl_port_add_disp(&disp_cfg);
+}
 
-    // Buttons
-    const button_config_t btn_cfg = {
-        .long_press_time = 1000,
-        .short_press_time = 50,
+void app_main(void)
+{
+    bool startup_has_non_critical_error = false;
+
+    ESP_LOGI(TAG, "Init Display...");
+    disp_hw = display_init();
+
+    ESP_LOGI(TAG, "Init Backlight...");
+    backlight_config_t bl_config = {
+        .gpio_num = PIN_NUM_BL,
+        .leds_mode = LEDC_LOW_SPEED_MODE,
+        .leds_channel = LEDC_CHANNEL_0,
+        .leds_timer = LEDC_TIMER_0,
+        .duty_resolution = LEDC_TIMER_10_BIT,
+        .freq_hz = 5000,
     };
+    ESP_ERROR_CHECK(backlight_init(&bl_config, &bl_handle));
+    ESP_ERROR_CHECK(backlight_set_brightness(&bl_handle, 100));
 
-    button_gpio_config_t gpio_cfg_prev = {
-        .gpio_num = BUTTON_PREV_GPIO,
-        .active_level = 0,
-    };
-
-    button_gpio_config_t gpio_cfg_next = {
-        .gpio_num = BUTTON_NEXT_GPIO,
-        .active_level = 0,
-        .disable_pull = true,
-    };
-
-    button_handle_t btn_prev_handle = NULL;
-    button_handle_t btn_next_handle = NULL;
-
-    esp_err_t err_btn;
-    ESP_LOGI(TAG, "Creating PREV button on GPIO %d...", BUTTON_PREV_GPIO);
-    err_btn = iot_button_new_gpio_device(&btn_cfg, &gpio_cfg_prev, &btn_prev_handle);
-    if (err_btn != ESP_OK)
-    {
-        ESP_LOGE(TAG, "Button PREV create failed with error: %s", esp_err_to_name(err_btn));
-    }
-    else
-    {
-        ESP_LOGI(TAG, "Button PREV created successfully");
-        iot_button_register_cb(btn_prev_handle, BUTTON_PRESS_DOWN, NULL, button_press_cb, (void*)0);
+    ESP_LOGI(TAG, "Mount SPIFFS...");
+    if (!mount_spiffs()) {
+        startup_has_non_critical_error = true;
     }
 
-    ESP_LOGI(TAG, "Creating NEXT button on GPIO %d...", BUTTON_NEXT_GPIO);
-    err_btn = iot_button_new_gpio_device(&btn_cfg, &gpio_cfg_next, &btn_next_handle);
-    if (err_btn != ESP_OK)
-    {
-        ESP_LOGE(TAG, "Button NEXT create failed with error: %s", esp_err_to_name(err_btn));
-    }
-    else
-    {
-        ESP_LOGI(TAG, "Button NEXT created successfully");
-        iot_button_register_cb(btn_next_handle, BUTTON_PRESS_DOWN, NULL, button_press_cb, (void*)1);
-    }
+    ESP_LOGI(TAG, "Init LVGL...");
+    init_lvgl();
 
+    ESP_LOGI(TAG, "Init UI...");
     if (lvgl_port_lock(0))
     {
         ui_init();
-
-        lv_timer_create(sensor_timer_cb, 2000, NULL);
-
         lv_timer_create(ui_tick_timer_cb, 5, NULL);
+        lvgl_port_unlock();
+    }
+
+    ESP_LOGI(TAG, "Init app...");
+    app_config_t app_cfg = {
+        .display = &disp_hw,
+        .backlight = &bl_handle,
+    };
+    app_init(&app_cfg);
+
+    ESP_LOGI(TAG, "Init buttons...");
+    buttons_config_t btn_cfg = {
+        .prev_gpio = BUTTON_PREV_GPIO,
+        .next_gpio = BUTTON_NEXT_GPIO,
+        .long_press_time_ms = 1500,
+        .short_press_time_ms = 50,
+        .on_short_press = on_short_press,
+        .on_long_press = on_long_press,
+    };
+    if (!buttons_init(&btn_cfg)) {
+        startup_has_non_critical_error = true;
+    }
+
+    ESP_LOGI(TAG, "Init UI timers...");
+    if (lvgl_port_lock(0))
+    {
+        lv_timer_create(sensor_timer_cb, 2000, NULL);
+        ui_finish_startup(startup_has_non_critical_error);
         lvgl_port_unlock();
     }
 

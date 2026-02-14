@@ -5,6 +5,7 @@
 
 #define IMG_PATH(name) "S:/spiffs/img_" name ".bin"
 
+#define IMG_BASE              IMG_PATH("base")
 #define IMG_ULTRA_HAPPY       IMG_PATH("ultra_happy")
 #define IMG_HAPPY             IMG_PATH("happy")
 #define IMG_ORDINARY          IMG_PATH("ordinary")
@@ -39,6 +40,8 @@
 #define IMG_BATT_3_CHARGING        IMG_PATH("batt_3_charging")
 #define IMG_BATT_2_CHARGING        IMG_PATH("batt_2_charging")
 #define IMG_BATT_1_CHARGING        IMG_PATH("batt_1_charging")
+
+#define IMG_CHARGING IMG_PATH("lightning_charge")
 
 typedef struct {
     const char* path;
@@ -84,23 +87,22 @@ extern const img_info_t IMG_INFO_BATT_3_NOT_CHARGING;
 extern const img_info_t IMG_INFO_BATT_2_NOT_CHARGING;
 extern const img_info_t IMG_INFO_BATT_1_NOT_CHARGING;
 
+extern const img_info_t IMG_INFO_BASE_CENTER;
+extern const img_info_t IMG_INFO_CHARGING;
+extern const img_info_t IMG_INFO_NO_CHARGING;
+extern const img_info_t IMG_INFO_CAT_HUH_CENTER;
+extern const img_info_t IMG_INFO_CAT_HUH_CALIB;
+
 void img_set(lv_obj_t* img_obj, const img_info_t* info);
 void img_set_info(lv_obj_t* img_obj, const img_info_t* info);
 
-const char* get_battery_icon(int percent, bool charging);
 const img_info_t* get_battery_info(int percent, bool charging);
 
-const char* get_iaq_icon(int iaq);
 const img_info_t* get_iaq_info(int iaq);
-const char* get_iaq_status_icon(int iaq);
 const img_info_t* get_iaq_status_info(int iaq);
 
-const char* get_temp_icon(int temp);
 const img_info_t* get_temp_info(int temp);
-const char* get_temp_status_icon(int temp);
 const img_info_t* get_temp_status_info(int temp);
 
-const char* get_hum_icon(int hum);
 const img_info_t* get_hum_info(int hum);
-const char* get_hum_status_icon(int hum);
 const img_info_t* get_hum_status_info(int hum);
