@@ -9,11 +9,14 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "esp_lvgl_port.h"
+#include "esp_pm.h"
 #include "esp_spiffs.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "lvgl.h"
 #include "power_manager.h"
+#include "sdkconfig.h"
 #include "ui.h"
 
 static const char* TAG = "main";
@@ -31,6 +34,9 @@ static const char* TAG = "main";
 #define BME680_HEATER_DUR_MS 100
 #define BME680_IAQ_BASELINE_MIN_SAMPLES 30
 #define BME680_AUTO_RECALIBRATION_INTERVAL_SEC (12 * 60 * 60)
+#define UI_ACTIVE_BRIGHTNESS_PCT 60
+#define BATTERY_UPDATE_INTERVAL_MS 2000
+#define CHARGING_SCREEN_DURATION_MS 3000
 
 static backlight_handle_t bl_handle;
 static display_handles_t  disp_hw;
@@ -44,7 +50,24 @@ static void on_short_press(button_id_t btn_id) { app_on_button_short_press(btn_i
 
 static void on_long_press(button_id_t btn_id) { app_on_button_long_press(btn_id); }
 
-static void ui_tick_timer_cb(lv_timer_t* t) { ui_tick(); }
+static void init_power_management(void)
+{
+#if CONFIG_PM_ENABLE
+    const esp_pm_config_t pm_config = {
+        .max_freq_mhz = CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ,
+        .min_freq_mhz = 40,
+        .light_sleep_enable = true,
+    };
+    esp_err_t ret = esp_pm_configure(&pm_config);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "Power management enabled (DFS + light sleep)");
+    } else {
+        ESP_LOGW(TAG, "Failed to configure power management: %s", esp_err_to_name(ret));
+    }
+#else
+    ESP_LOGI(TAG, "Power management disabled in sdkconfig");
+#endif
+}
 
 static void monitoring_state_timer_cb(lv_timer_t* t)
 {
@@ -65,12 +88,67 @@ static void monitoring_state_timer_cb(lv_timer_t* t)
 
 static void sensor_timer_cb(lv_timer_t* t)
 {
-    static int battery_counter = 0;
     static uint32_t read_fail_count = 0;
-    battery_counter++;
+    static uint32_t battery_read_fail_count = 0;
+    static bool charging_screen_shown = false;
+    static int64_t charging_screen_hide_deadline_us = 0;
+    static power_battery_info_t battery_info = {
+        .percent = -1,
+        .charging = false,
+        .voltage_mv = 0,
+        .valid = false,
+    };
+    static int64_t last_battery_update_us = 0;
+    bool charging_transition = false;
+    bool charging_now = false;
 
     app_process_idle();
     bool monitoring = power_manager_is_monitoring();
+
+    int64_t now_us = esp_timer_get_time();
+    bool battery_update_due = (last_battery_update_us == 0) ||
+                              ((now_us - last_battery_update_us) >= ((int64_t)BATTERY_UPDATE_INTERVAL_MS * 1000LL));
+    if (!monitoring && battery_update_due) {
+        power_battery_info_t sampled_battery = {0};
+        esp_err_t battery_ret = power_manager_read_battery(&sampled_battery);
+        if (battery_ret == ESP_OK && sampled_battery.valid) {
+            if (battery_info.valid) {
+                if (battery_info.charging != sampled_battery.charging) {
+                    charging_transition = true;
+                    charging_now = sampled_battery.charging;
+                }
+            } else if (sampled_battery.charging) {
+                // First valid sample indicates charging is already active.
+                charging_transition = true;
+                charging_now = true;
+            }
+
+            if (battery_info.charging != sampled_battery.charging) {
+                ESP_LOGI(TAG,
+                         "Battery state: %s (%u mV, %d%%)",
+                         sampled_battery.charging ? "charging" : "battery",
+                         (unsigned int)sampled_battery.voltage_mv,
+                         sampled_battery.percent);
+            }
+            battery_info = sampled_battery;
+            last_battery_update_us = now_us;
+        } else if (battery_ret == ESP_OK && !sampled_battery.valid) {
+            if (battery_info.valid) {
+                ESP_LOGW(TAG, "Battery state unavailable (%u mV)", (unsigned int)sampled_battery.voltage_mv);
+            }
+            battery_info = sampled_battery;
+            last_battery_update_us = now_us;
+        } else {
+            battery_read_fail_count++;
+            if ((battery_read_fail_count % 20U) == 1U) {
+                ESP_LOGW(TAG, "Battery read failed (%s)", esp_err_to_name(battery_ret));
+            }
+            battery_info.valid = false;
+            battery_info.percent = -1;
+            battery_info.charging = false;
+            last_battery_update_us = now_us;
+        }
+    }
 
     bme680_sensor_data_t data = {0};
     bool has_sensor_data = false;
@@ -109,6 +187,32 @@ static void sensor_timer_cb(lv_timer_t* t)
 
     if (lvgl_port_lock(10))
     {
+        if (charging_transition) {
+            if (charging_now) {
+                if (ui_get_current_screen() != SCREEN_ID_CHARGING) {
+                    ui_show_charging();
+                }
+                charging_screen_shown = true;
+                charging_screen_hide_deadline_us = now_us + ((int64_t)CHARGING_SCREEN_DURATION_MS * 1000LL);
+            } else if (charging_screen_shown) {
+                if (ui_get_current_screen() == SCREEN_ID_CHARGING) {
+                    ui_hide_special();
+                }
+                charging_screen_shown = false;
+                charging_screen_hide_deadline_us = 0;
+            }
+        }
+
+        if (charging_screen_shown &&
+            charging_screen_hide_deadline_us > 0 &&
+            now_us >= charging_screen_hide_deadline_us) {
+            if (ui_get_current_screen() == SCREEN_ID_CHARGING) {
+                ui_hide_special();
+            }
+            charging_screen_shown = false;
+            charging_screen_hide_deadline_us = 0;
+        }
+
         if (has_sensor_data) {
             ui_update_calibration_status(data.stabilization_done, data.run_in_done);
 
@@ -137,7 +241,11 @@ static void sensor_timer_cb(lv_timer_t* t)
             ui_update_hum((int)data.humidity_rh);
         }
 
-        ui_update_battery(100 - (battery_counter % 100), (battery_counter / 10) % 2);
+        if (battery_info.valid) {
+            ui_update_battery(battery_info.percent, battery_info.charging);
+        } else {
+            ui_update_battery(-1, false);
+        }
         lvgl_port_unlock();
     }
 }
@@ -221,7 +329,10 @@ void app_main(void)
         .freq_hz = 5000,
     };
     ESP_ERROR_CHECK(backlight_init(&bl_config, &bl_handle));
-    ESP_ERROR_CHECK(backlight_set_brightness(&bl_handle, 100));
+    ESP_ERROR_CHECK(backlight_set_brightness(&bl_handle, UI_ACTIVE_BRIGHTNESS_PCT));
+
+    ESP_LOGI(TAG, "Init power management...");
+    init_power_management();
 
     ESP_LOGI(TAG, "Mount SPIFFS...");
     if (!mount_spiffs()) {
@@ -235,7 +346,6 @@ void app_main(void)
     if (lvgl_port_lock(100))
     {
         ui_init();
-        lv_timer_create(ui_tick_timer_cb, 5, NULL);
         lvgl_port_unlock();
     }
     else

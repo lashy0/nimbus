@@ -1,5 +1,6 @@
 #include "screens.h"
 
+#include <stdio.h>
 #include "fonts.h"
 #include "images.h"
 #include "ui.h"
@@ -245,6 +246,60 @@ void create_screen_calibration(void)
     lv_obj_set_style_arc_color(ui_objects.spinner_calibration, lv_color_hex(0xff333333), LV_PART_MAIN);
     lv_obj_set_style_arc_width(ui_objects.spinner_calibration, 4, LV_PART_INDICATOR);
     lv_obj_set_style_arc_width(ui_objects.spinner_calibration, 4, LV_PART_MAIN);
+}
+
+void create_screen_brightness(uint8_t value_percent)
+{
+    if (value_percent < 5) {
+        value_percent = 5;
+    } else if (value_percent > 100) {
+        value_percent = 100;
+    }
+
+    lv_obj_t* obj = lv_obj_create(0);
+    ui_objects.screen_brightness = obj;
+    lv_obj_set_pos(obj, 0, 0);
+    lv_obj_set_size(obj, 135, 240);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    create_status_bar(obj, &ui_objects.img_brightness_battery, &ui_objects.lbl_brightness_batt_pct);
+
+    ui_objects.lbl_brightness_title = lv_label_create(obj);
+    lv_obj_set_pos(ui_objects.lbl_brightness_title, 0, 38);
+    lv_obj_set_width(ui_objects.lbl_brightness_title, 135);
+    lv_obj_set_style_text_color(ui_objects.lbl_brightness_title, lv_color_hex(0xffffffff), 0);
+    lv_obj_set_style_text_font(ui_objects.lbl_brightness_title, &ui_font_sf_b_10_digits, 0);
+    lv_obj_set_style_text_align(ui_objects.lbl_brightness_title, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_text(ui_objects.lbl_brightness_title, "Brightness");
+
+    ui_objects.lbl_brightness_value = lv_label_create(obj);
+    lv_obj_set_pos(ui_objects.lbl_brightness_value, 0, 72);
+    lv_obj_set_width(ui_objects.lbl_brightness_value, 135);
+    lv_obj_set_style_text_color(ui_objects.lbl_brightness_value, lv_color_hex(0xffffffff), 0);
+    lv_obj_set_style_text_font(ui_objects.lbl_brightness_value, &ui_font_sf_sb_60_digits, 0);
+    lv_obj_set_style_text_align(ui_objects.lbl_brightness_value, LV_TEXT_ALIGN_CENTER, 0);
+
+    char value_buf[8];
+    snprintf(value_buf, sizeof(value_buf), "%u%%", (unsigned int)value_percent);
+    lv_label_set_text(ui_objects.lbl_brightness_value, value_buf);
+
+    ui_objects.bar_brightness = lv_bar_create(obj);
+    lv_obj_set_pos(ui_objects.bar_brightness, 20, 148);
+    lv_obj_set_size(ui_objects.bar_brightness, 95, 10);
+    lv_bar_set_range(ui_objects.bar_brightness, 5, 100);
+    lv_bar_set_value(ui_objects.bar_brightness, value_percent, LV_ANIM_OFF);
+    lv_obj_set_style_radius(ui_objects.bar_brightness, 3, LV_PART_MAIN);
+    lv_obj_set_style_radius(ui_objects.bar_brightness, 3, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(ui_objects.bar_brightness, lv_color_hex(0xff202020), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(ui_objects.bar_brightness, lv_color_hex(0xffff6600), LV_PART_INDICATOR);
+
+    ui_objects.lbl_brightness_hint = lv_label_create(obj);
+    lv_obj_set_pos(ui_objects.lbl_brightness_hint, 0, 178);
+    lv_obj_set_width(ui_objects.lbl_brightness_hint, 135);
+    lv_obj_set_style_text_color(ui_objects.lbl_brightness_hint, lv_color_hex(0xffa0a0a0), 0);
+    lv_obj_set_style_text_font(ui_objects.lbl_brightness_hint, &ui_font_sf_b_10_digits, 0);
+    lv_obj_set_style_text_align(ui_objects.lbl_brightness_hint, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_text(ui_objects.lbl_brightness_hint, "PREV - / NEXT +\nLong NEXT = Done");
 }
 
 void create_screen_question(const char* text)

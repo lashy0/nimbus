@@ -2,6 +2,7 @@
 
 #include <lvgl.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include "screens.h"
 
 #ifdef __cplusplus
@@ -27,6 +28,8 @@ void ui_show_start(void);
 void ui_show_charging(void);
 void ui_show_no_charging(void);
 void ui_show_calibration(void);
+void ui_show_brightness(uint8_t value_percent);
+void ui_update_brightness_value(uint8_t value_percent);
 
 void ui_show_question(const char* text, void (*on_yes)(void), void (*on_no)(void), bool select_yes);
 void ui_question_select_yes(void);

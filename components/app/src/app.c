@@ -7,6 +7,8 @@
 
 static const char* TAG = "app";
 static const int64_t APP_IDLE_TIMEOUT_US = 60LL * 1000000LL;
+static const uint8_t APP_BRIGHTNESS_STEP_PCT = 5U;
+static const uint8_t APP_BRIGHTNESS_MIN_PCT = 5U;
 
 static app_config_t app_cfg;
 static button_id_t question_activated_by = BTN_ID_NONE;
@@ -16,6 +18,17 @@ static int64_t last_activity_time_us = 0;
 static void app_mark_activity(void)
 {
     last_activity_time_us = esp_timer_get_time();
+}
+
+static uint8_t app_clamp_brightness_step(int value)
+{
+    if (value < APP_BRIGHTNESS_MIN_PCT) {
+        return APP_BRIGHTNESS_MIN_PCT;
+    }
+    if (value > 100) {
+        return 100;
+    }
+    return (uint8_t)value;
 }
 
 static void on_shutdown_yes(void)
@@ -62,6 +75,14 @@ void app_on_button_short_press(button_id_t btn_id)
         return;
     }
 
+    if (btn_id == ignore_next_short_for)
+    {
+        ESP_LOGI(TAG, "Ignoring short press on release after long press");
+        ignore_next_short_for = BTN_ID_NONE;
+        lvgl_port_unlock();
+        return;
+    }
+
     enum ScreensEnum current = ui_get_current_screen();
 
     if (current == SCREEN_ID_START || current == SCREEN_ID_CALIBRATION)
@@ -70,16 +91,29 @@ void app_on_button_short_press(button_id_t btn_id)
         return;
     }
 
-    if (current == SCREEN_ID_QUESTION)
+    if (current == SCREEN_ID_BRIGHTNESS)
     {
-        if (btn_id == ignore_next_short_for)
-        {
-            ESP_LOGI(TAG, "Ignoring short press on release after long press");
-            ignore_next_short_for = BTN_ID_NONE;
-            lvgl_port_unlock();
-            return;
+        uint8_t current_brightness = power_manager_get_active_brightness();
+        int next_brightness = (btn_id == BTN_ID_PREV)
+            ? ((int)current_brightness - (int)APP_BRIGHTNESS_STEP_PCT)
+            : ((int)current_brightness + (int)APP_BRIGHTNESS_STEP_PCT);
+        uint8_t clamped = app_clamp_brightness_step(next_brightness);
+
+        esp_err_t ret = power_manager_set_active_brightness(clamped, true);
+        if (ret == ESP_OK) {
+            ui_update_brightness_value(clamped);
+            ESP_LOGI(TAG, "Brightness set to %u%%", (unsigned int)clamped);
+        } else {
+            ESP_LOGW(TAG, "Failed to set brightness: %s", esp_err_to_name(ret));
         }
 
+        app_mark_activity();
+        lvgl_port_unlock();
+        return;
+    }
+
+    if (current == SCREEN_ID_QUESTION)
+    {
         if (btn_id == question_activated_by)
         {
             ESP_LOGI(TAG, "Question confirmed");
@@ -131,6 +165,27 @@ void app_on_button_long_press(button_id_t btn_id)
     enum ScreensEnum current = ui_get_current_screen();
 
     if (current == SCREEN_ID_START || current == SCREEN_ID_CALIBRATION || current == SCREEN_ID_QUESTION) {
+        lvgl_port_unlock();
+        return;
+    }
+
+    if (current == SCREEN_ID_BRIGHTNESS) {
+        if (btn_id == BTN_ID_NEXT) {
+            ESP_LOGI(TAG, "Close brightness setup");
+            ui_hide_special();
+            app_mark_activity();
+        }
+        ignore_next_short_for = btn_id;
+        lvgl_port_unlock();
+        return;
+    }
+
+    if (btn_id == BTN_ID_NEXT) {
+        uint8_t brightness = power_manager_get_active_brightness();
+        ESP_LOGI(TAG, "Open brightness setup (%u%%)", (unsigned int)brightness);
+        ui_show_brightness(brightness);
+        ignore_next_short_for = BTN_ID_NEXT;
+        app_mark_activity();
         lvgl_port_unlock();
         return;
     }

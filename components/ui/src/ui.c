@@ -8,10 +8,12 @@
 static int current_iaq = 0;
 static int current_temp = 0;
 static int current_hum = 0;
-static int current_batt_pct = 100;
+static int current_batt_pct = -1;
 static bool current_batt_charging = false;
 static bool current_stabilization_done = false;
 static bool current_run_in_done = false;
+static uint8_t current_brightness_pct = 60;
+static const uint8_t UI_BRIGHTNESS_MIN_PCT = 5;
 
 static const enum ScreensEnum screen_list[] = {
 #define X(name) name,
@@ -28,6 +30,27 @@ static lv_obj_t* startup_error_icon = NULL;
 static void (*question_on_yes)(void) = NULL;
 static void (*question_on_no)(void) = NULL;
 static bool question_selected_yes = true;
+
+static void ui_apply_brightness_value(void)
+{
+    char buf[8];
+    snprintf(buf, sizeof(buf), "%u%%", (unsigned int)current_brightness_pct);
+
+    if (ui_objects.lbl_brightness_value) {
+        const lv_font_t* font = (current_brightness_pct == 100)
+            ? &ui_font_sf_sb_50_digits
+            : &ui_font_sf_sb_60_digits;
+        lv_obj_set_style_text_font(ui_objects.lbl_brightness_value, font, LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+
+    if (ui_objects.lbl_brightness_value) {
+        lv_label_set_text(ui_objects.lbl_brightness_value, buf);
+    }
+
+    if (ui_objects.bar_brightness) {
+        lv_bar_set_value(ui_objects.bar_brightness, current_brightness_pct, LV_ANIM_OFF);
+    }
+}
 
 static void ui_apply_calibration_status_text(void)
 {
@@ -74,6 +97,21 @@ static int get_current_screen_index(void)
     return 0;
 }
 
+static bool ui_battery_is_known(void)
+{
+    return current_batt_pct >= 0;
+}
+
+static const char* ui_battery_text(char* buf, size_t buf_size)
+{
+    if (!ui_battery_is_known()) {
+        return "-- %";
+    }
+
+    snprintf(buf, buf_size, "%d %%", current_batt_pct);
+    return buf;
+}
+
 static void ui_apply_current_values(void)
 {
     char buf[16];
@@ -92,11 +130,12 @@ static void ui_apply_current_values(void)
                 img_set_info(ui_objects.img_iaq_status, get_iaq_status_info(current_iaq));
             }
             if (ui_objects.img_iaq_battery) {
-                img_set_info(ui_objects.img_iaq_battery, get_battery_info(current_batt_pct, current_batt_charging));
+                if (ui_battery_is_known()) {
+                    img_set_info(ui_objects.img_iaq_battery, get_battery_info(current_batt_pct, current_batt_charging));
+                }
             }
             if (ui_objects.lbl_iaq_batt_pct) {
-                snprintf(buf, sizeof(buf), "%d %%", current_batt_pct);
-                lv_label_set_text(ui_objects.lbl_iaq_batt_pct, buf);
+                lv_label_set_text(ui_objects.lbl_iaq_batt_pct, ui_battery_text(buf, sizeof(buf)));
             }
             break;
             
@@ -112,11 +151,12 @@ static void ui_apply_current_values(void)
                 img_set_info(ui_objects.img_temp_status, get_temp_status_info(current_temp));
             }
             if (ui_objects.img_temp_battery) {
-                img_set_info(ui_objects.img_temp_battery, get_battery_info(current_batt_pct, current_batt_charging));
+                if (ui_battery_is_known()) {
+                    img_set_info(ui_objects.img_temp_battery, get_battery_info(current_batt_pct, current_batt_charging));
+                }
             }
             if (ui_objects.lbl_temp_batt_pct) {
-                snprintf(buf, sizeof(buf), "%d %%", current_batt_pct);
-                lv_label_set_text(ui_objects.lbl_temp_batt_pct, buf);
+                lv_label_set_text(ui_objects.lbl_temp_batt_pct, ui_battery_text(buf, sizeof(buf)));
             }
             break;
             
@@ -140,33 +180,48 @@ static void ui_apply_current_values(void)
                 img_set_info(ui_objects.img_hum_status, get_hum_status_info(current_hum));
             }
             if (ui_objects.img_hum_battery) {
-                img_set_info(ui_objects.img_hum_battery, get_battery_info(current_batt_pct, current_batt_charging));
+                if (ui_battery_is_known()) {
+                    img_set_info(ui_objects.img_hum_battery, get_battery_info(current_batt_pct, current_batt_charging));
+                }
             }
             if (ui_objects.lbl_hum_batt_pct) {
-                snprintf(buf, sizeof(buf), "%d %%", current_batt_pct);
-                lv_label_set_text(ui_objects.lbl_hum_batt_pct, buf);
+                lv_label_set_text(ui_objects.lbl_hum_batt_pct, ui_battery_text(buf, sizeof(buf)));
             }
             break;
         
         case SCREEN_ID_CALIBRATION:
             if (ui_objects.img_calibration_battery) {
-                img_set_info(ui_objects.img_calibration_battery, get_battery_info(current_batt_pct, current_batt_charging));
+                if (ui_battery_is_known()) {
+                    img_set_info(ui_objects.img_calibration_battery, get_battery_info(current_batt_pct, current_batt_charging));
+                }
             }
             if (ui_objects.lbl_calibration_batt_pct) {
-                snprintf(buf, sizeof(buf), "%d %%", current_batt_pct);
-                lv_label_set_text(ui_objects.lbl_calibration_batt_pct, buf);
+                lv_label_set_text(ui_objects.lbl_calibration_batt_pct, ui_battery_text(buf, sizeof(buf)));
             }
             ui_apply_calibration_status_text();
             break;
         
         case SCREEN_ID_QUESTION:
             if (ui_objects.img_question_battery) {
-                img_set_info(ui_objects.img_question_battery, get_battery_info(current_batt_pct, current_batt_charging));
+                if (ui_battery_is_known()) {
+                    img_set_info(ui_objects.img_question_battery, get_battery_info(current_batt_pct, current_batt_charging));
+                }
             }
             if (ui_objects.lbl_question_batt_pct) {
-                snprintf(buf, sizeof(buf), "%d %%", current_batt_pct);
-                lv_label_set_text(ui_objects.lbl_question_batt_pct, buf);
+                lv_label_set_text(ui_objects.lbl_question_batt_pct, ui_battery_text(buf, sizeof(buf)));
             }
+            break;
+
+        case SCREEN_ID_BRIGHTNESS:
+            if (ui_objects.img_brightness_battery) {
+                if (ui_battery_is_known()) {
+                    img_set_info(ui_objects.img_brightness_battery, get_battery_info(current_batt_pct, current_batt_charging));
+                }
+            }
+            if (ui_objects.lbl_brightness_batt_pct) {
+                lv_label_set_text(ui_objects.lbl_brightness_batt_pct, ui_battery_text(buf, sizeof(buf)));
+            }
+            ui_apply_brightness_value();
             break;
             
         default:
@@ -344,57 +399,74 @@ void ui_update_calibration_status(bool stabilization_done, bool run_in_done)
 
 void ui_update_battery(int percent, bool charging)
 {
-    current_batt_pct = percent;
-    current_batt_charging = charging;
+    if (percent < 0) {
+        current_batt_pct = -1;
+        current_batt_charging = false;
+    } else {
+        if (percent > 100) {
+            percent = 100;
+        }
+        current_batt_pct = percent;
+        current_batt_charging = charging;
+    }
     
     char buf[8];
-    snprintf(buf, sizeof(buf), "%d %%", percent);
-    const img_info_t* icon = get_battery_info(percent, charging);
+    const char* batt_text = ui_battery_text(buf, sizeof(buf));
+    const img_info_t* icon = ui_battery_is_known() ? get_battery_info(current_batt_pct, current_batt_charging) : NULL;
 
     switch (currentScreenId)
     {
         case SCREEN_ID_IAQ:
-            if (ui_objects.img_iaq_battery) {
+            if (icon && ui_objects.img_iaq_battery) {
                 img_set_info(ui_objects.img_iaq_battery, icon);
             }
             if (ui_objects.lbl_iaq_batt_pct) {
-                lv_label_set_text(ui_objects.lbl_iaq_batt_pct, buf);
+                lv_label_set_text(ui_objects.lbl_iaq_batt_pct, batt_text);
             }
             break;
             
         case SCREEN_ID_TEMP:
-            if (ui_objects.img_temp_battery) {
+            if (icon && ui_objects.img_temp_battery) {
                 img_set_info(ui_objects.img_temp_battery, icon);
             }
             if (ui_objects.lbl_temp_batt_pct) {
-                lv_label_set_text(ui_objects.lbl_temp_batt_pct, buf);
+                lv_label_set_text(ui_objects.lbl_temp_batt_pct, batt_text);
             }
             break;
             
         case SCREEN_ID_HUM:
-            if (ui_objects.img_hum_battery) {
+            if (icon && ui_objects.img_hum_battery) {
                 img_set_info(ui_objects.img_hum_battery, icon);
             }
             if (ui_objects.lbl_hum_batt_pct) {
-                lv_label_set_text(ui_objects.lbl_hum_batt_pct, buf);
+                lv_label_set_text(ui_objects.lbl_hum_batt_pct, batt_text);
             }
             break;
         
         case SCREEN_ID_CALIBRATION:
-            if (ui_objects.img_calibration_battery) {
+            if (icon && ui_objects.img_calibration_battery) {
                 img_set_info(ui_objects.img_calibration_battery, icon);
             }
             if (ui_objects.lbl_calibration_batt_pct) {
-                lv_label_set_text(ui_objects.lbl_calibration_batt_pct, buf);
+                lv_label_set_text(ui_objects.lbl_calibration_batt_pct, batt_text);
             }
             break;
         
         case SCREEN_ID_QUESTION:
-            if (ui_objects.img_question_battery) {
+            if (icon && ui_objects.img_question_battery) {
                 img_set_info(ui_objects.img_question_battery, icon);
             }
             if (ui_objects.lbl_question_batt_pct) {
-                lv_label_set_text(ui_objects.lbl_question_batt_pct, buf);
+                lv_label_set_text(ui_objects.lbl_question_batt_pct, batt_text);
+            }
+            break;
+
+        case SCREEN_ID_BRIGHTNESS:
+            if (icon && ui_objects.img_brightness_battery) {
+                img_set_info(ui_objects.img_brightness_battery, icon);
+            }
+            if (ui_objects.lbl_brightness_batt_pct) {
+                lv_label_set_text(ui_objects.lbl_brightness_batt_pct, batt_text);
             }
             break;
             
@@ -448,6 +520,42 @@ void ui_show_calibration(void)
     if (oldScreen) lv_obj_del(oldScreen);
     currentScreenId = SCREEN_ID_CALIBRATION;
     ui_apply_current_values();
+}
+
+void ui_show_brightness(uint8_t value_percent)
+{
+    if (value_percent < UI_BRIGHTNESS_MIN_PCT) {
+        value_percent = UI_BRIGHTNESS_MIN_PCT;
+    } else if (value_percent > 100) {
+        value_percent = 100;
+    }
+
+    current_brightness_pct = value_percent;
+    previousScreenId = currentScreenId;
+
+    lv_obj_t* oldScreen = lv_scr_act();
+    create_screen_brightness(current_brightness_pct);
+
+    lv_scr_load(ui_objects.screen_brightness);
+    if (oldScreen) {
+        lv_obj_del(oldScreen);
+    }
+    currentScreenId = SCREEN_ID_BRIGHTNESS;
+    ui_apply_current_values();
+}
+
+void ui_update_brightness_value(uint8_t value_percent)
+{
+    if (value_percent < UI_BRIGHTNESS_MIN_PCT) {
+        value_percent = UI_BRIGHTNESS_MIN_PCT;
+    } else if (value_percent > 100) {
+        value_percent = 100;
+    }
+
+    current_brightness_pct = value_percent;
+    if (currentScreenId == SCREEN_ID_BRIGHTNESS) {
+        ui_apply_brightness_value();
+    }
 }
 
 void ui_show_question(const char* text, void (*on_yes)(void), void (*on_no)(void), bool select_yes)
@@ -513,6 +621,7 @@ void ui_hide_special(void)
         previousScreenId != SCREEN_ID_CHARGING &&
         previousScreenId != SCREEN_ID_NO_CHARGING &&
         previousScreenId != SCREEN_ID_CALIBRATION &&
+        previousScreenId != SCREEN_ID_BRIGHTNESS &&
         previousScreenId != SCREEN_ID_QUESTION)
     {
         loadScreen(previousScreenId);

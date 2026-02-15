@@ -1,6 +1,7 @@
 #pragma once
 
 #include <lvgl.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,6 +23,7 @@ enum ScreensEnum {
     SCREEN_ID_NO_CHARGING,
     SCREEN_ID_CHARGING,
     SCREEN_ID_CALIBRATION,
+    SCREEN_ID_BRIGHTNESS,
     SCREEN_ID_QUESTION,
     SCREEN_COUNT_TOTAL
 };
@@ -68,6 +70,14 @@ typedef struct {
     lv_obj_t* lbl_calibration_batt_pct;
     lv_obj_t* img_calibration_battery;
 
+    lv_obj_t* screen_brightness;
+    lv_obj_t* lbl_brightness_title;
+    lv_obj_t* lbl_brightness_value;
+    lv_obj_t* bar_brightness;
+    lv_obj_t* lbl_brightness_hint;
+    lv_obj_t* lbl_brightness_batt_pct;
+    lv_obj_t* img_brightness_battery;
+
     lv_obj_t* screen_question;
     lv_obj_t* img_question_icon;
     lv_obj_t* lbl_question_text;
@@ -95,6 +105,8 @@ void create_screen_no_charging(void);
 void create_screen_charging(void);
 
 void create_screen_calibration(void);
+
+void create_screen_brightness(uint8_t value_percent);
 
 void create_screen_question(const char* text);
 
