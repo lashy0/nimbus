@@ -11,21 +11,21 @@ extern "C" {
  * @brief Configuration structure for the backlight
  */
 typedef struct {
-    gpio_num_t       gpio_num;        /*!< GPIO number used for backlight control */
-    ledc_mode_t      leds_mode;       /*!< LEDC speed mode (High/Low speed) */
-    ledc_channel_t   leds_channel;    /*!< LEDC channel (0-7) */
-    ledc_timer_t     leds_timer;      /*!< LEDC timer source (0-3) */
+    gpio_num_t gpio_num;              /*!< GPIO number used for backlight control */
+    ledc_mode_t leds_mode;            /*!< LEDC speed mode (High/Low speed) */
+    ledc_channel_t leds_channel;      /*!< LEDC channel (0-7) */
+    ledc_timer_t leds_timer;          /*!< LEDC timer source (0-3) */
     ledc_timer_bit_t duty_resolution; /*!< Resolution of the PWM duty cycle */
-    uint32_t         freq_hz;         /*!< PWM frequency in Hertz */
+    uint32_t freq_hz;                 /*!< PWM frequency in Hertz */
 } backlight_config_t;
 
 /**
  * @brief Handle structure for the backlight instance
  */
 typedef struct {
-    ledc_channel_t channel;   /*!< Configured LEDC channel */
-    ledc_mode_t    leds_mode; /*!< Configured LEDC speed mode */
-    uint32_t       duty;      /*!< Calculated max duty cycle value based on resolution */
+    ledc_channel_t channel; /*!< Configured LEDC channel */
+    ledc_mode_t leds_mode;  /*!< Configured LEDC speed mode */
+    uint32_t duty;          /*!< Calculated max duty cycle value based on resolution */
 } backlight_handle_t;
 
 /**

@@ -158,8 +158,8 @@ static esp_err_t bsec_apply_default_configuration(void)
     }
 
     uint8_t work_buffer[BSEC_MAX_WORKBUFFER_SIZE] = {0};
-    bsec_library_return_t bsec_ret = bsec_set_configuration(
-        bsec_iaq_config_start, (uint32_t)config_len, work_buffer, BSEC_MAX_WORKBUFFER_SIZE);
+    bsec_library_return_t bsec_ret =
+        bsec_set_configuration(bsec_iaq_config_start, (uint32_t)config_len, work_buffer, BSEC_MAX_WORKBUFFER_SIZE);
     return bsec_check_rslt("bsec_set_configuration", bsec_ret);
 }
 
@@ -177,8 +177,7 @@ static esp_err_t bsec_update_subscription_for_mode(bme680_sensor_mode_t mode)
 
     bsec_sensor_configuration_t required_sensor_settings[BSEC_MAX_PHYSICAL_SENSOR] = {0};
     uint8_t n_required_sensor_settings = BSEC_MAX_PHYSICAL_SENSOR;
-    bsec_library_return_t bsec_ret = bsec_update_subscription(
-        requested_virtual_sensors,
+    bsec_library_return_t bsec_ret = bsec_update_subscription(requested_virtual_sensors,
         (uint8_t)(sizeof(requested_virtual_sensors) / sizeof(requested_virtual_sensors[0])),
         required_sensor_settings,
         &n_required_sensor_settings);
@@ -308,8 +307,7 @@ static void bsec_schedule_recalibration(void)
         return;
     }
 
-    s_ctx.next_recalibration_time_us =
-        now_us() + ((int64_t)s_ctx.auto_recalibration_interval_sec * 1000000LL);
+    s_ctx.next_recalibration_time_us = now_us() + ((int64_t)s_ctx.auto_recalibration_interval_sec * 1000000LL);
 }
 
 static void bsec_reset_iaq(const char* reason)
@@ -383,9 +381,8 @@ static esp_err_t bme_apply_settings(const bsec_bme_settings_t* settings)
 
         uint32_t meas_dur_us = bme68x_get_meas_dur(BME68X_PARALLEL_MODE, &s_ctx.conf, &s_ctx.bme);
         uint32_t meas_dur_ms = meas_dur_us / 1000U;
-        s_ctx.heatr_conf.shared_heatr_dur = (BSEC_TOTAL_HEAT_DUR_MS > meas_dur_ms)
-                                                ? (uint16_t)(BSEC_TOTAL_HEAT_DUR_MS - meas_dur_ms)
-                                                : 0U;
+        s_ctx.heatr_conf.shared_heatr_dur =
+            (BSEC_TOTAL_HEAT_DUR_MS > meas_dur_ms) ? (uint16_t)(BSEC_TOTAL_HEAT_DUR_MS - meas_dur_ms) : 0U;
         s_ctx.heatr_conf.heatr_temp_prof = s_ctx.heatr_temp_profile;
         s_ctx.heatr_conf.heatr_dur_prof = s_ctx.heatr_dur_profile;
         s_ctx.heatr_conf.profile_len = profile_len;
@@ -427,10 +424,8 @@ static void bme_fill_last_raw(const struct bme68x_data* raw)
 #endif
 }
 
-static esp_err_t bme_process_field(int64_t timestamp_ns,
-                                   uint8_t op_mode,
-                                   const struct bme68x_data* raw,
-                                   uint32_t process_data_mask)
+static esp_err_t bme_process_field(
+    int64_t timestamp_ns, uint8_t op_mode, const struct bme68x_data* raw, uint32_t process_data_mask)
 {
     bme_fill_last_raw(raw);
 
@@ -534,8 +529,7 @@ static esp_err_t bme_process_field(int64_t timestamp_ns,
             s_ctx.last_iaq_sample_timestamp_ns = 0;
         }
 
-        s_ctx.iaq_valid = (s_ctx.iaq_accuracy > 0U) &&
-                          (s_ctx.iaq_valid_sample_count >= s_ctx.iaq_valid_min_samples);
+        s_ctx.iaq_valid = (s_ctx.iaq_accuracy > 0U) && (s_ctx.iaq_valid_sample_count >= s_ctx.iaq_valid_min_samples);
     }
 
     s_ctx.last_output.iaq_valid = s_ctx.iaq_valid;
@@ -566,12 +560,11 @@ esp_err_t bme680_sensor_init(const bme680_sensor_config_t* config)
     s_ctx.auto_recalibration_enabled = !config->disable_auto_recalibration;
     s_ctx.state_persistence_enabled = !config->disable_state_persistence;
     s_ctx.next_call_delay_ms = BSEC_DEFAULT_NEXT_CALL_DELAY_MS;
-    s_ctx.iaq_valid_min_samples = (config->baseline_min_samples == 0U)
-                                      ? BSEC_DEFAULT_IAQ_VALID_SAMPLES
-                                      : config->baseline_min_samples;
-    s_ctx.auto_recalibration_interval_sec =
-        (config->auto_recalibration_interval_sec == 0U) ? BSEC_DEFAULT_RECALIB_INTERVAL_SEC
-                                                        : config->auto_recalibration_interval_sec;
+    s_ctx.iaq_valid_min_samples =
+        (config->baseline_min_samples == 0U) ? BSEC_DEFAULT_IAQ_VALID_SAMPLES : config->baseline_min_samples;
+    s_ctx.auto_recalibration_interval_sec = (config->auto_recalibration_interval_sec == 0U)
+                                                ? BSEC_DEFAULT_RECALIB_INTERVAL_SEC
+                                                : config->auto_recalibration_interval_sec;
     s_ctx.mode = BME680_SENSOR_MODE_LP;
 
     bsec_try_init_nvs();
@@ -626,11 +619,8 @@ esp_err_t bme680_sensor_init(const bme680_sensor_config_t* config)
     bsec_version_t version = {0};
     bsec_ret = bsec_get_version(&version);
     if (bsec_check_rslt("bsec_get_version", bsec_ret) == ESP_OK) {
-        ESP_LOGI(TAG, "BSEC version %u.%u.%u.%u",
-                 version.major,
-                 version.minor,
-                 version.major_bugfix,
-                 version.minor_bugfix);
+        ESP_LOGI(
+            TAG, "BSEC version %u.%u.%u.%u", version.major, version.minor, version.major_bugfix, version.minor_bugfix);
     }
 
     if (bsec_update_subscription_for_mode(BME680_SENSOR_MODE_LP) != ESP_OK) {
@@ -679,7 +669,8 @@ esp_err_t bme680_sensor_read(bme680_sensor_data_t* out_data)
         }
 
         for (uint8_t i = 0; i < n_fields; i++) {
-            if (bme_process_field(timestamp_ns, bme_settings.op_mode, &fields[i], bme_settings.process_data) != ESP_OK) {
+            if (bme_process_field(timestamp_ns, bme_settings.op_mode, &fields[i], bme_settings.process_data) !=
+                ESP_OK) {
                 return ESP_FAIL;
             }
         }

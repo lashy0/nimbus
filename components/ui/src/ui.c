@@ -56,6 +56,4 @@ void ui_finish_startup(bool has_non_critical_error)
     ui_show_startup_error_indicator();
 }
 
-void ui_tick(void)
-{
-}
+void ui_tick(void) {}

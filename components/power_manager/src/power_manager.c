@@ -20,8 +20,7 @@ void power_manager_check_wakeup_reason(void)
 {
     esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
 
-    switch (cause)
-    {
+    switch (cause) {
         case ESP_SLEEP_WAKEUP_EXT0:
             ESP_LOGI(TAG, "Wakeup from button press");
             break;

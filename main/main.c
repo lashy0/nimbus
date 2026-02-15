@@ -39,7 +39,7 @@ static const char* TAG = "main";
 #define CHARGING_SCREEN_DURATION_MS 3000
 
 static backlight_handle_t bl_handle;
-static display_handles_t  disp_hw;
+static display_handles_t disp_hw;
 static bool sensor_ready = false;
 static bool sensor_calibration_done = false;
 static bool sensor_ulp_mode = false;
@@ -65,18 +65,25 @@ static sensor_runtime_state_t sensor_runtime = {
     .battery_read_fail_count = 0,
     .charging_screen_shown = false,
     .charging_screen_hide_deadline_us = 0,
-    .battery_info = {
-        .percent = -1,
-        .charging = false,
-        .voltage_mv = 0,
-        .valid = false,
-    },
+    .battery_info =
+        {
+            .percent = -1,
+            .charging = false,
+            .voltage_mv = 0,
+            .valid = false,
+        },
     .last_battery_update_us = 0,
 };
 
-static void on_short_press(button_id_t btn_id) { app_on_button_short_press(btn_id); }
+static void on_short_press(button_id_t btn_id)
+{
+    app_on_button_short_press(btn_id);
+}
 
-static void on_long_press(button_id_t btn_id) { app_on_button_long_press(btn_id); }
+static void on_long_press(button_id_t btn_id)
+{
+    app_on_button_long_press(btn_id);
+}
 
 static void init_power_management(void)
 {
@@ -119,9 +126,9 @@ static void sensor_step_battery(bool monitoring, int64_t now_us, bool* charging_
     *charging_transition = false;
     *charging_now = false;
 
-    bool battery_update_due = (sensor_runtime.last_battery_update_us == 0) ||
-                              ((now_us - sensor_runtime.last_battery_update_us) >=
-                               ((int64_t)BATTERY_UPDATE_INTERVAL_MS * 1000LL));
+    bool battery_update_due =
+        (sensor_runtime.last_battery_update_us == 0) ||
+        ((now_us - sensor_runtime.last_battery_update_us) >= ((int64_t)BATTERY_UPDATE_INTERVAL_MS * 1000LL));
     if (monitoring || !battery_update_due) {
         return;
     }
@@ -142,10 +149,10 @@ static void sensor_step_battery(bool monitoring, int64_t now_us, bool* charging_
 
         if (sensor_runtime.battery_info.charging != sampled_battery.charging) {
             ESP_LOGI(TAG,
-                     "Battery state: %s (%u mV, %d%%)",
-                     sampled_battery.charging ? "charging" : "battery",
-                     (unsigned int)sampled_battery.voltage_mv,
-                     sampled_battery.percent);
+                "Battery state: %s (%u mV, %d%%)",
+                sampled_battery.charging ? "charging" : "battery",
+                (unsigned int)sampled_battery.voltage_mv,
+                sampled_battery.percent);
         }
         sensor_runtime.battery_info = sampled_battery;
         sensor_runtime.last_battery_update_us = now_us;
@@ -180,8 +187,7 @@ static sensor_sample_result_t sensor_step_read(bool monitoring)
 
     bool want_ulp_mode = monitoring;
     if (want_ulp_mode != sensor_ulp_mode) {
-        esp_err_t mode_ret = bme680_sensor_set_mode(
-            want_ulp_mode ? BME680_SENSOR_MODE_ULP : BME680_SENSOR_MODE_LP);
+        esp_err_t mode_ret = bme680_sensor_set_mode(want_ulp_mode ? BME680_SENSOR_MODE_ULP : BME680_SENSOR_MODE_LP);
         if (mode_ret == ESP_OK) {
             sensor_ulp_mode = want_ulp_mode;
         } else {
@@ -222,8 +228,7 @@ static void sensor_step_charging_overlay(bool charging_transition, bool charging
         }
     }
 
-    if (sensor_runtime.charging_screen_shown &&
-        sensor_runtime.charging_screen_hide_deadline_us > 0 &&
+    if (sensor_runtime.charging_screen_shown && sensor_runtime.charging_screen_hide_deadline_us > 0 &&
         now_us >= sensor_runtime.charging_screen_hide_deadline_us) {
         if (ui_get_current_screen() == SCREEN_ID_CHARGING) {
             ui_hide_special();
@@ -295,8 +300,7 @@ static void sensor_timer_cb(lv_timer_t* t)
         return;
     }
 
-    if (lvgl_port_lock(10))
-    {
+    if (lvgl_port_lock(10)) {
         sensor_step_charging_overlay(charging_transition, charging_now, now_us);
         sensor_step_update_sensor_ui(&sensor_sample.data, sensor_sample.has_sensor_data);
         sensor_step_update_battery_ui();
@@ -315,16 +319,14 @@ static bool mount_spiffs(void)
 
     esp_err_t ret = esp_vfs_spiffs_register(&conf);
 
-    if (ret != ESP_OK)
-    {
+    if (ret != ESP_OK) {
         ESP_LOGE(TAG, "SPIFFS mount failed: %s", esp_err_to_name(ret));
         return false;
     }
 
     size_t total = 0, used = 0;
     ret = esp_spiffs_info(conf.partition_label, &total, &used);
-    if (ret == ESP_OK)
-    {
+    if (ret == ESP_OK) {
         ESP_LOGI(TAG, "SPIFFS: total=%d, used=%d", total, used);
     }
 
@@ -397,13 +399,10 @@ void app_main(void)
     init_lvgl();
 
     ESP_LOGI(TAG, "Init UI...");
-    if (lvgl_port_lock(100))
-    {
+    if (lvgl_port_lock(100)) {
         ui_init();
         lvgl_port_unlock();
-    }
-    else
-    {
+    } else {
         startup_has_non_critical_error = true;
         ESP_LOGE(TAG, "Failed to lock LVGL for initial UI setup");
     }
@@ -468,8 +467,7 @@ void app_main(void)
     }
 
     ESP_LOGI(TAG, "Init UI timers...");
-    if (lvgl_port_lock(100))
-    {
+    if (lvgl_port_lock(100)) {
         sensor_timer = lv_timer_create(sensor_timer_cb, 2000, NULL);
         lv_timer_create(monitoring_state_timer_cb, 500, NULL);
         monitoring_state_prev = power_manager_is_monitoring();
@@ -478,9 +476,7 @@ void app_main(void)
         }
         ui_finish_startup(startup_has_non_critical_error);
         lvgl_port_unlock();
-    }
-    else
-    {
+    } else {
         startup_has_non_critical_error = true;
         ESP_LOGE(TAG, "Failed to lock LVGL for startup finalization");
         goto degraded_startup;
@@ -491,18 +487,14 @@ void app_main(void)
 
 degraded_startup:
     ESP_LOGE(TAG, "Startup degraded: stopping further initialization and runtime");
-    if (lvgl_port_lock(100))
-    {
+    if (lvgl_port_lock(100)) {
         ui_finish_startup(true);
         lvgl_port_unlock();
-    }
-    else
-    {
+    } else {
         ESP_LOGE(TAG, "Failed to lock LVGL to show degraded startup screen");
     }
 
-    while (1)
-    {
+    while (1) {
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }

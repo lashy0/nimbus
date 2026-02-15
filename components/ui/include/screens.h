@@ -7,9 +7,9 @@
 extern "C" {
 #endif
 
-#define SCREEN_LIST_X \
-    X(SCREEN_ID_IAQ)  \
-    X(SCREEN_ID_TEMP) \
+#define SCREEN_LIST_X                                                                                                  \
+    X(SCREEN_ID_IAQ)                                                                                                   \
+    X(SCREEN_ID_TEMP)                                                                                                  \
     X(SCREEN_ID_HUM)
 
 enum ScreensEnum {
@@ -19,7 +19,7 @@ enum ScreensEnum {
     SCREEN_LIST_X
 #undef X
 
-    SCREEN_ID_START,
+        SCREEN_ID_START,
     SCREEN_ID_NO_CHARGING,
     SCREEN_ID_CHARGING,
     SCREEN_ID_CALIBRATION,

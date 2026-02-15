@@ -28,8 +28,7 @@ static void create_page_indicators(lv_obj_t* parent, int active_index)
     int x_positions[] = {50, 65, 80};
     int y_pos = 225;
 
-    for (int i = 0; i < 3; i++)
-    {
+    for (int i = 0; i < 3; i++) {
         lv_obj_t* obj = lv_obj_create(parent);
 
         lv_obj_set_pos(obj, x_positions[i], y_pos);
@@ -197,7 +196,7 @@ void create_screen_no_charging(void)
     lv_obj_set_pos(obj, 0, 0);
     lv_obj_set_size(obj, 135, 240);
     lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
-    
+
     ui_objects.img_no_charging_icon = lv_img_create(obj);
     img_set(ui_objects.img_no_charging_icon, &IMG_INFO_NO_CHARGING);
 }
@@ -315,7 +314,7 @@ void create_screen_question(const char* text)
 
     ui_objects.img_question_icon = lv_img_create(obj);
     img_set(ui_objects.img_question_icon, &IMG_INFO_CAT_HUH_CENTER);
-    
+
     ui_objects.lbl_question_text = lv_label_create(obj);
     lv_obj_set_pos(ui_objects.lbl_question_text, 0, 155);
     lv_obj_set_width(ui_objects.lbl_question_text, 135);
@@ -324,7 +323,7 @@ void create_screen_question(const char* text)
     lv_obj_set_style_text_align(ui_objects.lbl_question_text, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_text(ui_objects.lbl_question_text, text ? text : "Question?");
 
-    // Кнопка ДА
+    // Button Yes
     ui_objects.btn_question_yes = lv_btn_create(obj);
     lv_obj_set_pos(ui_objects.btn_question_yes, 15, 200);
     lv_obj_set_size(ui_objects.btn_question_yes, 50, 28);
@@ -337,7 +336,7 @@ void create_screen_question(const char* text)
     lv_obj_set_style_text_color(lbl_yes, lv_color_hex(0xffffffff), 0);
     lv_obj_center(lbl_yes);
 
-    // Кнопка НЕТ
+    // Button NO
     ui_objects.btn_question_no = lv_btn_create(obj);
     lv_obj_set_pos(ui_objects.btn_question_no, 70, 200);
     lv_obj_set_size(ui_objects.btn_question_no, 50, 28);
@@ -352,10 +351,19 @@ void create_screen_question(const char* text)
 }
 
 typedef void (*tick_screen_func_t)();
+
 tick_screen_func_t tick_screen_funcs[] = {
     tick_screen_iaq,
     tick_screen_temp,
     tick_screen_hum,
 };
-void tick_screen(int screen_index) { tick_screen_funcs[screen_index](); }
-void tick_screen_by_id(enum ScreensEnum screenId) { tick_screen_funcs[screenId - 1](); }
+
+void tick_screen(int screen_index)
+{
+    tick_screen_funcs[screen_index]();
+}
+
+void tick_screen_by_id(enum ScreensEnum screenId)
+{
+    tick_screen_funcs[screenId - 1]();
+}

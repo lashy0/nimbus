@@ -29,7 +29,8 @@ static uint8_t brightness_clamp(uint8_t brightness_percent)
 static void brightness_try_init_nvs(void)
 {
     esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_OK || ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND || ret == ESP_ERR_INVALID_STATE) {
+    if (ret == ESP_OK || ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND ||
+        ret == ESP_ERR_INVALID_STATE) {
         return;
     }
 

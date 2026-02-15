@@ -17,8 +17,8 @@ extern "C" {
  * @brief Structure containing the hardware handles for the display
  */
 typedef struct {
-    esp_lcd_panel_io_handle_t io_handle;    /*!< Handle for the LCD IO interface (SPI) */
-    esp_lcd_panel_handle_t    panel_handle; /*!< Handle for the LCD panel controller */
+    esp_lcd_panel_io_handle_t io_handle; /*!< Handle for the LCD IO interface (SPI) */
+    esp_lcd_panel_handle_t panel_handle; /*!< Handle for the LCD panel controller */
 } display_handles_t;
 
 /**

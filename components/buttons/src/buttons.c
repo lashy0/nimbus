@@ -11,8 +11,7 @@ static buttons_config_t btn_config;
 static void internal_short_press_cb(void* arg, void* data)
 {
     int btn_id = (int)(intptr_t)data;
-    if (btn_config.on_short_press)
-    {
+    if (btn_config.on_short_press) {
         btn_config.on_short_press((button_id_t)btn_id);
     }
 }
@@ -20,8 +19,7 @@ static void internal_short_press_cb(void* arg, void* data)
 static void internal_long_press_cb(void* arg, void* data)
 {
     int btn_id = (int)(intptr_t)data;
-    if (btn_config.on_long_press)
-    {
+    if (btn_config.on_long_press) {
         btn_config.on_long_press((button_id_t)btn_id);
     }
 }
@@ -49,18 +47,12 @@ bool buttons_init(const buttons_config_t* config)
 
     button_handle_t btn_prev = NULL;
     ESP_LOGI(TAG, "Creating PREV button on GPIO %d", config->prev_gpio);
-    if (iot_button_new_gpio_device(&btn_cfg, &gpio_cfg_prev, &btn_prev) == ESP_OK)
-    {
+    if (iot_button_new_gpio_device(&btn_cfg, &gpio_cfg_prev, &btn_prev) == ESP_OK) {
+        iot_button_register_cb(btn_prev, BUTTON_PRESS_UP, NULL, internal_short_press_cb, (void*)(intptr_t)BTN_ID_PREV);
         iot_button_register_cb(
-            btn_prev, BUTTON_PRESS_UP, NULL, internal_short_press_cb, (void*)(intptr_t)BTN_ID_PREV
-        );
-        iot_button_register_cb(
-            btn_prev, BUTTON_LONG_PRESS_START, NULL, internal_long_press_cb, (void*)(intptr_t)BTN_ID_PREV
-        );
+            btn_prev, BUTTON_LONG_PRESS_START, NULL, internal_long_press_cb, (void*)(intptr_t)BTN_ID_PREV);
         ESP_LOGI(TAG, "PREV button OK");
-    }
-    else
-    {
+    } else {
         ESP_LOGE(TAG, "Failed to create PREV button");
         all_ok = false;
     }
@@ -74,17 +66,12 @@ bool buttons_init(const buttons_config_t* config)
 
     button_handle_t btn_next = NULL;
     ESP_LOGI(TAG, "Creating NEXT button on GPIO %d", config->next_gpio);
-    if (iot_button_new_gpio_device(&btn_cfg, &gpio_cfg_next, &btn_next) == ESP_OK)
-    {
-        iot_button_register_cb(
-            btn_next, BUTTON_PRESS_UP, NULL, internal_short_press_cb, (void*)(intptr_t)BTN_ID_NEXT
-        );
+    if (iot_button_new_gpio_device(&btn_cfg, &gpio_cfg_next, &btn_next) == ESP_OK) {
+        iot_button_register_cb(btn_next, BUTTON_PRESS_UP, NULL, internal_short_press_cb, (void*)(intptr_t)BTN_ID_NEXT);
         iot_button_register_cb(
             btn_next, BUTTON_LONG_PRESS_START, NULL, internal_long_press_cb, (void*)(intptr_t)BTN_ID_NEXT);
         ESP_LOGI(TAG, "NEXT button OK");
-    }
-    else
-    {
+    } else {
         ESP_LOGE(TAG, "Failed to create NEXT button");
         all_ok = false;
     }

@@ -153,18 +153,12 @@ void ui_question_confirm(void)
 
 void ui_hide_special(void)
 {
-    if (previousScreenId != SCREEN_ID_NONE &&
-        previousScreenId != SCREEN_ID_START &&
-        previousScreenId != SCREEN_ID_CHARGING &&
-        previousScreenId != SCREEN_ID_NO_CHARGING &&
-        previousScreenId != SCREEN_ID_CALIBRATION &&
-        previousScreenId != SCREEN_ID_BRIGHTNESS &&
-        previousScreenId != SCREEN_ID_QUESTION)
-    {
+    if (previousScreenId != SCREEN_ID_NONE && previousScreenId != SCREEN_ID_START &&
+        previousScreenId != SCREEN_ID_CHARGING && previousScreenId != SCREEN_ID_NO_CHARGING &&
+        previousScreenId != SCREEN_ID_CALIBRATION && previousScreenId != SCREEN_ID_BRIGHTNESS &&
+        previousScreenId != SCREEN_ID_QUESTION) {
         loadScreen(previousScreenId);
-    }
-    else
-    {
+    } else {
         loadScreen(SCREEN_ID_IAQ);
     }
 }

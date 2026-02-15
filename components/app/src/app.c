@@ -65,7 +65,8 @@ void app_init(const app_config_t* config)
 
 void app_on_button_short_press(button_id_t btn_id)
 {
-    if (!lvgl_port_lock(10)) return;
+    if (!lvgl_port_lock(10))
+        return;
 
     if (power_manager_is_monitoring()) {
         ESP_LOGI(TAG, "Wake display from monitoring mode");
@@ -75,8 +76,7 @@ void app_on_button_short_press(button_id_t btn_id)
         return;
     }
 
-    if (btn_id == ignore_next_short_for)
-    {
+    if (btn_id == ignore_next_short_for) {
         ESP_LOGI(TAG, "Ignoring short press on release after long press");
         ignore_next_short_for = BTN_ID_NONE;
         lvgl_port_unlock();
@@ -85,18 +85,15 @@ void app_on_button_short_press(button_id_t btn_id)
 
     enum ScreensEnum current = ui_get_current_screen();
 
-    if (current == SCREEN_ID_START || current == SCREEN_ID_CALIBRATION)
-    {
+    if (current == SCREEN_ID_START || current == SCREEN_ID_CALIBRATION) {
         lvgl_port_unlock();
         return;
     }
 
-    if (current == SCREEN_ID_BRIGHTNESS)
-    {
+    if (current == SCREEN_ID_BRIGHTNESS) {
         uint8_t current_brightness = power_manager_get_active_brightness();
-        int next_brightness = (btn_id == BTN_ID_PREV)
-            ? ((int)current_brightness - (int)APP_BRIGHTNESS_STEP_PCT)
-            : ((int)current_brightness + (int)APP_BRIGHTNESS_STEP_PCT);
+        int next_brightness = (btn_id == BTN_ID_PREV) ? ((int)current_brightness - (int)APP_BRIGHTNESS_STEP_PCT)
+                                                      : ((int)current_brightness + (int)APP_BRIGHTNESS_STEP_PCT);
         uint8_t clamped = app_clamp_brightness_step(next_brightness);
 
         esp_err_t ret = power_manager_set_active_brightness(clamped, true);
@@ -112,19 +109,15 @@ void app_on_button_short_press(button_id_t btn_id)
         return;
     }
 
-    if (current == SCREEN_ID_QUESTION)
-    {
-        if (btn_id == question_activated_by)
-        {
+    if (current == SCREEN_ID_QUESTION) {
+        if (btn_id == question_activated_by) {
             ESP_LOGI(TAG, "Question confirmed");
             question_activated_by = BTN_ID_NONE;
             app_mark_activity();
             lvgl_port_unlock();
             ui_question_confirm();
             return;
-        }
-        else
-        {
+        } else {
             ESP_LOGI(TAG, "Question selection changed");
             if (btn_id == BTN_ID_PREV) {
                 ui_question_select_yes();
@@ -134,9 +127,7 @@ void app_on_button_short_press(button_id_t btn_id)
                 question_activated_by = BTN_ID_NEXT;
             }
         }
-    }
-    else
-    {
+    } else {
         if (btn_id == BTN_ID_PREV) {
             ESP_LOGI(TAG, "Switch to prev screen");
             ui_switch_prev();
@@ -152,7 +143,8 @@ void app_on_button_short_press(button_id_t btn_id)
 
 void app_on_button_long_press(button_id_t btn_id)
 {
-    if (!lvgl_port_lock(10)) return;
+    if (!lvgl_port_lock(10))
+        return;
 
     if (power_manager_is_monitoring()) {
         ESP_LOGI(TAG, "Wake display from monitoring mode (long press)");

@@ -60,7 +60,8 @@ static int battery_percent_from_mv(int mv)
     return 100;
 }
 
-static bool battery_try_create_cali(adc_unit_t unit, adc_channel_t channel, adc_atten_t atten, adc_cali_handle_t* out_handle)
+static bool battery_try_create_cali(
+    adc_unit_t unit, adc_channel_t channel, adc_atten_t atten, adc_cali_handle_t* out_handle)
 {
 #if ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
     adc_cali_curve_fitting_config_t cali_config = {
@@ -190,7 +191,8 @@ static void battery_monitor_init(void)
         return;
     }
 
-    battery_cali_enabled = battery_try_create_cali(BATTERY_ADC_UNIT, BATTERY_ADC_CHANNEL, BATTERY_ADC_ATTEN, &battery_cali_handle);
+    battery_cali_enabled =
+        battery_try_create_cali(BATTERY_ADC_UNIT, BATTERY_ADC_CHANNEL, BATTERY_ADC_ATTEN, &battery_cali_handle);
     ESP_LOGI(TAG, "Battery monitor initialized (cali=%s)", battery_cali_enabled ? "on" : "off");
 }
 

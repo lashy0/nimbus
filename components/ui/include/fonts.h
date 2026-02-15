@@ -11,7 +11,6 @@ extern const lv_font_t ui_font_sf_sb_50_digits;
 extern const lv_font_t ui_font_sf_sb_30_digits;
 extern const lv_font_t ui_font_sf_b_10_digits;
 
-
 #ifdef __cplusplus
 }
 #endif

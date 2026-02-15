@@ -1,62 +1,40 @@
 ---
 Language: Cpp
-BasedOnStyle: Google
+BasedOnStyle: LLVM
 
-# [Indentation / whitespace]
+# Indentation
 IndentWidth: 4
 TabWidth: 4
 UseTab: Never
 ContinuationIndentWidth: 4
-
-SpaceAfterLogicalNot: false
-
-# [Line length & comments]
-ColumnLimit: 120
-ReflowComments: true
-AlignTrailingComments: true
-
-CommentPragmas: '^ IWYU pragma:'
-
-# [ Braces ]
-BreakBeforeBraces: Custom
-BraceWrapping:
-  # New-line braces for "code blocks"
-  AfterFunction: true
-  AfterControlStatement: true
-  BeforeElse: true
-  BeforeCatch: true
-
-  # Keep these compact (same-line braces)
-  AfterStruct: false
-  AfterUnion: false
-  AfterEnum: false
-  AfterExternBlock: false
-  AfterNamespace: false
-
-  # Compact empty blocks
-  SplitEmptyFunction: true
-  SplitEmptyRecord: true
-  SplitEmptyNamespace: true
-
-# [Initializer lists / alignment]
-AlignAfterOpenBracket: DontAlign
-
-Cpp11BracedListStyle: true
-BinPackArguments: false
-BinPackParameters: false
-BinPackInitializerLists: false
-
-AlignConsecutiveAssignments: None
-AlignConsecutiveDeclarations: Consecutive
-
-# [Includes & macros]
-SortIncludes: true
-
-ndentPPDirectives: AfterHash
+IndentCaseLabels: true
+IndentPPDirectives: AfterHash
 PPIndentWidth: 4
 
-AlignConsecutiveMacros: Consecutive
+# Line length & comments
+ColumnLimit: 120
+ReflowComments: false
+AlignTrailingComments: true
 SpacesBeforeTrailingComments: 1
 
-MacroBlockBegin: ''
-MacroBlockEnd: ''
+# Braces and spacing
+BreakBeforeBraces: Linux
+SpaceBeforeParens: ControlStatements
+SpaceAfterLogicalNot: false
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortBlocksOnASingleLine: Never
+AllowShortFunctionsOnASingleLine: Empty
+
+# Alignment
+PointerAlignment: Left
+DerivePointerAlignment: false
+AlignAfterOpenBracket: DontAlign
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignConsecutiveMacros: None
+
+# Arguments, includes
+BinPackArguments: false
+BinPackParameters: false
+SortIncludes: false
+IncludeBlocks: Preserve

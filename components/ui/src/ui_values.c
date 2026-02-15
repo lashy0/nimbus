@@ -12,9 +12,7 @@ void ui_apply_brightness_value(void)
     snprintf(buf, sizeof(buf), "%u%%", (unsigned int)current_brightness_pct);
 
     if (ui_objects.lbl_brightness_value) {
-        const lv_font_t* font = (current_brightness_pct == 100)
-            ? &ui_font_sf_sb_50_digits
-            : &ui_font_sf_sb_60_digits;
+        const lv_font_t* font = (current_brightness_pct == 100) ? &ui_font_sf_sb_50_digits : &ui_font_sf_sb_60_digits;
         lv_obj_set_style_text_font(ui_objects.lbl_brightness_value, font, LV_PART_MAIN | LV_STATE_DEFAULT);
         lv_label_set_text(ui_objects.lbl_brightness_value, buf);
     }
@@ -32,10 +30,10 @@ void ui_apply_calibration_status_text(void)
 
     char buf[96];
     snprintf(buf,
-             sizeof(buf),
-             "Calibrating...\nStab:%s Run:%s",
-             current_stabilization_done ? "ok" : "wait",
-             current_run_in_done ? "ok" : "wait");
+        sizeof(buf),
+        "Calibrating...\nStab:%s Run:%s",
+        current_stabilization_done ? "ok" : "wait",
+        current_run_in_done ? "ok" : "wait");
     lv_label_set_text(ui_objects.lbl_calibration_text, buf);
 }
 
@@ -63,8 +61,7 @@ static void ui_get_current_battery_widgets(lv_obj_t** img_obj, lv_obj_t** label_
     *img_obj = NULL;
     *label_obj = NULL;
 
-    switch (currentScreenId)
-    {
+    switch (currentScreenId) {
         case SCREEN_ID_IAQ:
             *img_obj = ui_objects.img_iaq_battery;
             *label_obj = ui_objects.lbl_iaq_batt_pct;
@@ -118,8 +115,7 @@ void ui_apply_current_values(void)
 {
     char buf[16];
 
-    switch (currentScreenId)
-    {
+    switch (currentScreenId) {
         case SCREEN_ID_IAQ:
             if (ui_objects.lbl_iaq_value) {
                 snprintf(buf, sizeof(buf), "%03d", current_iaq);
@@ -151,9 +147,7 @@ void ui_apply_current_values(void)
                 snprintf(buf, sizeof(buf), "%d%%", current_hum);
                 lv_label_set_text(ui_objects.lbl_hum_value, buf);
 
-                const lv_font_t* font = (current_hum == 100)
-                    ? &ui_font_sf_sb_50_digits
-                    : &ui_font_sf_sb_60_digits;
+                const lv_font_t* font = (current_hum == 100) ? &ui_font_sf_sb_50_digits : &ui_font_sf_sb_60_digits;
                 lv_obj_set_style_text_font(ui_objects.lbl_hum_value, font, LV_PART_MAIN | LV_STATE_DEFAULT);
             }
             if (ui_objects.img_hum_icon) {
@@ -184,8 +178,7 @@ void ui_update_iaq(int value)
 {
     current_iaq = value;
 
-    if (currentScreenId == SCREEN_ID_IAQ)
-    {
+    if (currentScreenId == SCREEN_ID_IAQ) {
         char buf[8];
         if (ui_objects.lbl_iaq_value) {
             snprintf(buf, sizeof(buf), "%03d", value);
@@ -204,8 +197,7 @@ void ui_update_temp(int value)
 {
     current_temp = value;
 
-    if (currentScreenId == SCREEN_ID_TEMP)
-    {
+    if (currentScreenId == SCREEN_ID_TEMP) {
         char buf[8];
         if (ui_objects.lbl_temp_value) {
             snprintf(buf, sizeof(buf), "%d°", value);
@@ -224,16 +216,13 @@ void ui_update_hum(int value)
 {
     current_hum = value;
 
-    if (currentScreenId == SCREEN_ID_HUM)
-    {
+    if (currentScreenId == SCREEN_ID_HUM) {
         char buf[8];
         if (ui_objects.lbl_hum_value) {
             snprintf(buf, sizeof(buf), "%d%%", value);
             lv_label_set_text(ui_objects.lbl_hum_value, buf);
 
-            const lv_font_t* font = (value == 100)
-                ? &ui_font_sf_sb_50_digits
-                : &ui_font_sf_sb_60_digits;
+            const lv_font_t* font = (value == 100) ? &ui_font_sf_sb_50_digits : &ui_font_sf_sb_60_digits;
             lv_obj_set_style_text_font(ui_objects.lbl_hum_value, font, LV_PART_MAIN | LV_STATE_DEFAULT);
         }
         if (ui_objects.img_hum_icon) {
