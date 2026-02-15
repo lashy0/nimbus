@@ -1,4 +1,9 @@
-set(srcs "src/power_manager.c")
+set(srcs
+    "src/power_manager.c"
+    "src/power_manager_battery.c"
+    "src/power_manager_brightness.c"
+    "src/power_manager_sleep.c"
+)
 set(includes "include")
 
 idf_component_register(

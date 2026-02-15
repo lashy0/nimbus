@@ -45,6 +45,34 @@ static bool sensor_calibration_done = false;
 static bool sensor_ulp_mode = false;
 static lv_timer_t* sensor_timer = NULL;
 static bool monitoring_state_prev = false;
+typedef struct {
+    uint32_t read_fail_count;
+    uint32_t battery_read_fail_count;
+    bool charging_screen_shown;
+    int64_t charging_screen_hide_deadline_us;
+    power_battery_info_t battery_info;
+    int64_t last_battery_update_us;
+} sensor_runtime_state_t;
+
+typedef struct {
+    bme680_sensor_data_t data;
+    bool has_sensor_data;
+    uint32_t next_period_ms;
+} sensor_sample_result_t;
+
+static sensor_runtime_state_t sensor_runtime = {
+    .read_fail_count = 0,
+    .battery_read_fail_count = 0,
+    .charging_screen_shown = false,
+    .charging_screen_hide_deadline_us = 0,
+    .battery_info = {
+        .percent = -1,
+        .charging = false,
+        .voltage_mv = 0,
+        .valid = false,
+    },
+    .last_battery_update_us = 0,
+};
 
 static void on_short_press(button_id_t btn_id) { app_on_button_short_press(btn_id); }
 
@@ -86,19 +114,169 @@ static void monitoring_state_timer_cb(lv_timer_t* t)
     lv_timer_ready(sensor_timer);
 }
 
+static void sensor_step_battery(bool monitoring, int64_t now_us, bool* charging_transition, bool* charging_now)
+{
+    *charging_transition = false;
+    *charging_now = false;
+
+    bool battery_update_due = (sensor_runtime.last_battery_update_us == 0) ||
+                              ((now_us - sensor_runtime.last_battery_update_us) >=
+                               ((int64_t)BATTERY_UPDATE_INTERVAL_MS * 1000LL));
+    if (monitoring || !battery_update_due) {
+        return;
+    }
+
+    power_battery_info_t sampled_battery = {0};
+    esp_err_t battery_ret = power_manager_read_battery(&sampled_battery);
+    if (battery_ret == ESP_OK && sampled_battery.valid) {
+        if (sensor_runtime.battery_info.valid) {
+            if (sensor_runtime.battery_info.charging != sampled_battery.charging) {
+                *charging_transition = true;
+                *charging_now = sampled_battery.charging;
+            }
+        } else if (sampled_battery.charging) {
+            // First valid sample indicates charging is already active.
+            *charging_transition = true;
+            *charging_now = true;
+        }
+
+        if (sensor_runtime.battery_info.charging != sampled_battery.charging) {
+            ESP_LOGI(TAG,
+                     "Battery state: %s (%u mV, %d%%)",
+                     sampled_battery.charging ? "charging" : "battery",
+                     (unsigned int)sampled_battery.voltage_mv,
+                     sampled_battery.percent);
+        }
+        sensor_runtime.battery_info = sampled_battery;
+        sensor_runtime.last_battery_update_us = now_us;
+        return;
+    }
+
+    if (battery_ret == ESP_OK && !sampled_battery.valid) {
+        if (sensor_runtime.battery_info.valid) {
+            ESP_LOGW(TAG, "Battery state unavailable (%u mV)", (unsigned int)sampled_battery.voltage_mv);
+        }
+        sensor_runtime.battery_info = sampled_battery;
+        sensor_runtime.last_battery_update_us = now_us;
+        return;
+    }
+
+    sensor_runtime.battery_read_fail_count++;
+    if ((sensor_runtime.battery_read_fail_count % 20U) == 1U) {
+        ESP_LOGW(TAG, "Battery read failed (%s)", esp_err_to_name(battery_ret));
+    }
+    sensor_runtime.battery_info.valid = false;
+    sensor_runtime.battery_info.percent = -1;
+    sensor_runtime.battery_info.charging = false;
+    sensor_runtime.last_battery_update_us = now_us;
+}
+
+static sensor_sample_result_t sensor_step_read(bool monitoring)
+{
+    sensor_sample_result_t result = {0};
+    if (!sensor_ready) {
+        return result;
+    }
+
+    bool want_ulp_mode = monitoring;
+    if (want_ulp_mode != sensor_ulp_mode) {
+        esp_err_t mode_ret = bme680_sensor_set_mode(
+            want_ulp_mode ? BME680_SENSOR_MODE_ULP : BME680_SENSOR_MODE_LP);
+        if (mode_ret == ESP_OK) {
+            sensor_ulp_mode = want_ulp_mode;
+        } else {
+            ESP_LOGW(TAG, "BME680 mode switch failed (%s)", esp_err_to_name(mode_ret));
+        }
+    }
+
+    esp_err_t ret = bme680_sensor_read(&result.data);
+    if (ret == ESP_OK) {
+        result.has_sensor_data = true;
+        result.next_period_ms = bme680_sensor_get_next_call_delay_ms();
+        return result;
+    }
+
+    sensor_runtime.read_fail_count++;
+    if ((sensor_runtime.read_fail_count % 10U) == 1U) {
+        ESP_LOGW(TAG, "BME680 read failed (%lu times)", (unsigned long)sensor_runtime.read_fail_count);
+    }
+
+    return result;
+}
+
+static void sensor_step_charging_overlay(bool charging_transition, bool charging_now, int64_t now_us)
+{
+    if (charging_transition) {
+        if (charging_now) {
+            if (ui_get_current_screen() != SCREEN_ID_CHARGING) {
+                ui_show_charging();
+            }
+            sensor_runtime.charging_screen_shown = true;
+            sensor_runtime.charging_screen_hide_deadline_us = now_us + ((int64_t)CHARGING_SCREEN_DURATION_MS * 1000LL);
+        } else if (sensor_runtime.charging_screen_shown) {
+            if (ui_get_current_screen() == SCREEN_ID_CHARGING) {
+                ui_hide_special();
+            }
+            sensor_runtime.charging_screen_shown = false;
+            sensor_runtime.charging_screen_hide_deadline_us = 0;
+        }
+    }
+
+    if (sensor_runtime.charging_screen_shown &&
+        sensor_runtime.charging_screen_hide_deadline_us > 0 &&
+        now_us >= sensor_runtime.charging_screen_hide_deadline_us) {
+        if (ui_get_current_screen() == SCREEN_ID_CHARGING) {
+            ui_hide_special();
+        }
+        sensor_runtime.charging_screen_shown = false;
+        sensor_runtime.charging_screen_hide_deadline_us = 0;
+    }
+}
+
+static void sensor_step_update_sensor_ui(const bme680_sensor_data_t* data, bool has_sensor_data)
+{
+    if (!has_sensor_data) {
+        return;
+    }
+
+    ui_update_calibration_status(data->stabilization_done, data->run_in_done);
+
+    if (data->iaq_valid) {
+        if (!sensor_calibration_done) {
+            sensor_calibration_done = true;
+            ESP_LOGI(TAG, "BME680 IAQ calibration completed");
+        }
+
+        if (ui_get_current_screen() == SCREEN_ID_CALIBRATION) {
+            loadScreen(SCREEN_ID_IAQ);
+        }
+    } else {
+        if (sensor_calibration_done) {
+            sensor_calibration_done = false;
+            ESP_LOGI(TAG, "BME680 IAQ recalibration started");
+        }
+
+        if (ui_get_current_screen() != SCREEN_ID_CALIBRATION) {
+            ui_show_calibration();
+        }
+    }
+
+    ui_update_iaq((int)data->iaq);
+    ui_update_temp((int)data->temperature_c);
+    ui_update_hum((int)data->humidity_rh);
+}
+
+static void sensor_step_update_battery_ui(void)
+{
+    if (sensor_runtime.battery_info.valid) {
+        ui_update_battery(sensor_runtime.battery_info.percent, sensor_runtime.battery_info.charging);
+    } else {
+        ui_update_battery(-1, false);
+    }
+}
+
 static void sensor_timer_cb(lv_timer_t* t)
 {
-    static uint32_t read_fail_count = 0;
-    static uint32_t battery_read_fail_count = 0;
-    static bool charging_screen_shown = false;
-    static int64_t charging_screen_hide_deadline_us = 0;
-    static power_battery_info_t battery_info = {
-        .percent = -1,
-        .charging = false,
-        .voltage_mv = 0,
-        .valid = false,
-    };
-    static int64_t last_battery_update_us = 0;
     bool charging_transition = false;
     bool charging_now = false;
 
@@ -106,79 +284,11 @@ static void sensor_timer_cb(lv_timer_t* t)
     bool monitoring = power_manager_is_monitoring();
 
     int64_t now_us = esp_timer_get_time();
-    bool battery_update_due = (last_battery_update_us == 0) ||
-                              ((now_us - last_battery_update_us) >= ((int64_t)BATTERY_UPDATE_INTERVAL_MS * 1000LL));
-    if (!monitoring && battery_update_due) {
-        power_battery_info_t sampled_battery = {0};
-        esp_err_t battery_ret = power_manager_read_battery(&sampled_battery);
-        if (battery_ret == ESP_OK && sampled_battery.valid) {
-            if (battery_info.valid) {
-                if (battery_info.charging != sampled_battery.charging) {
-                    charging_transition = true;
-                    charging_now = sampled_battery.charging;
-                }
-            } else if (sampled_battery.charging) {
-                // First valid sample indicates charging is already active.
-                charging_transition = true;
-                charging_now = true;
-            }
+    sensor_step_battery(monitoring, now_us, &charging_transition, &charging_now);
+    sensor_sample_result_t sensor_sample = sensor_step_read(monitoring);
 
-            if (battery_info.charging != sampled_battery.charging) {
-                ESP_LOGI(TAG,
-                         "Battery state: %s (%u mV, %d%%)",
-                         sampled_battery.charging ? "charging" : "battery",
-                         (unsigned int)sampled_battery.voltage_mv,
-                         sampled_battery.percent);
-            }
-            battery_info = sampled_battery;
-            last_battery_update_us = now_us;
-        } else if (battery_ret == ESP_OK && !sampled_battery.valid) {
-            if (battery_info.valid) {
-                ESP_LOGW(TAG, "Battery state unavailable (%u mV)", (unsigned int)sampled_battery.voltage_mv);
-            }
-            battery_info = sampled_battery;
-            last_battery_update_us = now_us;
-        } else {
-            battery_read_fail_count++;
-            if ((battery_read_fail_count % 20U) == 1U) {
-                ESP_LOGW(TAG, "Battery read failed (%s)", esp_err_to_name(battery_ret));
-            }
-            battery_info.valid = false;
-            battery_info.percent = -1;
-            battery_info.charging = false;
-            last_battery_update_us = now_us;
-        }
-    }
-
-    bme680_sensor_data_t data = {0};
-    bool has_sensor_data = false;
-    uint32_t next_period_ms = 0U;
-    if (sensor_ready) {
-        bool want_ulp_mode = monitoring;
-        if (want_ulp_mode != sensor_ulp_mode) {
-            esp_err_t mode_ret = bme680_sensor_set_mode(
-                want_ulp_mode ? BME680_SENSOR_MODE_ULP : BME680_SENSOR_MODE_LP);
-            if (mode_ret == ESP_OK) {
-                sensor_ulp_mode = want_ulp_mode;
-            } else {
-                ESP_LOGW(TAG, "BME680 mode switch failed (%s)", esp_err_to_name(mode_ret));
-            }
-        }
-
-        esp_err_t ret = bme680_sensor_read(&data);
-        if (ret == ESP_OK) {
-            has_sensor_data = true;
-            next_period_ms = bme680_sensor_get_next_call_delay_ms();
-        } else {
-            read_fail_count++;
-            if ((read_fail_count % 10U) == 1U) {
-                ESP_LOGW(TAG, "BME680 read failed (%lu times)", (unsigned long)read_fail_count);
-            }
-        }
-    }
-
-    if (next_period_ms > 0U) {
-        lv_timer_set_period(t, next_period_ms);
+    if (sensor_sample.next_period_ms > 0U) {
+        lv_timer_set_period(t, sensor_sample.next_period_ms);
     }
 
     if (monitoring) {
@@ -187,65 +297,9 @@ static void sensor_timer_cb(lv_timer_t* t)
 
     if (lvgl_port_lock(10))
     {
-        if (charging_transition) {
-            if (charging_now) {
-                if (ui_get_current_screen() != SCREEN_ID_CHARGING) {
-                    ui_show_charging();
-                }
-                charging_screen_shown = true;
-                charging_screen_hide_deadline_us = now_us + ((int64_t)CHARGING_SCREEN_DURATION_MS * 1000LL);
-            } else if (charging_screen_shown) {
-                if (ui_get_current_screen() == SCREEN_ID_CHARGING) {
-                    ui_hide_special();
-                }
-                charging_screen_shown = false;
-                charging_screen_hide_deadline_us = 0;
-            }
-        }
-
-        if (charging_screen_shown &&
-            charging_screen_hide_deadline_us > 0 &&
-            now_us >= charging_screen_hide_deadline_us) {
-            if (ui_get_current_screen() == SCREEN_ID_CHARGING) {
-                ui_hide_special();
-            }
-            charging_screen_shown = false;
-            charging_screen_hide_deadline_us = 0;
-        }
-
-        if (has_sensor_data) {
-            ui_update_calibration_status(data.stabilization_done, data.run_in_done);
-
-            if (data.iaq_valid) {
-                if (!sensor_calibration_done) {
-                    sensor_calibration_done = true;
-                    ESP_LOGI(TAG, "BME680 IAQ calibration completed");
-                }
-
-                if (ui_get_current_screen() == SCREEN_ID_CALIBRATION) {
-                    loadScreen(SCREEN_ID_IAQ);
-                }
-            } else {
-                if (sensor_calibration_done) {
-                    sensor_calibration_done = false;
-                    ESP_LOGI(TAG, "BME680 IAQ recalibration started");
-                }
-
-                if (ui_get_current_screen() != SCREEN_ID_CALIBRATION) {
-                    ui_show_calibration();
-                }
-            }
-
-            ui_update_iaq((int)data.iaq);
-            ui_update_temp((int)data.temperature_c);
-            ui_update_hum((int)data.humidity_rh);
-        }
-
-        if (battery_info.valid) {
-            ui_update_battery(battery_info.percent, battery_info.charging);
-        } else {
-            ui_update_battery(-1, false);
-        }
+        sensor_step_charging_overlay(charging_transition, charging_now, now_us);
+        sensor_step_update_sensor_ui(&sensor_sample.data, sensor_sample.has_sensor_data);
+        sensor_step_update_battery_ui();
         lvgl_port_unlock();
     }
 }
