@@ -74,6 +74,14 @@ void create_screen_iaq(void)
     lv_obj_set_style_text_align(ui_objects.lbl_iaq_value, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_label_set_text(ui_objects.lbl_iaq_value, "000");
 
+    ui_objects.lbl_iaq_cal_status = lv_label_create(obj);
+    lv_obj_set_pos(ui_objects.lbl_iaq_cal_status, 0, 124);
+    lv_obj_set_size(ui_objects.lbl_iaq_cal_status, 135, LV_SIZE_CONTENT);
+    lv_obj_set_style_text_color(ui_objects.lbl_iaq_cal_status, lv_color_hex(0xffa0a0a0), 0);
+    lv_obj_set_style_text_font(ui_objects.lbl_iaq_cal_status, &ui_font_sf_b_10_digits, 0);
+    lv_obj_set_style_text_align(ui_objects.lbl_iaq_cal_status, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_text(ui_objects.lbl_iaq_cal_status, "WARMUP ACC 0/3");
+
     // Icon Img
     ui_objects.img_iaq_icon = lv_img_create(obj);
     img_set(ui_objects.img_iaq_icon, &IMG_INFO_ULTRA_HAPPY);

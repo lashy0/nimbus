@@ -3,6 +3,7 @@
 #include "images.h"
 
 int current_iaq = 0;
+uint8_t current_iaq_accuracy = 0;
 int current_temp = 0;
 int current_hum = 0;
 int current_batt_pct = -1;

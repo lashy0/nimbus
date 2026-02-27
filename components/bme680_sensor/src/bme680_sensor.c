@@ -6,6 +6,7 @@
 #include "bsec_interface.h"
 #include "esp_log.h"
 #include "esp_rom_sys.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "nvs.h"
 #include "nvs_flash.h"
@@ -13,6 +14,7 @@
 #define BSEC_CHECK_INPUT(x, shift) ((x) & (1U << ((shift) - 1U)))
 
 #define BSEC_STATE_SAVE_INTERVAL_SEC (15U * 60U)
+#define BSEC_STATE_SAVE_INTERVAL_BOOTSTRAP_SEC 60U
 #define BSEC_DEFAULT_RECALIB_INTERVAL_SEC (12U * 60U * 60U)
 #define BSEC_DEFAULT_IAQ_VALID_SAMPLES 1U
 #define BSEC_DEFAULT_NEXT_CALL_DELAY_MS 3000U
@@ -37,6 +39,9 @@ typedef struct {
     uint32_t iaq_valid_min_samples;
     uint32_t iaq_valid_sample_count;
     uint32_t next_call_delay_ms;
+    uint8_t last_saved_iaq_accuracy;
+    bool last_saved_stabilization_done;
+    bool last_saved_run_in_done;
     bme680_sensor_mode_t mode;
     int64_t last_iaq_sample_timestamp_ns;
     int64_t next_recalibration_time_us;
@@ -151,15 +156,31 @@ static esp_err_t bsec_check_rslt(const char* step, bsec_library_return_t rslt)
 
 static esp_err_t bsec_apply_default_configuration(void)
 {
+    const uint8_t* config_blob = bsec_iaq_config_start;
     size_t config_len = (size_t)(bsec_iaq_config_end - bsec_iaq_config_start);
-    if (config_len == 0U || config_len > BSEC_MAX_PROPERTY_BLOB_SIZE) {
+    if (config_len == 0U) {
         ESP_LOGE(TAG, "Invalid BSEC config blob length: %lu", (unsigned long)config_len);
+        return ESP_FAIL;
+    }
+
+    /* Bosch .config files may embed a 32-bit LE payload length prefix. */
+    if (config_len > BSEC_MAX_PROPERTY_BLOB_SIZE && config_len >= 4U) {
+        uint32_t payload_len = (uint32_t)config_blob[0] | ((uint32_t)config_blob[1] << 8U) |
+                               ((uint32_t)config_blob[2] << 16U) | ((uint32_t)config_blob[3] << 24U);
+        if ((size_t)payload_len == (config_len - 4U) && payload_len <= BSEC_MAX_PROPERTY_BLOB_SIZE) {
+            config_blob += 4U;
+            config_len = payload_len;
+        }
+    }
+
+    if (config_len > BSEC_MAX_PROPERTY_BLOB_SIZE) {
+        ESP_LOGE(TAG, "Invalid BSEC config payload length: %lu", (unsigned long)config_len);
         return ESP_FAIL;
     }
 
     uint8_t work_buffer[BSEC_MAX_WORKBUFFER_SIZE] = {0};
     bsec_library_return_t bsec_ret =
-        bsec_set_configuration(bsec_iaq_config_start, (uint32_t)config_len, work_buffer, BSEC_MAX_WORKBUFFER_SIZE);
+        bsec_set_configuration(config_blob, (uint32_t)config_len, work_buffer, BSEC_MAX_WORKBUFFER_SIZE);
     return bsec_check_rslt("bsec_set_configuration", bsec_ret);
 }
 
@@ -167,8 +188,9 @@ static esp_err_t bsec_update_subscription_for_mode(bme680_sensor_mode_t mode)
 {
     float sample_rate = (mode == BME680_SENSOR_MODE_ULP) ? BSEC_SAMPLE_RATE_ULP : BSEC_SAMPLE_RATE_LP;
 
-    bsec_sensor_configuration_t requested_virtual_sensors[5] = {
+    bsec_sensor_configuration_t requested_virtual_sensors[6] = {
         {.sensor_id = BSEC_OUTPUT_IAQ, .sample_rate = sample_rate},
+        {.sensor_id = BSEC_OUTPUT_STATIC_IAQ, .sample_rate = sample_rate},
         {.sensor_id = BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_TEMPERATURE, .sample_rate = sample_rate},
         {.sensor_id = BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_HUMIDITY, .sample_rate = sample_rate},
         {.sensor_id = BSEC_OUTPUT_STABILIZATION_STATUS, .sample_rate = sample_rate},
@@ -261,7 +283,10 @@ static void bsec_save_state_nvs(bool force)
     }
 
     int64_t now = now_us();
-    int64_t interval_us = (int64_t)BSEC_STATE_SAVE_INTERVAL_SEC * 1000000LL;
+    bool calibration_ready =
+        (s_ctx.iaq_accuracy >= 2U) && s_ctx.last_output.stabilization_done && s_ctx.last_output.run_in_done;
+    uint32_t interval_sec = calibration_ready ? BSEC_STATE_SAVE_INTERVAL_SEC : BSEC_STATE_SAVE_INTERVAL_BOOTSTRAP_SEC;
+    int64_t interval_us = (int64_t)interval_sec * 1000000LL;
     if (!force && s_ctx.last_state_save_time_us != 0 && (now - s_ctx.last_state_save_time_us) < interval_us) {
         return;
     }
@@ -300,6 +325,25 @@ static void bsec_save_state_nvs(bool force)
     nvs_close(nvs);
 }
 
+static void bsec_maybe_save_state_on_progress(void)
+{
+    if (!s_ctx.state_persistence_enabled || !s_ctx.initialized) {
+        return;
+    }
+
+    bool has_progress = (s_ctx.iaq_accuracy > s_ctx.last_saved_iaq_accuracy) ||
+                        (s_ctx.last_output.stabilization_done && !s_ctx.last_saved_stabilization_done) ||
+                        (s_ctx.last_output.run_in_done && !s_ctx.last_saved_run_in_done);
+    if (!has_progress) {
+        return;
+    }
+
+    bsec_save_state_nvs(true);
+    s_ctx.last_saved_iaq_accuracy = s_ctx.iaq_accuracy;
+    s_ctx.last_saved_stabilization_done = s_ctx.last_output.stabilization_done;
+    s_ctx.last_saved_run_in_done = s_ctx.last_output.run_in_done;
+}
+
 static void bsec_schedule_recalibration(void)
 {
     if (!s_ctx.auto_recalibration_enabled || s_ctx.auto_recalibration_interval_sec == 0U) {
@@ -321,7 +365,11 @@ static void bsec_reset_iaq(const char* reason)
     s_ctx.iaq_valid = false;
     s_ctx.iaq_valid_sample_count = 0;
     s_ctx.last_iaq_sample_timestamp_ns = 0;
+    s_ctx.last_saved_iaq_accuracy = 0;
+    s_ctx.last_saved_stabilization_done = false;
+    s_ctx.last_saved_run_in_done = false;
     s_ctx.last_output.iaq_accuracy = 0;
+    s_ctx.last_output.static_iaq = 0;
     s_ctx.last_output.stabilization_done = false;
     s_ctx.last_output.run_in_done = false;
     s_ctx.last_output.iaq_valid = false;
@@ -495,6 +543,10 @@ static esp_err_t bme_process_field(
                 has_iaq_output = true;
                 break;
 
+            case BSEC_OUTPUT_STATIC_IAQ:
+                s_ctx.last_output.static_iaq = (uint16_t)(clampf(outputs[i].signal, 0.0f, 500.0f) + 0.5f);
+                break;
+
             case BSEC_OUTPUT_STABILIZATION_STATUS:
                 s_ctx.last_output.stabilization_done = (outputs[i].signal >= 0.5f);
                 break;
@@ -530,6 +582,7 @@ static esp_err_t bme_process_field(
         }
 
         s_ctx.iaq_valid = (s_ctx.iaq_accuracy > 0U) && (s_ctx.iaq_valid_sample_count >= s_ctx.iaq_valid_min_samples);
+        bsec_maybe_save_state_on_progress();
     }
 
     s_ctx.last_output.iaq_valid = s_ctx.iaq_valid;
@@ -566,6 +619,13 @@ esp_err_t bme680_sensor_init(const bme680_sensor_config_t* config)
                                                 ? BSEC_DEFAULT_RECALIB_INTERVAL_SEC
                                                 : config->auto_recalibration_interval_sec;
     s_ctx.mode = BME680_SENSOR_MODE_LP;
+    esp_reset_reason_t reset_reason = esp_reset_reason();
+    bool cold_start_on_power_on = config->reset_baseline_on_power_on && (reset_reason == ESP_RST_POWERON);
+
+    ESP_LOGI(TAG,
+        "System reset reason=%d, BSEC baseline reset on power-on=%s",
+        (int)reset_reason,
+        cold_start_on_power_on ? "yes" : "no");
 
     bsec_try_init_nvs();
 
@@ -628,7 +688,12 @@ esp_err_t bme680_sensor_init(const bme680_sensor_config_t* config)
         return ESP_FAIL;
     }
 
-    bsec_load_state_nvs();
+    if (cold_start_on_power_on) {
+        bsec_clear_state_nvs();
+        ESP_LOGI(TAG, "BSEC cold-start baseline: power-on reset, persisted state cleared");
+    } else {
+        bsec_load_state_nvs();
+    }
     bsec_schedule_recalibration();
 
     s_ctx.initialized = true;

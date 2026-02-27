@@ -56,6 +56,15 @@ void ui_update_hum(int value);
 void ui_update_calibration_status(bool stabilization_done, bool run_in_done);
 
 /**
+ * @brief Update IAQ quality status for runtime warmup indicators.
+ *
+ * @param[in] iaq_accuracy BSEC IAQ accuracy (0..3).
+ * @param[in] stabilization_done Stabilization status.
+ * @param[in] run_in_done Run-in status.
+ */
+void ui_update_iaq_quality(uint8_t iaq_accuracy, bool stabilization_done, bool run_in_done);
+
+/**
  * @brief Update battery state shown in status bar.
  *
  * @param[in] percent Battery level percentage, negative value means unknown.

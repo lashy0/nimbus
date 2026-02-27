@@ -37,6 +37,30 @@ void ui_apply_calibration_status_text(void)
     lv_label_set_text(ui_objects.lbl_calibration_text, buf);
 }
 
+static void ui_apply_iaq_quality_status(void)
+{
+    if (!ui_objects.lbl_iaq_cal_status) {
+        return;
+    }
+
+    const char* phase = "READY";
+    if (current_iaq_accuracy == 0U) {
+        phase = "WARMUP";
+    } else if (!current_stabilization_done || !current_run_in_done) {
+        phase = "CAL";
+    }
+
+    uint8_t acc = current_iaq_accuracy;
+    if (acc > 3U) {
+        acc = 3U;
+    }
+
+    char buf[24];
+    snprintf(buf, sizeof(buf), "%s ACC %u/3", phase, (unsigned int)acc);
+    lv_label_set_text(ui_objects.lbl_iaq_cal_status, buf);
+    lv_obj_clear_flag(ui_objects.lbl_iaq_cal_status, LV_OBJ_FLAG_HIDDEN);
+}
+
 static bool ui_battery_is_known(void)
 {
     return current_batt_pct >= 0;
@@ -127,6 +151,7 @@ void ui_apply_current_values(void)
             if (ui_objects.img_iaq_status) {
                 img_set_info(ui_objects.img_iaq_status, get_iaq_status_info(current_iaq));
             }
+            ui_apply_iaq_quality_status();
             break;
 
         case SCREEN_ID_TEMP:
@@ -240,6 +265,21 @@ void ui_update_calibration_status(bool stabilization_done, bool run_in_done)
     current_run_in_done = run_in_done;
 
     if (currentScreenId == SCREEN_ID_CALIBRATION) {
+        ui_apply_calibration_status_text();
+    } else if (currentScreenId == SCREEN_ID_IAQ) {
+        ui_apply_iaq_quality_status();
+    }
+}
+
+void ui_update_iaq_quality(uint8_t iaq_accuracy, bool stabilization_done, bool run_in_done)
+{
+    current_iaq_accuracy = iaq_accuracy;
+    current_stabilization_done = stabilization_done;
+    current_run_in_done = run_in_done;
+
+    if (currentScreenId == SCREEN_ID_IAQ) {
+        ui_apply_iaq_quality_status();
+    } else if (currentScreenId == SCREEN_ID_CALIBRATION) {
         ui_apply_calibration_status_text();
     }
 }

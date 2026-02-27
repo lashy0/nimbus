@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 #include "driver/gpio.h"
 
 #ifdef __cplusplus
@@ -25,6 +26,18 @@ typedef void (*button_short_press_cb_t)(button_id_t btn_id);
  * @param[in] btn_id Logical button identifier.
  */
 typedef void (*button_long_press_cb_t)(button_id_t btn_id);
+
+/**
+ * @brief Button event message fetched from queue.
+ */
+typedef struct {
+    /**< Logical button identifier. */
+    button_id_t button_id;
+    /**< True for long-press event, false for short-press event. */
+    bool is_long_press;
+    /**< Event timestamp in microseconds. */
+    int64_t timestamp_us;
+} button_event_msg_t;
 
 /**
  * @brief GPIO and timing configuration for button handling.
@@ -54,6 +67,17 @@ typedef struct {
  * - false: initialization failed.
  */
 bool buttons_init(const buttons_config_t* config);
+
+/**
+ * @brief Fetch the next button event from internal queue.
+ *
+ * @param[out] out_event Output pointer for event data.
+ *
+ * @return
+ * - true: event received.
+ * - false: queue is empty or unavailable.
+ */
+bool buttons_get_event(button_event_msg_t* out_event);
 
 #ifdef __cplusplus
 }

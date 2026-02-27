@@ -36,6 +36,8 @@ typedef struct {
     bool disable_auto_recalibration;
     /**< Disable BSEC state save/restore to NVS when true. */
     bool disable_state_persistence;
+    /**< Reset BSEC baseline on power-on by clearing persisted state and skipping restore. */
+    bool reset_baseline_on_power_on;
 } bme680_sensor_config_t;
 
 /**
@@ -52,6 +54,8 @@ typedef struct {
     float gas_resistance_ohm;
     /**< IAQ value in range 0..500 (lower is better). */
     uint16_t iaq; /* 0..500, lower is better */
+    /**< Static IAQ value in range 0..500 (lower is better). */
+    uint16_t static_iaq; /* 0..500, lower is better */
     /**< IAQ accuracy in range 0..3. */
     uint8_t iaq_accuracy; /* 0..3 */
     /**< True when stabilization status is complete. */

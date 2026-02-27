@@ -6,6 +6,7 @@
 #include "ui.h"
 
 extern int current_iaq;
+extern uint8_t current_iaq_accuracy;
 extern int current_temp;
 extern int current_hum;
 extern int current_batt_pct;

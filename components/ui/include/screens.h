@@ -32,6 +32,7 @@ typedef struct {
     lv_obj_t* screen_iaq;
     lv_obj_t* lbl_iaq_value;
     lv_obj_t* lbl_iaq_title;
+    lv_obj_t* lbl_iaq_cal_status;
     lv_obj_t* lbl_iaq_batt_pct;
     lv_obj_t* img_iaq_icon;
     lv_obj_t* img_iaq_status;
