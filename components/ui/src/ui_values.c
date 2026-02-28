@@ -102,6 +102,14 @@ static void ui_get_current_battery_widgets(lv_obj_t** img_obj, lv_obj_t** label_
             *img_obj = ui_objects.img_calibration_battery;
             *label_obj = ui_objects.lbl_calibration_batt_pct;
             break;
+        case SCREEN_ID_NO_CHARGING:
+            *img_obj = ui_objects.img_no_charging_battery;
+            *label_obj = ui_objects.lbl_no_charging_batt_pct;
+            break;
+        case SCREEN_ID_CHARGING:
+            *img_obj = ui_objects.img_charging_battery;
+            *label_obj = ui_objects.lbl_charging_batt_pct;
+            break;
         case SCREEN_ID_QUESTION:
             *img_obj = ui_objects.img_question_battery;
             *label_obj = ui_objects.lbl_question_batt_pct;

@@ -26,6 +26,7 @@ void ui_show_charging(void)
         lv_obj_del(oldScreen);
     }
     currentScreenId = SCREEN_ID_CHARGING;
+    ui_apply_current_values();
 }
 
 void ui_show_no_charging(void)
@@ -40,6 +41,7 @@ void ui_show_no_charging(void)
         lv_obj_del(oldScreen);
     }
     currentScreenId = SCREEN_ID_NO_CHARGING;
+    ui_apply_current_values();
 }
 
 void ui_show_calibration(void)

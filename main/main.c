@@ -399,6 +399,10 @@ static void dispatch_button_events(void)
 {
     button_event_msg_t event = {0};
     while (buttons_get_event(&event)) {
+        ESP_LOGI(TAG,
+            "Button event: %s (%s)",
+            (event.button_id == BTN_ID_PREV) ? "PREV" : ((event.button_id == BTN_ID_NEXT) ? "NEXT" : "UNKNOWN"),
+            event.is_long_press ? "long" : "short");
         if (event.is_long_press) {
             app_on_button_long_press(event.button_id);
         } else {

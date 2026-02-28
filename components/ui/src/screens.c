@@ -205,6 +205,8 @@ void create_screen_no_charging(void)
     lv_obj_set_size(obj, 135, 240);
     lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    create_status_bar(obj, &ui_objects.img_no_charging_battery, &ui_objects.lbl_no_charging_batt_pct);
+
     ui_objects.img_no_charging_icon = lv_img_create(obj);
     img_set(ui_objects.img_no_charging_icon, &IMG_INFO_NO_CHARGING);
 }
@@ -216,6 +218,8 @@ void create_screen_charging(void)
     lv_obj_set_pos(obj, 0, 0);
     lv_obj_set_size(obj, 135, 240);
     lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    create_status_bar(obj, &ui_objects.img_charging_battery, &ui_objects.lbl_charging_batt_pct);
 
     ui_objects.img_charging_icon = lv_img_create(obj);
     img_set(ui_objects.img_charging_icon, &IMG_INFO_CHARGING);

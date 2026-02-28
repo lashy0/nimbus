@@ -21,7 +21,10 @@ static const char* TAG = "power_mgr";
 #define BATTERY_DISCHARGE_DELTA_MV -5.0f
 #define BATTERY_TREND_CONFIRM_SAMPLES 2U
 #define BATTERY_VALID_MIN_MV 2800
-#define BATTERY_VALID_MAX_MV 4350
+#define BATTERY_VALID_MAX_MV 5200
+#define BATTERY_ADC_EN_AUTODETECT_MARGIN_MV 120
+#define BATTERY_CHARGING_ABS_ON_MV 4400
+#define BATTERY_CHARGING_ABS_OFF_MV 4250
 
 static adc_oneshot_unit_handle_t battery_adc_handle = NULL;
 static adc_cali_handle_t battery_cali_handle = NULL;
@@ -32,6 +35,13 @@ static float battery_prev_mv = 0.0f;
 static bool battery_charging = false;
 static uint8_t battery_charge_trend_count = 0;
 static uint8_t battery_discharge_trend_count = 0;
+static int battery_adc_en_active_level = 1;
+
+static esp_err_t battery_set_adc_enabled(bool enabled)
+{
+    int level = enabled ? battery_adc_en_active_level : (battery_adc_en_active_level ? 0 : 1);
+    return gpio_set_level(BATTERY_ADC_EN_GPIO, level);
+}
 
 static int battery_percent_from_mv(int mv)
 {
@@ -108,7 +118,7 @@ static float battery_filter_apply(float batt_mv)
     return battery_filtered_mv;
 }
 
-static void battery_update_charging_trend(float delta_mv)
+static void battery_update_charging_state(float delta_mv, int batt_mv)
 {
     if (delta_mv >= BATTERY_CHARGE_DELTA_MV) {
         if (battery_charge_trend_count < 255U) {
@@ -128,6 +138,12 @@ static void battery_update_charging_trend(float delta_mv)
         battery_charging = true;
     } else if (battery_discharge_trend_count >= BATTERY_TREND_CONFIRM_SAMPLES) {
         battery_charging = false;
+    } else {
+        if (batt_mv >= BATTERY_CHARGING_ABS_ON_MV) {
+            battery_charging = true;
+        } else if (batt_mv <= BATTERY_CHARGING_ABS_OFF_MV) {
+            battery_charging = false;
+        }
     }
 }
 
@@ -166,7 +182,7 @@ static void battery_monitor_init(void)
         return;
     }
 
-    ret = gpio_set_level(BATTERY_ADC_EN_GPIO, 1);
+    ret = battery_set_adc_enabled(true);
     if (ret != ESP_OK) {
         ESP_LOGW(TAG, "Battery ADC_EN set failed: %s", esp_err_to_name(ret));
         return;
@@ -193,7 +209,43 @@ static void battery_monitor_init(void)
 
     battery_cali_enabled =
         battery_try_create_cali(BATTERY_ADC_UNIT, BATTERY_ADC_CHANNEL, BATTERY_ADC_ATTEN, &battery_cali_handle);
-    ESP_LOGI(TAG, "Battery monitor initialized (cali=%s)", battery_cali_enabled ? "on" : "off");
+
+    int pin_mv_high = 0;
+    int pin_mv_low = 0;
+    bool high_ok = false;
+    bool low_ok = false;
+
+    if (gpio_set_level(BATTERY_ADC_EN_GPIO, 1) == ESP_OK) {
+        esp_rom_delay_us(2000);
+        high_ok = (battery_read_pin_mv(&pin_mv_high) == ESP_OK);
+    }
+    if (gpio_set_level(BATTERY_ADC_EN_GPIO, 0) == ESP_OK) {
+        esp_rom_delay_us(2000);
+        low_ok = (battery_read_pin_mv(&pin_mv_low) == ESP_OK);
+    }
+
+    if (high_ok && low_ok) {
+        int batt_mv_high = (int)((float)pin_mv_high * BATTERY_DIVIDER_RATIO + 0.5f);
+        int batt_mv_low = (int)((float)pin_mv_low * BATTERY_DIVIDER_RATIO + 0.5f);
+        if ((batt_mv_low - batt_mv_high) >= BATTERY_ADC_EN_AUTODETECT_MARGIN_MV) {
+            battery_adc_en_active_level = 0;
+        } else {
+            battery_adc_en_active_level = 1;
+        }
+        ESP_LOGI(TAG,
+            "Battery ADC_EN autodetect: active_%s (high=%d mV, low=%d mV)",
+            battery_adc_en_active_level ? "HIGH" : "LOW",
+            batt_mv_high,
+            batt_mv_low);
+    } else {
+        ESP_LOGW(TAG, "Battery ADC_EN autodetect skipped (high_ok=%d, low_ok=%d)", high_ok, low_ok);
+    }
+
+    (void)battery_set_adc_enabled(true);
+    ESP_LOGI(TAG,
+        "Battery monitor initialized (cali=%s, adc_en=active_%s)",
+        battery_cali_enabled ? "on" : "off",
+        battery_adc_en_active_level ? "HIGH" : "LOW");
 }
 
 void pm_battery_init(void)
@@ -212,7 +264,7 @@ esp_err_t power_manager_read_battery(power_battery_info_t* out_info)
         return ESP_ERR_INVALID_STATE;
     }
 
-    esp_err_t ret = gpio_set_level(BATTERY_ADC_EN_GPIO, 1);
+    esp_err_t ret = battery_set_adc_enabled(true);
     if (ret != ESP_OK) {
         return ret;
     }
@@ -240,7 +292,7 @@ esp_err_t power_manager_read_battery(power_battery_info_t* out_info)
         return ESP_OK;
     }
 
-    battery_update_charging_trend(delta_mv);
+    battery_update_charging_state(delta_mv, mv_rounded);
 
     out_info->percent = battery_percent_from_mv(mv_rounded);
     out_info->charging = battery_charging;

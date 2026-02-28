@@ -60,9 +60,13 @@ typedef struct {
 
     lv_obj_t* screen_no_charging;
     lv_obj_t* img_no_charging_icon;
+    lv_obj_t* lbl_no_charging_batt_pct;
+    lv_obj_t* img_no_charging_battery;
 
     lv_obj_t* screen_charging;
     lv_obj_t* img_charging_icon;
+    lv_obj_t* lbl_charging_batt_pct;
+    lv_obj_t* img_charging_battery;
 
     lv_obj_t* screen_calibration;
     lv_obj_t* img_calibration_icon;
