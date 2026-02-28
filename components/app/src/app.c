@@ -65,7 +65,7 @@ void app_init(const app_config_t* config)
 
 void app_on_button_short_press(button_id_t btn_id)
 {
-    if (!lvgl_port_lock(0)) {
+    if (!lvgl_port_lock(50)) {
         ESP_LOGW(TAG, "LVGL lock failed on short press");
         return;
     }
@@ -145,7 +145,7 @@ void app_on_button_short_press(button_id_t btn_id)
 
 void app_on_button_long_press(button_id_t btn_id)
 {
-    if (!lvgl_port_lock(0)) {
+    if (!lvgl_port_lock(50)) {
         ESP_LOGW(TAG, "LVGL lock failed on long press");
         return;
     }

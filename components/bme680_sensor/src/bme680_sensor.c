@@ -4,10 +4,13 @@
 
 #include "bme68x.h"
 #include "bsec_interface.h"
+#include "driver/gpio.h"
 #include "esp_log.h"
 #include "esp_rom_sys.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 
@@ -15,8 +18,6 @@
 
 #define BSEC_STATE_SAVE_INTERVAL_SEC (15U * 60U)
 #define BSEC_STATE_SAVE_INTERVAL_BOOTSTRAP_SEC 60U
-#define BSEC_DEFAULT_RECALIB_INTERVAL_SEC (12U * 60U * 60U)
-#define BSEC_DEFAULT_IAQ_VALID_SAMPLES 1U
 #define BSEC_DEFAULT_NEXT_CALL_DELAY_MS 3000U
 #define BSEC_TOTAL_HEAT_DUR_MS 140U
 #define BSEC_HEATR_PROFILE_LEN 10U
@@ -33,22 +34,20 @@ typedef struct {
     bool iaq_valid;
     uint8_t iaq_accuracy;
     uint8_t current_op_mode;
-    bool auto_recalibration_enabled;
     bool state_persistence_enabled;
-    uint32_t auto_recalibration_interval_sec;
-    uint32_t iaq_valid_min_samples;
-    uint32_t iaq_valid_sample_count;
     uint32_t next_call_delay_ms;
     uint8_t last_saved_iaq_accuracy;
     bool last_saved_stabilization_done;
     bool last_saved_run_in_done;
     bme680_sensor_mode_t mode;
-    int64_t last_iaq_sample_timestamp_ns;
-    int64_t next_recalibration_time_us;
     int64_t last_state_save_time_us;
 
     i2c_bus_handle_t bus;
     i2c_bus_device_handle_t dev_handle;
+    gpio_num_t sda_gpio;
+    gpio_num_t scl_gpio;
+    i2c_port_t i2c_port;
+    uint32_t i2c_clk_speed_hz;
 
     struct bme68x_dev bme;
     struct bme68x_conf conf;
@@ -61,6 +60,8 @@ typedef struct {
 
 static const char* TAG = "bme680_sensor";
 static bme680_sensor_ctx_t s_ctx;
+
+static void i2c_bus_recovery(gpio_num_t sda_gpio, gpio_num_t scl_gpio);
 
 static int64_t now_us(void)
 {
@@ -106,6 +107,10 @@ static BME68X_INTF_RET_TYPE bme_i2c_read(uint8_t reg_addr, uint8_t* reg_data, ui
     }
 
     esp_err_t ret = i2c_bus_read_bytes(dev, reg_addr, length, reg_data);
+    if (ret != ESP_OK && s_ctx.initialized) {
+        i2c_bus_recovery(s_ctx.sda_gpio, s_ctx.scl_gpio);
+        ret = i2c_bus_read_bytes(dev, reg_addr, length, reg_data);
+    }
     return (ret == ESP_OK) ? BME68X_INTF_RET_SUCCESS : BME68X_E_COM_FAIL;
 }
 
@@ -344,53 +349,6 @@ static void bsec_maybe_save_state_on_progress(void)
     s_ctx.last_saved_run_in_done = s_ctx.last_output.run_in_done;
 }
 
-static void bsec_schedule_recalibration(void)
-{
-    if (!s_ctx.auto_recalibration_enabled || s_ctx.auto_recalibration_interval_sec == 0U) {
-        s_ctx.next_recalibration_time_us = 0;
-        return;
-    }
-
-    s_ctx.next_recalibration_time_us = now_us() + ((int64_t)s_ctx.auto_recalibration_interval_sec * 1000000LL);
-}
-
-static void bsec_reset_iaq(const char* reason)
-{
-    bsec_library_return_t bsec_ret = bsec_reset_output(BSEC_OUTPUT_IAQ);
-    if (bsec_check_rslt("bsec_reset_output", bsec_ret) != ESP_OK) {
-        return;
-    }
-
-    s_ctx.iaq_accuracy = 0;
-    s_ctx.iaq_valid = false;
-    s_ctx.iaq_valid_sample_count = 0;
-    s_ctx.last_iaq_sample_timestamp_ns = 0;
-    s_ctx.last_saved_iaq_accuracy = 0;
-    s_ctx.last_saved_stabilization_done = false;
-    s_ctx.last_saved_run_in_done = false;
-    s_ctx.last_output.iaq_accuracy = 0;
-    s_ctx.last_output.static_iaq = 0;
-    s_ctx.last_output.stabilization_done = false;
-    s_ctx.last_output.run_in_done = false;
-    s_ctx.last_output.iaq_valid = false;
-
-    bsec_clear_state_nvs();
-    bsec_schedule_recalibration();
-
-    ESP_LOGW(TAG, "BSEC IAQ reset (%s)", reason ? reason : "unspecified");
-}
-
-static void bsec_maybe_auto_recalibrate(void)
-{
-    if (!s_ctx.auto_recalibration_enabled || s_ctx.next_recalibration_time_us == 0) {
-        return;
-    }
-
-    if (now_us() >= s_ctx.next_recalibration_time_us) {
-        bsec_reset_iaq("periodic");
-    }
-}
-
 static esp_err_t bme_apply_settings(const bsec_bme_settings_t* settings)
 {
     if (settings->op_mode == BME68X_SLEEP_MODE) {
@@ -569,19 +527,7 @@ static esp_err_t bme_process_field(
     }
 
     if (has_iaq_output) {
-        if (s_ctx.iaq_accuracy > 0U) {
-            if (s_ctx.last_iaq_sample_timestamp_ns != timestamp_ns) {
-                s_ctx.last_iaq_sample_timestamp_ns = timestamp_ns;
-                if (s_ctx.iaq_valid_sample_count < 0xFFFFFFFFU) {
-                    s_ctx.iaq_valid_sample_count++;
-                }
-            }
-        } else {
-            s_ctx.iaq_valid_sample_count = 0;
-            s_ctx.last_iaq_sample_timestamp_ns = 0;
-        }
-
-        s_ctx.iaq_valid = (s_ctx.iaq_accuracy > 0U) && (s_ctx.iaq_valid_sample_count >= s_ctx.iaq_valid_min_samples);
+        s_ctx.iaq_valid = (s_ctx.iaq_accuracy > 0U);
         bsec_maybe_save_state_on_progress();
     }
 
@@ -602,6 +548,41 @@ static uint32_t bme_measurement_wait_us(const bsec_bme_settings_t* settings)
     return meas_dur_us + 1000U;
 }
 
+static void i2c_bus_recovery(gpio_num_t sda_gpio, gpio_num_t scl_gpio)
+{
+    int sda_level = gpio_get_level(sda_gpio);
+    if (sda_level != 0) {
+        return;
+    }
+
+    ESP_LOGW(TAG, "SDA stuck low, attempting I2C bus recovery");
+
+    gpio_config_t scl_cfg = {
+        .pin_bit_mask = (1ULL << scl_gpio),
+        .mode = GPIO_MODE_OUTPUT_OD,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&scl_cfg);
+
+    for (int i = 0; i < 9; i++) {
+        gpio_set_level(scl_gpio, 0);
+        esp_rom_delay_us(5);
+        gpio_set_level(scl_gpio, 1);
+        esp_rom_delay_us(5);
+        if (gpio_get_level(sda_gpio) != 0) {
+            break;
+        }
+    }
+
+    if (gpio_get_level(sda_gpio) != 0) {
+        ESP_LOGI(TAG, "I2C bus recovery successful");
+    } else {
+        ESP_LOGE(TAG, "I2C bus recovery failed, SDA still low");
+    }
+}
+
 esp_err_t bme680_sensor_init(const bme680_sensor_config_t* config)
 {
     if (!config) {
@@ -610,14 +591,8 @@ esp_err_t bme680_sensor_init(const bme680_sensor_config_t* config)
 
     memset(&s_ctx, 0, sizeof(s_ctx));
     s_ctx.current_op_mode = BME68X_SLEEP_MODE;
-    s_ctx.auto_recalibration_enabled = !config->disable_auto_recalibration;
     s_ctx.state_persistence_enabled = !config->disable_state_persistence;
     s_ctx.next_call_delay_ms = BSEC_DEFAULT_NEXT_CALL_DELAY_MS;
-    s_ctx.iaq_valid_min_samples =
-        (config->baseline_min_samples == 0U) ? BSEC_DEFAULT_IAQ_VALID_SAMPLES : config->baseline_min_samples;
-    s_ctx.auto_recalibration_interval_sec = (config->auto_recalibration_interval_sec == 0U)
-                                                ? BSEC_DEFAULT_RECALIB_INTERVAL_SEC
-                                                : config->auto_recalibration_interval_sec;
     s_ctx.mode = BME680_SENSOR_MODE_LP;
     esp_reset_reason_t reset_reason = esp_reset_reason();
     bool cold_start_on_power_on = config->reset_baseline_on_power_on && (reset_reason == ESP_RST_POWERON);
@@ -628,6 +603,13 @@ esp_err_t bme680_sensor_init(const bme680_sensor_config_t* config)
         cold_start_on_power_on ? "yes" : "no");
 
     bsec_try_init_nvs();
+
+    s_ctx.sda_gpio = config->sda_io_num;
+    s_ctx.scl_gpio = config->scl_io_num;
+    s_ctx.i2c_port = config->i2c_port;
+    s_ctx.i2c_clk_speed_hz = config->i2c_clk_speed_hz;
+
+    i2c_bus_recovery(config->sda_io_num, config->scl_io_num);
 
     i2c_config_t i2c_conf = {
         .mode = I2C_MODE_MASTER,
@@ -694,7 +676,6 @@ esp_err_t bme680_sensor_init(const bme680_sensor_config_t* config)
     } else {
         bsec_load_state_nvs();
     }
-    bsec_schedule_recalibration();
 
     s_ctx.initialized = true;
     return ESP_OK;
@@ -705,8 +686,6 @@ esp_err_t bme680_sensor_read(bme680_sensor_data_t* out_data)
     if (!s_ctx.initialized || !out_data) {
         return ESP_ERR_INVALID_STATE;
     }
-
-    bsec_maybe_auto_recalibrate();
 
     int64_t timestamp_ns = now_us() * 1000LL;
     bsec_bme_settings_t bme_settings = {0};
@@ -724,7 +703,11 @@ esp_err_t bme680_sensor_read(bme680_sensor_data_t* out_data)
     }
 
     if (bme_settings.trigger_measurement != 0U && bme_settings.op_mode != BME68X_SLEEP_MODE) {
-        bme_delay_us(bme_measurement_wait_us(&bme_settings), NULL);
+        uint32_t wait_us = bme_measurement_wait_us(&bme_settings);
+        uint32_t wait_ms = (wait_us + 999U) / 1000U + 5U;
+        if (wait_ms > 0U) {
+            vTaskDelay(pdMS_TO_TICKS(wait_ms));
+        }
 
         struct bme68x_data fields[BME68X_N_MEAS] = {0};
         uint8_t n_fields = 0;
@@ -802,15 +785,6 @@ bool bme680_sensor_is_initialized(void)
 bool bme680_sensor_is_calibrating(void)
 {
     return s_ctx.initialized && !s_ctx.iaq_valid;
-}
-
-void bme680_sensor_force_recalibration(void)
-{
-    if (!s_ctx.initialized) {
-        return;
-    }
-
-    bsec_reset_iaq("forced");
 }
 
 uint32_t bme680_sensor_get_next_call_delay_ms(void)

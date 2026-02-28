@@ -28,12 +28,6 @@ typedef struct {
     uint16_t heater_temp_c;
     /**< Heater duration in milliseconds. */
     uint16_t heater_dur_ms;
-    /**< Auto-recalibration period in seconds, 0 means default interval. */
-    uint32_t auto_recalibration_interval_sec; /* 0 = default interval */
-    /**< Minimum number of IAQ-valid samples for calibration completion, 0 means default. */
-    uint32_t baseline_min_samples; /* BSEC IAQ-valid samples required, 0 = default */
-    /**< Disable periodic auto-recalibration when true. */
-    bool disable_auto_recalibration;
     /**< Disable BSEC state save/restore to NVS when true. */
     bool disable_state_persistence;
     /**< Reset BSEC baseline on power-on by clearing persisted state and skipping restore. */
@@ -121,11 +115,6 @@ bool bme680_sensor_is_initialized(void);
  * @return true while calibrating, false when baseline is ready.
  */
 bool bme680_sensor_is_calibrating(void);
-
-/**
- * @brief Force recalibration cycle.
- */
-void bme680_sensor_force_recalibration(void);
 
 /**
  * @brief Get recommended delay until next sensor read.

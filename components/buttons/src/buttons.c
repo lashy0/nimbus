@@ -74,8 +74,8 @@ static void queue_button_event(button_id_t btn_id, bool is_long_press)
     };
 
     if (xQueueSend(s_event_queue, &event, 0) != pdTRUE) {
-        s_event_drop_count++;
-        if ((s_event_drop_count % 20U) == 1U) {
+        uint32_t count = __atomic_add_fetch(&s_event_drop_count, 1, __ATOMIC_RELAXED);
+        if ((count % 20U) == 1U) {
             ESP_LOGW(TAG, "Button event queue is full, dropping events (%lu)", (unsigned long)s_event_drop_count);
         }
     }

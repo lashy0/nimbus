@@ -9,6 +9,7 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "esp_lvgl_port.h"
+#include "esp_system.h"
 #include "esp_pm.h"
 #include "esp_spiffs.h"
 #include "esp_timer.h"
@@ -33,12 +34,11 @@ static const char* TAG = "main";
 #define BME680_I2C_ADDR_HIGH 0x77
 #define BME680_HEATER_TEMP_C 300
 #define BME680_HEATER_DUR_MS 100
-#define BME680_IAQ_BASELINE_MIN_SAMPLES 3
-#define BME680_AUTO_RECALIBRATION_INTERVAL_SEC (12 * 60 * 60)
 #define IAQ_USABLE_ACCURACY 1U
 
 #define UI_ACTIVE_BRIGHTNESS_PCT 60
 #define BATTERY_UPDATE_INTERVAL_MS 2000
+#define BATTERY_LOW_SHUTDOWN_PCT 5
 #define CHARGING_SCREEN_DURATION_MS 3000
 #define SENSOR_UI_TIMER_PERIOD_MS 200
 #define SENSOR_TASK_STACK_SIZE 8192
@@ -442,6 +442,12 @@ static void sensor_task(void* arg)
         bool charging_now = false;
         sensor_step_battery(&worker_state, monitoring, now, &charging_transition, &charging_now);
 
+        if (worker_state.battery_info.valid && !worker_state.battery_info.charging &&
+            worker_state.battery_info.percent >= 0 && worker_state.battery_info.percent <= BATTERY_LOW_SHUTDOWN_PCT) {
+            ESP_LOGW(TAG, "Battery critically low (%d%%), shutting down", worker_state.battery_info.percent);
+            power_manager_shutdown();
+        }
+
         bool should_read = (next_sensor_read_us == 0) || (now >= next_sensor_read_us);
         if (should_read) {
             sensor_sample_result_t sample = sensor_step_read(&worker_state, monitoring);
@@ -455,7 +461,7 @@ static void sensor_task(void* arg)
             next_sensor_read_us = now + ((int64_t)next_period_ms * 1000LL);
         }
 
-        if (sensor_shared_mutex && xSemaphoreTake(sensor_shared_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+        if (sensor_shared_mutex && xSemaphoreTake(sensor_shared_mutex, pdMS_TO_TICKS(25)) == pdTRUE) {
             sensor_shared.latest_sensor_data = latest_sensor_data;
             sensor_shared.has_sensor_data = has_sensor_data;
             sensor_shared.battery_info = worker_state.battery_info;
@@ -483,7 +489,8 @@ static void sensor_ui_timer_cb(lv_timer_t* t)
         return;
     }
 
-    if (xSemaphoreTake(sensor_shared_mutex, pdMS_TO_TICKS(5)) != pdTRUE) {
+    if (xSemaphoreTake(sensor_shared_mutex, pdMS_TO_TICKS(15)) != pdTRUE) {
+        ESP_LOGW(TAG, "sensor_ui_timer: shared mutex timeout");
         return;
     }
 
@@ -617,11 +624,8 @@ void app_main(void)
         .i2c_addr = BME680_I2C_ADDR_LOW,
         .heater_temp_c = BME680_HEATER_TEMP_C,
         .heater_dur_ms = BME680_HEATER_DUR_MS,
-        .auto_recalibration_interval_sec = BME680_AUTO_RECALIBRATION_INTERVAL_SEC,
-        .baseline_min_samples = BME680_IAQ_BASELINE_MIN_SAMPLES,
-        .disable_auto_recalibration = true,
         .disable_state_persistence = false,
-        .reset_baseline_on_power_on = true,
+        .reset_baseline_on_power_on = false,
     };
 
     esp_err_t sensor_init_ret = bme680_sensor_init(&bme_cfg);
@@ -714,7 +718,7 @@ void app_main(void)
     return;
 
 degraded_startup:
-    ESP_LOGE(TAG, "Startup degraded: stopping further initialization and runtime");
+    ESP_LOGE(TAG, "Startup degraded: rebooting in 10 seconds");
     if (lvgl_port_lock(100)) {
         ui_finish_startup(true);
         lvgl_port_unlock();
@@ -722,7 +726,7 @@ degraded_startup:
         ESP_LOGE(TAG, "Failed to lock LVGL to show degraded startup screen");
     }
 
-    while (1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
+    vTaskDelay(pdMS_TO_TICKS(10000));
+    ESP_LOGE(TAG, "Rebooting after degraded startup");
+    esp_restart();
 }

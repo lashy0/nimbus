@@ -16,7 +16,7 @@ set(includes
 idf_component_register(
     SRCS ${srcs}
     INCLUDE_DIRS ${includes}
-    REQUIRES espressif__i2c_bus nvs_flash esp_timer
+    REQUIRES espressif__i2c_bus nvs_flash esp_timer driver freertos
     EMBED_FILES ${bsec2_cfg}
 )
 
