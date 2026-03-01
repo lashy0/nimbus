@@ -55,7 +55,7 @@ void create_screen_iaq(void)
 
     // Title Label IAQ
     ui_objects.lbl_iaq_title = lv_label_create(obj);
-    lv_obj_set_pos(ui_objects.lbl_iaq_title, 13, 34);
+    lv_obj_set_pos(ui_objects.lbl_iaq_title, 13, 33);
     lv_obj_set_size(ui_objects.lbl_iaq_title, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_style_text_color(ui_objects.lbl_iaq_title, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_objects.lbl_iaq_title, &ui_font_sf_sb_30_digits, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -74,13 +74,14 @@ void create_screen_iaq(void)
     lv_obj_set_style_text_align(ui_objects.lbl_iaq_value, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_label_set_text(ui_objects.lbl_iaq_value, "000");
 
-    ui_objects.lbl_iaq_cal_status = lv_label_create(obj);
-    lv_obj_set_pos(ui_objects.lbl_iaq_cal_status, 0, 124);
-    lv_obj_set_size(ui_objects.lbl_iaq_cal_status, 135, LV_SIZE_CONTENT);
-    lv_obj_set_style_text_color(ui_objects.lbl_iaq_cal_status, lv_color_hex(0xffa0a0a0), 0);
-    lv_obj_set_style_text_font(ui_objects.lbl_iaq_cal_status, &ui_font_sf_b_10_digits, 0);
-    lv_obj_set_style_text_align(ui_objects.lbl_iaq_cal_status, LV_TEXT_ALIGN_CENTER, 0);
-    lv_label_set_text(ui_objects.lbl_iaq_cal_status, "WARMUP ACC 0/3");
+    ui_objects.lbl_iaq_warmup = lv_label_create(obj);
+    lv_obj_set_pos(ui_objects.lbl_iaq_warmup, 0, 174);
+    lv_obj_set_size(ui_objects.lbl_iaq_warmup, 135, LV_SIZE_CONTENT);
+    lv_obj_set_style_text_color(ui_objects.lbl_iaq_warmup, lv_color_hex(0xffffffff), 0);
+    lv_obj_set_style_text_font(ui_objects.lbl_iaq_warmup, &ui_font_sf_b_10_digits, 0);
+    lv_obj_set_style_text_align(ui_objects.lbl_iaq_warmup, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_text(ui_objects.lbl_iaq_warmup, "SENSOR\nCALIBRATION");
+    lv_obj_add_flag(ui_objects.lbl_iaq_warmup, LV_OBJ_FLAG_HIDDEN);
 
     // Icon Img
     ui_objects.img_iaq_icon = lv_img_create(obj);
@@ -205,7 +206,8 @@ void create_screen_no_charging(void)
     lv_obj_set_size(obj, 135, 240);
     lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    create_status_bar(obj, &ui_objects.img_no_charging_battery, &ui_objects.lbl_no_charging_batt_pct);
+    ui_objects.img_no_charging_battery = NULL;
+    ui_objects.lbl_no_charging_batt_pct = NULL;
 
     ui_objects.img_no_charging_icon = lv_img_create(obj);
     img_set(ui_objects.img_no_charging_icon, &IMG_INFO_NO_CHARGING);
@@ -219,44 +221,11 @@ void create_screen_charging(void)
     lv_obj_set_size(obj, 135, 240);
     lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    create_status_bar(obj, &ui_objects.img_charging_battery, &ui_objects.lbl_charging_batt_pct);
+    ui_objects.img_charging_battery = NULL;
+    ui_objects.lbl_charging_batt_pct = NULL;
 
     ui_objects.img_charging_icon = lv_img_create(obj);
     img_set(ui_objects.img_charging_icon, &IMG_INFO_CHARGING);
-}
-
-void create_screen_calibration(void)
-{
-    lv_obj_t* obj = lv_obj_create(0);
-    ui_objects.screen_calibration = obj;
-    lv_obj_set_pos(obj, 0, 0);
-    lv_obj_set_size(obj, 135, 240);
-    lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
-
-    // Status bar
-    create_status_bar(obj, &ui_objects.img_calibration_battery, &ui_objects.lbl_calibration_batt_pct);
-
-    // Icon
-    ui_objects.img_calibration_icon = lv_img_create(obj);
-    img_set(ui_objects.img_calibration_icon, &IMG_INFO_CAT_HUH_CALIB);
-
-    // Text
-    ui_objects.lbl_calibration_text = lv_label_create(obj);
-    lv_obj_set_pos(ui_objects.lbl_calibration_text, 0, 160);
-    lv_obj_set_width(ui_objects.lbl_calibration_text, 135);
-    lv_obj_set_style_text_color(ui_objects.lbl_calibration_text, lv_color_hex(0xffffffff), 0);
-    lv_obj_set_style_text_font(ui_objects.lbl_calibration_text, &ui_font_sf_b_10_digits, 0);
-    lv_obj_set_style_text_align(ui_objects.lbl_calibration_text, LV_TEXT_ALIGN_CENTER, 0);
-    lv_label_set_text(ui_objects.lbl_calibration_text, "Calibrating...\nStab:wait Run:wait");
-
-    // Спиннер
-    ui_objects.spinner_calibration = lv_spinner_create(obj, 1000, 60);
-    lv_obj_set_size(ui_objects.spinner_calibration, 32, 32);
-    lv_obj_align(ui_objects.spinner_calibration, LV_ALIGN_BOTTOM_MID, 0, -12);
-    lv_obj_set_style_arc_color(ui_objects.spinner_calibration, lv_color_hex(0xffffffff), LV_PART_INDICATOR);
-    lv_obj_set_style_arc_color(ui_objects.spinner_calibration, lv_color_hex(0xff333333), LV_PART_MAIN);
-    lv_obj_set_style_arc_width(ui_objects.spinner_calibration, 4, LV_PART_INDICATOR);
-    lv_obj_set_style_arc_width(ui_objects.spinner_calibration, 4, LV_PART_MAIN);
 }
 
 void create_screen_brightness(uint8_t value_percent)
@@ -275,8 +244,11 @@ void create_screen_brightness(uint8_t value_percent)
 
     create_status_bar(obj, &ui_objects.img_brightness_battery, &ui_objects.lbl_brightness_batt_pct);
 
+    lv_obj_t* img_sun = lv_img_create(obj);
+    img_set(img_sun, &IMG_INFO_SUN);
+
     ui_objects.lbl_brightness_title = lv_label_create(obj);
-    lv_obj_set_pos(ui_objects.lbl_brightness_title, 0, 38);
+    lv_obj_set_pos(ui_objects.lbl_brightness_title, 0, 130);
     lv_obj_set_width(ui_objects.lbl_brightness_title, 135);
     lv_obj_set_style_text_color(ui_objects.lbl_brightness_title, lv_color_hex(0xffffffff), 0);
     lv_obj_set_style_text_font(ui_objects.lbl_brightness_title, &ui_font_sf_b_10_digits, 0);
@@ -284,10 +256,10 @@ void create_screen_brightness(uint8_t value_percent)
     lv_label_set_text(ui_objects.lbl_brightness_title, "Brightness");
 
     ui_objects.lbl_brightness_value = lv_label_create(obj);
-    lv_obj_set_pos(ui_objects.lbl_brightness_value, 0, 72);
+    lv_obj_set_pos(ui_objects.lbl_brightness_value, 0, 146);
     lv_obj_set_width(ui_objects.lbl_brightness_value, 135);
     lv_obj_set_style_text_color(ui_objects.lbl_brightness_value, lv_color_hex(0xffffffff), 0);
-    lv_obj_set_style_text_font(ui_objects.lbl_brightness_value, &ui_font_sf_sb_60_digits, 0);
+    lv_obj_set_style_text_font(ui_objects.lbl_brightness_value, &ui_font_sf_sb_30_digits, 0);
     lv_obj_set_style_text_align(ui_objects.lbl_brightness_value, LV_TEXT_ALIGN_CENTER, 0);
 
     char value_buf[8];
@@ -295,22 +267,18 @@ void create_screen_brightness(uint8_t value_percent)
     lv_label_set_text(ui_objects.lbl_brightness_value, value_buf);
 
     ui_objects.bar_brightness = lv_bar_create(obj);
-    lv_obj_set_pos(ui_objects.bar_brightness, 20, 148);
-    lv_obj_set_size(ui_objects.bar_brightness, 95, 10);
+    lv_obj_set_pos(ui_objects.bar_brightness, 20, 184);
+    lv_obj_set_size(ui_objects.bar_brightness, 95, 6);
     lv_bar_set_range(ui_objects.bar_brightness, 5, 100);
     lv_bar_set_value(ui_objects.bar_brightness, value_percent, LV_ANIM_OFF);
-    lv_obj_set_style_radius(ui_objects.bar_brightness, 3, LV_PART_MAIN);
-    lv_obj_set_style_radius(ui_objects.bar_brightness, 3, LV_PART_INDICATOR);
-    lv_obj_set_style_bg_color(ui_objects.bar_brightness, lv_color_hex(0xff202020), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(ui_objects.bar_brightness, lv_color_hex(0xffff6600), LV_PART_INDICATOR);
+    lv_obj_set_style_radius(ui_objects.bar_brightness, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+    lv_obj_set_style_radius(ui_objects.bar_brightness, LV_RADIUS_CIRCLE, LV_PART_INDICATOR);
+    lv_obj_set_style_border_width(ui_objects.bar_brightness, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(ui_objects.bar_brightness, 0, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(ui_objects.bar_brightness, lv_color_hex(0xff9a9a9a), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(ui_objects.bar_brightness, lv_color_hex(0xffffffff), LV_PART_INDICATOR);
 
-    ui_objects.lbl_brightness_hint = lv_label_create(obj);
-    lv_obj_set_pos(ui_objects.lbl_brightness_hint, 0, 178);
-    lv_obj_set_width(ui_objects.lbl_brightness_hint, 135);
-    lv_obj_set_style_text_color(ui_objects.lbl_brightness_hint, lv_color_hex(0xffa0a0a0), 0);
-    lv_obj_set_style_text_font(ui_objects.lbl_brightness_hint, &ui_font_sf_b_10_digits, 0);
-    lv_obj_set_style_text_align(ui_objects.lbl_brightness_hint, LV_TEXT_ALIGN_CENTER, 0);
-    lv_label_set_text(ui_objects.lbl_brightness_hint, "PREV - / NEXT +\nLong NEXT = Done");
+    ui_objects.lbl_brightness_hint = NULL;
 }
 
 void create_screen_question(const char* text)

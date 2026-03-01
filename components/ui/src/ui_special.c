@@ -44,21 +44,6 @@ void ui_show_no_charging(void)
     ui_apply_current_values();
 }
 
-void ui_show_calibration(void)
-{
-    previousScreenId = currentScreenId;
-
-    lv_obj_t* oldScreen = lv_scr_act();
-    create_screen_calibration();
-
-    lv_scr_load(ui_objects.screen_calibration);
-    if (oldScreen) {
-        lv_obj_del(oldScreen);
-    }
-    currentScreenId = SCREEN_ID_CALIBRATION;
-    ui_apply_current_values();
-}
-
 void ui_show_brightness(uint8_t value_percent)
 {
     if (value_percent < UI_BRIGHTNESS_MIN_PCT) {
@@ -157,7 +142,7 @@ void ui_hide_special(void)
 {
     if (previousScreenId != SCREEN_ID_NONE && previousScreenId != SCREEN_ID_START &&
         previousScreenId != SCREEN_ID_CHARGING && previousScreenId != SCREEN_ID_NO_CHARGING &&
-        previousScreenId != SCREEN_ID_CALIBRATION && previousScreenId != SCREEN_ID_BRIGHTNESS &&
+        previousScreenId != SCREEN_ID_BRIGHTNESS &&
         previousScreenId != SCREEN_ID_QUESTION) {
         loadScreen(previousScreenId);
     } else {

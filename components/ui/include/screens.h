@@ -19,10 +19,9 @@ enum ScreensEnum {
     SCREEN_LIST_X
 #undef X
 
-        SCREEN_ID_START,
+    SCREEN_ID_START,
     SCREEN_ID_NO_CHARGING,
     SCREEN_ID_CHARGING,
-    SCREEN_ID_CALIBRATION,
     SCREEN_ID_BRIGHTNESS,
     SCREEN_ID_QUESTION,
     SCREEN_COUNT_TOTAL
@@ -32,7 +31,7 @@ typedef struct {
     lv_obj_t* screen_iaq;
     lv_obj_t* lbl_iaq_value;
     lv_obj_t* lbl_iaq_title;
-    lv_obj_t* lbl_iaq_cal_status;
+    lv_obj_t* lbl_iaq_warmup;
     lv_obj_t* lbl_iaq_batt_pct;
     lv_obj_t* img_iaq_icon;
     lv_obj_t* img_iaq_status;
@@ -68,13 +67,6 @@ typedef struct {
     lv_obj_t* lbl_charging_batt_pct;
     lv_obj_t* img_charging_battery;
 
-    lv_obj_t* screen_calibration;
-    lv_obj_t* img_calibration_icon;
-    lv_obj_t* lbl_calibration_text;
-    lv_obj_t* spinner_calibration;
-    lv_obj_t* lbl_calibration_batt_pct;
-    lv_obj_t* img_calibration_battery;
-
     lv_obj_t* screen_brightness;
     lv_obj_t* lbl_brightness_title;
     lv_obj_t* lbl_brightness_value;
@@ -108,8 +100,6 @@ void create_screen_start(void);
 void create_screen_no_charging(void);
 
 void create_screen_charging(void);
-
-void create_screen_calibration(void);
 
 void create_screen_brightness(uint8_t value_percent);
 

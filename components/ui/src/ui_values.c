@@ -12,8 +12,7 @@ void ui_apply_brightness_value(void)
     snprintf(buf, sizeof(buf), "%u%%", (unsigned int)current_brightness_pct);
 
     if (ui_objects.lbl_brightness_value) {
-        const lv_font_t* font = (current_brightness_pct == 100) ? &ui_font_sf_sb_50_digits : &ui_font_sf_sb_60_digits;
-        lv_obj_set_style_text_font(ui_objects.lbl_brightness_value, font, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_font(ui_objects.lbl_brightness_value, &ui_font_sf_sb_30_digits, LV_PART_MAIN | LV_STATE_DEFAULT);
         lv_label_set_text(ui_objects.lbl_brightness_value, buf);
     }
 
@@ -22,43 +21,51 @@ void ui_apply_brightness_value(void)
     }
 }
 
-void ui_apply_calibration_status_text(void)
+static void ui_apply_iaq_screen_state(void)
 {
-    if (!ui_objects.lbl_calibration_text) {
+    bool warmup = (current_iaq_accuracy == 0U);
+    char buf[8];
+
+    if (warmup) {
+        if (ui_objects.lbl_iaq_title) {
+            lv_obj_set_pos(ui_objects.lbl_iaq_title, 41, 33);
+            lv_obj_set_size(ui_objects.lbl_iaq_title, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+        }
+        if (ui_objects.lbl_iaq_value) {
+            lv_obj_add_flag(ui_objects.lbl_iaq_value, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (ui_objects.img_iaq_status) {
+            lv_obj_add_flag(ui_objects.img_iaq_status, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (ui_objects.img_iaq_icon) {
+            img_set(ui_objects.img_iaq_icon, &IMG_INFO_ORDINARY_NIMBUS);
+        }
+        if (ui_objects.lbl_iaq_warmup) {
+            lv_obj_clear_flag(ui_objects.lbl_iaq_warmup, LV_OBJ_FLAG_HIDDEN);
+        }
         return;
     }
 
-    char buf[96];
-    snprintf(buf,
-        sizeof(buf),
-        "Calibrating...\nStab:%s Run:%s",
-        current_stabilization_done ? "ok" : "wait",
-        current_run_in_done ? "ok" : "wait");
-    lv_label_set_text(ui_objects.lbl_calibration_text, buf);
-}
-
-static void ui_apply_iaq_quality_status(void)
-{
-    if (!ui_objects.lbl_iaq_cal_status) {
-        return;
+    if (ui_objects.lbl_iaq_title) {
+        lv_obj_set_pos(ui_objects.lbl_iaq_title, 13, 34);
+        lv_obj_set_size(ui_objects.lbl_iaq_title, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     }
 
-    const char* phase = "READY";
-    if (current_iaq_accuracy == 0U) {
-        phase = "WARMUP";
-    } else if (!current_stabilization_done || !current_run_in_done) {
-        phase = "CAL";
+    if (ui_objects.lbl_iaq_value) {
+        snprintf(buf, sizeof(buf), "%03d", current_iaq);
+        lv_label_set_text(ui_objects.lbl_iaq_value, buf);
+        lv_obj_clear_flag(ui_objects.lbl_iaq_value, LV_OBJ_FLAG_HIDDEN);
     }
-
-    uint8_t acc = current_iaq_accuracy;
-    if (acc > 3U) {
-        acc = 3U;
+    if (ui_objects.img_iaq_icon) {
+        img_set_info(ui_objects.img_iaq_icon, get_iaq_info(current_iaq));
     }
-
-    char buf[24];
-    snprintf(buf, sizeof(buf), "%s ACC %u/3", phase, (unsigned int)acc);
-    lv_label_set_text(ui_objects.lbl_iaq_cal_status, buf);
-    lv_obj_clear_flag(ui_objects.lbl_iaq_cal_status, LV_OBJ_FLAG_HIDDEN);
+    if (ui_objects.img_iaq_status) {
+        img_set_info(ui_objects.img_iaq_status, get_iaq_status_info(current_iaq));
+        lv_obj_clear_flag(ui_objects.img_iaq_status, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (ui_objects.lbl_iaq_warmup) {
+        lv_obj_add_flag(ui_objects.lbl_iaq_warmup, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 static bool ui_battery_is_known(void)
@@ -97,18 +104,6 @@ static void ui_get_current_battery_widgets(lv_obj_t** img_obj, lv_obj_t** label_
         case SCREEN_ID_HUM:
             *img_obj = ui_objects.img_hum_battery;
             *label_obj = ui_objects.lbl_hum_batt_pct;
-            break;
-        case SCREEN_ID_CALIBRATION:
-            *img_obj = ui_objects.img_calibration_battery;
-            *label_obj = ui_objects.lbl_calibration_batt_pct;
-            break;
-        case SCREEN_ID_NO_CHARGING:
-            *img_obj = ui_objects.img_no_charging_battery;
-            *label_obj = ui_objects.lbl_no_charging_batt_pct;
-            break;
-        case SCREEN_ID_CHARGING:
-            *img_obj = ui_objects.img_charging_battery;
-            *label_obj = ui_objects.lbl_charging_batt_pct;
             break;
         case SCREEN_ID_QUESTION:
             *img_obj = ui_objects.img_question_battery;
@@ -149,17 +144,7 @@ void ui_apply_current_values(void)
 
     switch (currentScreenId) {
         case SCREEN_ID_IAQ:
-            if (ui_objects.lbl_iaq_value) {
-                snprintf(buf, sizeof(buf), "%03d", current_iaq);
-                lv_label_set_text(ui_objects.lbl_iaq_value, buf);
-            }
-            if (ui_objects.img_iaq_icon) {
-                img_set_info(ui_objects.img_iaq_icon, get_iaq_info(current_iaq));
-            }
-            if (ui_objects.img_iaq_status) {
-                img_set_info(ui_objects.img_iaq_status, get_iaq_status_info(current_iaq));
-            }
-            ui_apply_iaq_quality_status();
+            ui_apply_iaq_screen_state();
             break;
 
         case SCREEN_ID_TEMP:
@@ -191,10 +176,6 @@ void ui_apply_current_values(void)
             }
             break;
 
-        case SCREEN_ID_CALIBRATION:
-            ui_apply_calibration_status_text();
-            break;
-
         case SCREEN_ID_BRIGHTNESS:
             ui_apply_brightness_value();
             break;
@@ -212,17 +193,7 @@ void ui_update_iaq(int value)
     current_iaq = value;
 
     if (currentScreenId == SCREEN_ID_IAQ) {
-        char buf[8];
-        if (ui_objects.lbl_iaq_value) {
-            snprintf(buf, sizeof(buf), "%03d", value);
-            lv_label_set_text(ui_objects.lbl_iaq_value, buf);
-        }
-        if (ui_objects.img_iaq_icon) {
-            img_set_info(ui_objects.img_iaq_icon, get_iaq_info(value));
-        }
-        if (ui_objects.img_iaq_status) {
-            img_set_info(ui_objects.img_iaq_status, get_iaq_status_info(value));
-        }
+        ui_apply_iaq_screen_state();
     }
 }
 
@@ -272,10 +243,8 @@ void ui_update_calibration_status(bool stabilization_done, bool run_in_done)
     current_stabilization_done = stabilization_done;
     current_run_in_done = run_in_done;
 
-    if (currentScreenId == SCREEN_ID_CALIBRATION) {
-        ui_apply_calibration_status_text();
-    } else if (currentScreenId == SCREEN_ID_IAQ) {
-        ui_apply_iaq_quality_status();
+    if (currentScreenId == SCREEN_ID_IAQ) {
+        ui_apply_iaq_screen_state();
     }
 }
 
@@ -286,9 +255,7 @@ void ui_update_iaq_quality(uint8_t iaq_accuracy, bool stabilization_done, bool r
     current_run_in_done = run_in_done;
 
     if (currentScreenId == SCREEN_ID_IAQ) {
-        ui_apply_iaq_quality_status();
-    } else if (currentScreenId == SCREEN_ID_CALIBRATION) {
-        ui_apply_calibration_status_text();
+        ui_apply_iaq_screen_state();
     }
 }
 

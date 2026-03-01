@@ -36,11 +36,12 @@ const img_info_t IMG_INFO_BATT_2_NOT_CHARGING = {IMG_BATT_2_NOT_CHARGING, 74, 11
 const img_info_t IMG_INFO_BATT_1_NOT_CHARGING = {IMG_BATT_1_NOT_CHARGING, 74, 11, 21, 10};
 
 const img_info_t IMG_INFO_BASE_CENTER = {IMG_BASE, 32, 50, 71, 73};
-const img_info_t IMG_INFO_CHARGING = {IMG_CHARGING, 35, 60, 65, 120};
+const img_info_t IMG_INFO_CHARGING = {IMG_CHARGING, 37, 70, 60, 99};
 const img_info_t IMG_INFO_NO_CHARGING = {IMG_DEAD, 32, 80, 71, 73};
-const img_info_t IMG_INFO_CAT_HUH_CENTER = {IMG_CAT_HUH, 27, 70, 82, 87};
-const img_info_t IMG_INFO_CAT_HUH_CALIB = {IMG_CAT_HUH, 27, 70, 82, 87};
-const img_info_t IMG_INFO_ORDINARY_NIMBUS = {IMG_ORDINARY_NIMBUS, 27, 50, 82, 87};
+const img_info_t IMG_INFO_CAT_HUH_CENTER = {IMG_CAT_HUH, 32, 45, 82, 87};
+const img_info_t IMG_INFO_ORDINARY_NIMBUS = {IMG_ORDINARY_NIMBUS, 25, 83, 80, 76};
+
+const img_info_t IMG_INFO_SUN = {IMG_SUN, 40, 40, 55, 55};
 
 void img_set(lv_obj_t* img_obj, const img_info_t* info)
 {

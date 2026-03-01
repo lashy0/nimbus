@@ -48,7 +48,7 @@ void ui_update_temp(int value);
 void ui_update_hum(int value);
 
 /**
- * @brief Update calibration flags shown on calibration screen.
+ * @brief Update calibration flags shown on IAQ warmup status.
  *
  * @param[in] stabilization_done Stabilization status.
  * @param[in] run_in_done Run-in status.
@@ -110,11 +110,6 @@ void ui_show_charging(void);
  * @brief Show no-charging/dead screen.
  */
 void ui_show_no_charging(void);
-
-/**
- * @brief Show calibration screen.
- */
-void ui_show_calibration(void);
 
 /**
  * @brief Show brightness setup screen.

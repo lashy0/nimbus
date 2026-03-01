@@ -27,5 +27,4 @@ extern bool question_selected_yes;
 
 void ui_apply_current_values(void);
 void ui_apply_brightness_value(void);
-void ui_apply_calibration_status_text(void);
 void ui_apply_current_battery_status(void);

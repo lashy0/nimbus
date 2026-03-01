@@ -373,10 +373,6 @@ static void sensor_step_update_sensor_ui(const bme680_sensor_data_t* data, bool 
         ESP_LOGI(TAG, "BME680 IAQ warmup started");
     }
 
-    if (usable_now && ui_get_current_screen() == SCREEN_ID_CALIBRATION) {
-        loadScreen(SCREEN_ID_IAQ);
-    }
-
     if (usable_now) {
         ui_update_iaq((int)data->static_iaq);
     } else {

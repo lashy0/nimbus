@@ -17,7 +17,7 @@
 #define IMG_TEMP_PLUS IMG_PATH("temp_plus")
 #define IMG_DIVER IMG_PATH("diver")
 #define IMG_CAT_HUH IMG_PATH("cat_huh")
-#define IMG_ORDINARY_NIMBUS IMG_PATH("ordinary_numbus")
+#define IMG_ORDINARY_NIMBUS IMG_PATH("ordinary_nimbus")
 #define IMG_HAPPY_CLOSED_EYES IMG_PATH("happy_closed_eyes")
 
 #define IMG_BAD IMG_PATH("bad")
@@ -42,6 +42,8 @@
 #define IMG_BATT_1_CHARGING IMG_PATH("batt_1_charging")
 
 #define IMG_CHARGING IMG_PATH("lightning_charge")
+
+#define IMG_SUN IMG_PATH("sun")
 
 typedef struct {
     const char* path;
@@ -91,7 +93,8 @@ extern const img_info_t IMG_INFO_BASE_CENTER;
 extern const img_info_t IMG_INFO_CHARGING;
 extern const img_info_t IMG_INFO_NO_CHARGING;
 extern const img_info_t IMG_INFO_CAT_HUH_CENTER;
-extern const img_info_t IMG_INFO_CAT_HUH_CALIB;
+
+extern const img_info_t IMG_INFO_SUN;
 
 void img_set(lv_obj_t* img_obj, const img_info_t* info);
 void img_set_info(lv_obj_t* img_obj, const img_info_t* info);

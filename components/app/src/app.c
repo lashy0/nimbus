@@ -65,7 +65,7 @@ void app_init(const app_config_t* config)
 
 void app_on_button_short_press(button_id_t btn_id)
 {
-    if (!lvgl_port_lock(50)) {
+    if (!lvgl_port_lock(100)) {
         ESP_LOGW(TAG, "LVGL lock failed on short press");
         return;
     }
@@ -87,7 +87,7 @@ void app_on_button_short_press(button_id_t btn_id)
 
     enum ScreensEnum current = ui_get_current_screen();
 
-    if (current == SCREEN_ID_START || current == SCREEN_ID_CALIBRATION) {
+    if (current == SCREEN_ID_START) {
         lvgl_port_unlock();
         return;
     }
@@ -145,7 +145,7 @@ void app_on_button_short_press(button_id_t btn_id)
 
 void app_on_button_long_press(button_id_t btn_id)
 {
-    if (!lvgl_port_lock(50)) {
+    if (!lvgl_port_lock(100)) {
         ESP_LOGW(TAG, "LVGL lock failed on long press");
         return;
     }
@@ -160,7 +160,7 @@ void app_on_button_long_press(button_id_t btn_id)
 
     enum ScreensEnum current = ui_get_current_screen();
 
-    if (current == SCREEN_ID_START || current == SCREEN_ID_CALIBRATION || current == SCREEN_ID_QUESTION) {
+    if (current == SCREEN_ID_START || current == SCREEN_ID_QUESTION) {
         lvgl_port_unlock();
         return;
     }
