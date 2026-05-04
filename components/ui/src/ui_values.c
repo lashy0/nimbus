@@ -38,7 +38,7 @@ static void ui_apply_iaq_screen_state(void)
             lv_obj_add_flag(ui_objects.img_iaq_status, LV_OBJ_FLAG_HIDDEN);
         }
         if (ui_objects.img_iaq_icon) {
-            img_set(ui_objects.img_iaq_icon, &IMG_INFO_ORDINARY_NIMBUS);
+            img_set(ui_objects.img_iaq_icon, img_get(IMG_ID_ORDINARY_NIMBUS));
         }
         if (ui_objects.lbl_iaq_warmup) {
             lv_obj_clear_flag(ui_objects.lbl_iaq_warmup, LV_OBJ_FLAG_HIDDEN);

@@ -11,7 +11,7 @@ static void create_status_bar(lv_obj_t* parent, lv_obj_t** out_img_batt, lv_obj_
 {
     lv_obj_t* img = lv_img_create(parent);
     *out_img_batt = img;
-    img_set(img, &IMG_INFO_BATT_FULL_NOT_CHARGING);
+    img_set(img, img_get(IMG_ID_BATT_FULL_NOT_CHARGING));
 
     lv_obj_t* lbl = lv_label_create(parent);
     *out_lbl_pct = lbl;
@@ -63,7 +63,7 @@ void create_screen_iaq(void)
 
     // Status Img
     ui_objects.img_iaq_status = lv_img_create(obj);
-    img_set(ui_objects.img_iaq_status, &IMG_INFO_GOOD);
+    img_set(ui_objects.img_iaq_status, img_get(IMG_ID_GOOD));
 
     // Value Label
     ui_objects.lbl_iaq_value = lv_label_create(obj);
@@ -85,7 +85,7 @@ void create_screen_iaq(void)
 
     // Icon Img
     ui_objects.img_iaq_icon = lv_img_create(obj);
-    img_set(ui_objects.img_iaq_icon, &IMG_INFO_ULTRA_HAPPY);
+    img_set(ui_objects.img_iaq_icon, img_get(IMG_ID_ULTRA_HAPPY));
 
     create_page_indicators(obj, 0);
 
@@ -114,7 +114,7 @@ void create_screen_temp(void)
 
     // Status Img
     ui_objects.img_temp_status = lv_img_create(obj);
-    img_set(ui_objects.img_temp_status, &IMG_INFO_NOTHING);
+    img_set(ui_objects.img_temp_status, img_get(IMG_ID_NOTHING));
 
     // Value Label
     ui_objects.lbl_temp_value = lv_label_create(obj);
@@ -127,7 +127,7 @@ void create_screen_temp(void)
 
     // Icon Img
     ui_objects.img_temp_icon = lv_img_create(obj);
-    img_set(ui_objects.img_temp_icon, &IMG_INFO_TEMP_NORMAL);
+    img_set(ui_objects.img_temp_icon, img_get(IMG_ID_TEMP_NORMAL));
 
     create_page_indicators(obj, 1);
 
@@ -156,7 +156,7 @@ void create_screen_hum(void)
 
     // Status Img
     ui_objects.img_hum_status = lv_img_create(obj);
-    img_set(ui_objects.img_hum_status, &IMG_INFO_HUM_DRY);
+    img_set(ui_objects.img_hum_status, img_get(IMG_ID_HUM_DRY));
 
     // Value Label
     ui_objects.lbl_hum_value = lv_label_create(obj);
@@ -169,7 +169,7 @@ void create_screen_hum(void)
 
     // Icon Img
     ui_objects.img_hum_icon = lv_img_create(obj);
-    img_set(ui_objects.img_hum_icon, &IMG_INFO_SAD);
+    img_set(ui_objects.img_hum_icon, img_get(IMG_ID_SAD));
 
     create_page_indicators(obj, 2);
 
@@ -187,7 +187,7 @@ void create_screen_start(void)
     lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_objects.img_start_icon = lv_img_create(obj);
-    img_set(ui_objects.img_start_icon, &IMG_INFO_BASE_CENTER);
+    img_set(ui_objects.img_start_icon, img_get(IMG_ID_BASE_CENTER));
 
     ui_objects.spinner_start = lv_spinner_create(obj, 1000, 60);
     lv_obj_set_size(ui_objects.spinner_start, 40, 40);
@@ -210,7 +210,7 @@ void create_screen_no_charging(void)
     ui_objects.lbl_no_charging_batt_pct = NULL;
 
     ui_objects.img_no_charging_icon = lv_img_create(obj);
-    img_set(ui_objects.img_no_charging_icon, &IMG_INFO_NO_CHARGING);
+    img_set(ui_objects.img_no_charging_icon, img_get(IMG_ID_NO_CHARGING));
 }
 
 void create_screen_charging(void)
@@ -225,7 +225,7 @@ void create_screen_charging(void)
     ui_objects.lbl_charging_batt_pct = NULL;
 
     ui_objects.img_charging_icon = lv_img_create(obj);
-    img_set(ui_objects.img_charging_icon, &IMG_INFO_CHARGING);
+    img_set(ui_objects.img_charging_icon, img_get(IMG_ID_CHARGING));
 }
 
 void create_screen_brightness(uint8_t value_percent)
@@ -245,7 +245,7 @@ void create_screen_brightness(uint8_t value_percent)
     create_status_bar(obj, &ui_objects.img_brightness_battery, &ui_objects.lbl_brightness_batt_pct);
 
     lv_obj_t* img_sun = lv_img_create(obj);
-    img_set(img_sun, &IMG_INFO_SUN);
+    img_set(img_sun, img_get(IMG_ID_SUN));
 
     ui_objects.lbl_brightness_title = lv_label_create(obj);
     lv_obj_set_pos(ui_objects.lbl_brightness_title, 0, 130);
@@ -293,7 +293,7 @@ void create_screen_question(const char* text)
     create_status_bar(obj, &ui_objects.img_question_battery, &ui_objects.lbl_question_batt_pct);
 
     ui_objects.img_question_icon = lv_img_create(obj);
-    img_set(ui_objects.img_question_icon, &IMG_INFO_CAT_HUH_CENTER);
+    img_set(ui_objects.img_question_icon, img_get(IMG_ID_CAT_HUH_CENTER));
 
     ui_objects.lbl_question_text = lv_label_create(obj);
     lv_obj_set_pos(ui_objects.lbl_question_text, 0, 155);

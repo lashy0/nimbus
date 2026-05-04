@@ -29,7 +29,7 @@ static void ui_show_startup_error_indicator(void)
     }
 
     startup_error_icon = lv_img_create(lv_layer_top());
-    img_set(startup_error_icon, &IMG_INFO_DEAD);
+    img_set(startup_error_icon, img_get(IMG_ID_DEAD));
     lv_obj_set_pos(startup_error_icon, 2, 2);
     lv_obj_clear_flag(startup_error_icon, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
 }
