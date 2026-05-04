@@ -67,6 +67,21 @@ typedef enum {
 } bme680_sensor_mode_t;
 
 /**
+ * @brief Probe a BME680 at the given I2C address without performing full init.
+ *
+ * Quietly opens a temporary bus, reads the chip ID register, and returns
+ * whether a BME68x device is present. Use this to pick the correct I2C
+ * address before calling @ref bme680_sensor_init, so that the noisy error
+ * paths from a wrong-address full init are avoided.
+ *
+ * @param[in] config Sensor configuration. Only i2c_port, sda_io_num,
+ *                   scl_io_num, i2c_clk_speed_hz and i2c_addr are used.
+ *
+ * @return true when the BME68x chip ID is observed at @c i2c_addr.
+ */
+bool bme680_sensor_probe(const bme680_sensor_config_t* config);
+
+/**
  * @brief Initialize BME680 sensor, I2C bus, and BSEC processing.
  *
  * @param[in] config Sensor configuration.

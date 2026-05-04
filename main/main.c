@@ -199,13 +199,11 @@ void app_main(void)
         .reset_baseline_on_power_on = false,
     };
 
-    esp_err_t sensor_init_ret = bme680_sensor_init(&bme_cfg);
-    if (sensor_init_ret != ESP_OK) {
+    if (!bme680_sensor_probe(&bme_cfg)) {
         bme_cfg.i2c_addr = BME680_I2C_ADDR_HIGH;
-        ESP_LOGW(TAG, "BME680 not found at 0x%02X, trying 0x%02X", BME680_I2C_ADDR_LOW, BME680_I2C_ADDR_HIGH);
-        sensor_init_ret = bme680_sensor_init(&bme_cfg);
     }
 
+    esp_err_t sensor_init_ret = bme680_sensor_init(&bme_cfg);
     if (sensor_init_ret == ESP_OK) {
         ESP_LOGI(TAG, "BME680 initialized at I2C address 0x%02X", bme_cfg.i2c_addr);
     } else {

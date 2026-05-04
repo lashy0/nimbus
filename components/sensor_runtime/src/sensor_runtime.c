@@ -19,6 +19,7 @@ static const char* TAG = "sensor_runtime";
 
 #define IAQ_USABLE_ACCURACY 1U
 #define BATTERY_UPDATE_INTERVAL_MS 2000
+#define BATTERY_UPDATE_INTERVAL_MONITORING_MS 60000
 #define BATTERY_LOW_SHUTDOWN_PCT 5
 #define CHARGING_SCREEN_DURATION_MS 3000
 #define SENSOR_UI_TIMER_PERIOD_MS 200
@@ -105,24 +106,32 @@ static void sensor_step_battery(
     *charging_transition = false;
     *charging_now = false;
 
+    int64_t interval_us = monitoring
+        ? ((int64_t)BATTERY_UPDATE_INTERVAL_MONITORING_MS * 1000LL)
+        : ((int64_t)BATTERY_UPDATE_INTERVAL_MS * 1000LL);
     bool battery_update_due =
         (state->last_battery_update_us == 0) ||
-        ((now_us - state->last_battery_update_us) >= ((int64_t)BATTERY_UPDATE_INTERVAL_MS * 1000LL));
-    if (monitoring || !battery_update_due) {
+        ((now_us - state->last_battery_update_us) >= interval_us);
+    if (!battery_update_due) {
         return;
     }
 
     power_battery_info_t sampled_battery = {0};
     esp_err_t battery_ret = power_manager_read_battery(&sampled_battery);
     if (battery_ret == ESP_OK && sampled_battery.valid) {
-        if (state->battery_info.valid) {
-            if (state->battery_info.charging != sampled_battery.charging) {
+        // Surface charge-state transitions only when the display is active;
+        // monitoring keeps polling for the critical-low safety check but must
+        // not show charging overlays behind the user's back.
+        if (!monitoring) {
+            if (state->battery_info.valid) {
+                if (state->battery_info.charging != sampled_battery.charging) {
+                    *charging_transition = true;
+                    *charging_now = sampled_battery.charging;
+                }
+            } else if (sampled_battery.charging) {
                 *charging_transition = true;
-                *charging_now = sampled_battery.charging;
+                *charging_now = true;
             }
-        } else if (sampled_battery.charging) {
-            *charging_transition = true;
-            *charging_now = true;
         }
 
         if (state->battery_info.charging != sampled_battery.charging) {
@@ -164,8 +173,7 @@ static sensor_sample_result_t sensor_step_read(sensor_worker_state_t* state, boo
         return result;
     }
 
-    (void)monitoring;
-    bool want_ulp_mode = false;
+    bool want_ulp_mode = monitoring;
     if (want_ulp_mode != s_ulp_mode) {
         esp_err_t mode_ret = bme680_sensor_set_mode(want_ulp_mode ? BME680_SENSOR_MODE_ULP : BME680_SENSOR_MODE_LP);
         if (mode_ret == ESP_OK) {
@@ -371,12 +379,21 @@ static void sensor_task(void* arg)
     bme680_sensor_data_t latest_sensor_data = {0};
     bool has_sensor_data = false;
     int64_t next_sensor_read_us = 0;
+    bool was_monitoring = false;
     while (1) {
         dispatch_button_events();
         app_process_idle();
 
         bool monitoring = power_manager_is_monitoring();
         int64_t now = esp_timer_get_time();
+
+        // On wake from monitoring, force an immediate sensor read so the LP
+        // schedule resumes and the user does not stare at a stale value for
+        // the leftover ULP interval (up to ~5 min).
+        if (was_monitoring && !monitoring) {
+            next_sensor_read_us = 0;
+        }
+        was_monitoring = monitoring;
 
         bool charging_transition = false;
         bool charging_now = false;

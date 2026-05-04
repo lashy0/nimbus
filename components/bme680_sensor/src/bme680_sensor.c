@@ -249,6 +249,49 @@ void bme680_sensor_deinit(void)
     memset(&s_ctx, 0, sizeof(s_ctx));
 }
 
+bool bme680_sensor_probe(const bme680_sensor_config_t* config)
+{
+    if (!config) {
+        return false;
+    }
+
+    i2c_config_t i2c_conf = {
+        .mode = I2C_MODE_MASTER,
+        .sda_io_num = config->sda_io_num,
+        .scl_io_num = config->scl_io_num,
+        .sda_pullup_en = true,
+        .scl_pullup_en = true,
+        .master.clk_speed = config->i2c_clk_speed_hz,
+        .clk_flags = 0,
+    };
+
+    /* Silence the i2c_bus library while probing — wrong-address probe is
+     * normal and expected here, not an error. */
+    esp_log_level_t prev_i2c_master = esp_log_level_get("i2c.master");
+    esp_log_level_t prev_i2c_bus = esp_log_level_get("i2c_bus");
+    esp_log_level_set("i2c.master", ESP_LOG_NONE);
+    esp_log_level_set("i2c_bus", ESP_LOG_NONE);
+
+    bool found = false;
+    i2c_bus_handle_t bus = i2c_bus_create(config->i2c_port, &i2c_conf);
+    if (bus) {
+        i2c_bus_device_handle_t dev = i2c_bus_device_create(bus, config->i2c_addr, config->i2c_clk_speed_hz);
+        if (dev) {
+            uint8_t chip_id = 0;
+            if (i2c_bus_read_bytes(dev, BME68X_REG_CHIP_ID, 1, &chip_id) == ESP_OK && chip_id == BME68X_CHIP_ID) {
+                found = true;
+            }
+            i2c_bus_device_delete(&dev);
+        }
+        i2c_bus_delete(&bus);
+    }
+
+    esp_log_level_set("i2c.master", prev_i2c_master);
+    esp_log_level_set("i2c_bus", prev_i2c_bus);
+
+    return found;
+}
+
 bool bme680_sensor_is_initialized(void)
 {
     return s_ctx.initialized;
