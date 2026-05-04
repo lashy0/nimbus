@@ -187,7 +187,7 @@ void create_screen_start(void)
     lv_obj_set_style_bg_color(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_objects.img_start_icon = lv_img_create(obj);
-    img_set(ui_objects.img_start_icon, img_get(IMG_ID_BASE_CENTER));
+    img_set_at(ui_objects.img_start_icon, IMG_ID_BASE, 32, 83);
 
     ui_objects.spinner_start = lv_spinner_create(obj, 1000, 60);
     lv_obj_set_size(ui_objects.spinner_start, 40, 40);
@@ -210,7 +210,7 @@ void create_screen_no_charging(void)
     ui_objects.lbl_no_charging_batt_pct = NULL;
 
     ui_objects.img_no_charging_icon = lv_img_create(obj);
-    img_set(ui_objects.img_no_charging_icon, img_get(IMG_ID_NO_CHARGING));
+    img_set_at(ui_objects.img_no_charging_icon, IMG_ID_DEAD, 32, 80);
 }
 
 void create_screen_charging(void)
@@ -245,10 +245,10 @@ void create_screen_brightness(uint8_t value_percent)
     create_status_bar(obj, &ui_objects.img_brightness_battery, &ui_objects.lbl_brightness_batt_pct);
 
     lv_obj_t* img_sun = lv_img_create(obj);
-    img_set(img_sun, img_get(IMG_ID_SUN));
+    img_set_at(img_sun, IMG_ID_SUN, 40, 60);
 
     ui_objects.lbl_brightness_title = lv_label_create(obj);
-    lv_obj_set_pos(ui_objects.lbl_brightness_title, 0, 130);
+    lv_obj_set_pos(ui_objects.lbl_brightness_title, 0, 125);
     lv_obj_set_width(ui_objects.lbl_brightness_title, 135);
     lv_obj_set_style_text_color(ui_objects.lbl_brightness_title, lv_color_hex(0xffffffff), 0);
     font_set(ui_objects.lbl_brightness_title, FONT_ID_SF_SB_15, 0);
@@ -256,7 +256,7 @@ void create_screen_brightness(uint8_t value_percent)
     lv_label_set_text(ui_objects.lbl_brightness_title, "Brightness");
 
     ui_objects.lbl_brightness_value = lv_label_create(obj);
-    lv_obj_set_pos(ui_objects.lbl_brightness_value, 0, 146);
+    lv_obj_set_pos(ui_objects.lbl_brightness_value, 0, 143);
     lv_obj_set_width(ui_objects.lbl_brightness_value, 135);
     lv_obj_set_style_text_color(ui_objects.lbl_brightness_value, lv_color_hex(0xffffffff), 0);
     font_set(ui_objects.lbl_brightness_value, FONT_ID_SF_SB_15, 0);
@@ -267,8 +267,8 @@ void create_screen_brightness(uint8_t value_percent)
     lv_label_set_text(ui_objects.lbl_brightness_value, value_buf);
 
     ui_objects.bar_brightness = lv_bar_create(obj);
-    lv_obj_set_pos(ui_objects.bar_brightness, 20, 184);
-    lv_obj_set_size(ui_objects.bar_brightness, 95, 6);
+    lv_obj_set_pos(ui_objects.bar_brightness, 10, 181);
+    lv_obj_set_size(ui_objects.bar_brightness, 115, 5);
     lv_bar_set_range(ui_objects.bar_brightness, 5, 100);
     lv_bar_set_value(ui_objects.bar_brightness, value_percent, LV_ANIM_OFF);
     lv_obj_set_style_radius(ui_objects.bar_brightness, LV_RADIUS_CIRCLE, LV_PART_MAIN);
@@ -293,10 +293,10 @@ void create_screen_question(const char* text)
     create_status_bar(obj, &ui_objects.img_question_battery, &ui_objects.lbl_question_batt_pct);
 
     ui_objects.img_question_icon = lv_img_create(obj);
-    img_set(ui_objects.img_question_icon, img_get(IMG_ID_CAT_HUH_CENTER));
+    img_set_at(ui_objects.img_question_icon, IMG_ID_CAT_HUH, 32, 45);
 
     ui_objects.lbl_question_text = lv_label_create(obj);
-    lv_obj_set_pos(ui_objects.lbl_question_text, 0, 155);
+    lv_obj_set_pos(ui_objects.lbl_question_text, 0, 140);
     lv_obj_set_width(ui_objects.lbl_question_text, 135);
     lv_obj_set_style_text_color(ui_objects.lbl_question_text, lv_color_hex(0xffffffff), 0);
     font_set(ui_objects.lbl_question_text, FONT_ID_SF_SB_15, 0);
@@ -307,12 +307,14 @@ void create_screen_question(const char* text)
     ui_objects.btn_question_yes = lv_btn_create(obj);
     lv_obj_set_pos(ui_objects.btn_question_yes, 15, 200);
     lv_obj_set_size(ui_objects.btn_question_yes, 50, 28);
-    lv_obj_set_style_bg_color(ui_objects.btn_question_yes, lv_color_hex(0xff333333), LV_PART_MAIN);
-    lv_obj_set_style_radius(ui_objects.btn_question_yes, 4, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(ui_objects.btn_question_yes, lv_color_hex(0xffff6600), LV_PART_MAIN);
+    lv_obj_set_style_radius(ui_objects.btn_question_yes, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+    lv_obj_set_style_border_width(ui_objects.btn_question_yes, 0, LV_PART_MAIN);
+    lv_obj_set_style_shadow_opa(ui_objects.btn_question_yes, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_clear_flag(ui_objects.btn_question_yes, LV_OBJ_FLAG_CLICKABLE);
 
     lv_obj_t* lbl_yes = lv_label_create(ui_objects.btn_question_yes);
-    lv_label_set_text(lbl_yes, "Yes");
+    lv_label_set_text(lbl_yes, "YES");
     lv_obj_set_style_text_color(lbl_yes, lv_color_hex(0xffffffff), 0);
     font_set(lbl_yes, FONT_ID_SF_SB_15, 0);
     lv_obj_center(lbl_yes);
@@ -321,12 +323,14 @@ void create_screen_question(const char* text)
     ui_objects.btn_question_no = lv_btn_create(obj);
     lv_obj_set_pos(ui_objects.btn_question_no, 70, 200);
     lv_obj_set_size(ui_objects.btn_question_no, 50, 28);
-    lv_obj_set_style_bg_color(ui_objects.btn_question_no, lv_color_hex(0xff333333), LV_PART_MAIN);
-    lv_obj_set_style_radius(ui_objects.btn_question_no, 4, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(ui_objects.btn_question_no, lv_color_hex(0xffff6600), LV_PART_MAIN);
+    lv_obj_set_style_radius(ui_objects.btn_question_no, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+    lv_obj_set_style_border_width(ui_objects.btn_question_no, 0, LV_PART_MAIN);
+    lv_obj_set_style_shadow_opa(ui_objects.btn_question_no, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_clear_flag(ui_objects.btn_question_no, LV_OBJ_FLAG_CLICKABLE);
 
     lv_obj_t* lbl_no = lv_label_create(ui_objects.btn_question_no);
-    lv_label_set_text(lbl_no, "No");
+    lv_label_set_text(lbl_no, "NO");
     lv_obj_set_style_text_color(lbl_no, lv_color_hex(0xffffffff), 0);
     font_set(lbl_no, FONT_ID_SF_SB_15, 0);
     lv_obj_center(lbl_no);

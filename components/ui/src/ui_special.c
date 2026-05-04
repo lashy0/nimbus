@@ -80,6 +80,21 @@ void ui_update_brightness_value(uint8_t value_percent)
     }
 }
 
+static void ui_question_apply_button_style(lv_obj_t* button, bool selected)
+{
+    if (!button) {
+        return;
+    }
+
+    lv_obj_set_style_bg_opa(button, selected ? LV_OPA_COVER : LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    lv_obj_t* label = lv_obj_get_child(button, 0);
+    if (label) {
+        lv_color_t text_color = selected ? lv_color_hex(0xff000000) : lv_color_hex(0xffffffff);
+        lv_obj_set_style_text_color(label, text_color, 0);
+    }
+}
+
 void ui_show_question(const char* text, void (*on_yes)(void), void (*on_no)(void), bool select_yes)
 {
     previousScreenId = currentScreenId;
@@ -107,23 +122,15 @@ void ui_show_question(const char* text, void (*on_yes)(void), void (*on_no)(void
 void ui_question_select_yes(void)
 {
     question_selected_yes = true;
-    if (ui_objects.btn_question_yes) {
-        lv_obj_set_style_bg_color(ui_objects.btn_question_yes, lv_color_hex(0xffff6600), LV_PART_MAIN);
-    }
-    if (ui_objects.btn_question_no) {
-        lv_obj_set_style_bg_color(ui_objects.btn_question_no, lv_color_hex(0xff333333), LV_PART_MAIN);
-    }
+    ui_question_apply_button_style(ui_objects.btn_question_yes, true);
+    ui_question_apply_button_style(ui_objects.btn_question_no, false);
 }
 
 void ui_question_select_no(void)
 {
     question_selected_yes = false;
-    if (ui_objects.btn_question_yes) {
-        lv_obj_set_style_bg_color(ui_objects.btn_question_yes, lv_color_hex(0xff333333), LV_PART_MAIN);
-    }
-    if (ui_objects.btn_question_no) {
-        lv_obj_set_style_bg_color(ui_objects.btn_question_no, lv_color_hex(0xffff6600), LV_PART_MAIN);
-    }
+    ui_question_apply_button_style(ui_objects.btn_question_yes, false);
+    ui_question_apply_button_style(ui_objects.btn_question_no, true);
 }
 
 void ui_question_confirm(void)

@@ -6,7 +6,7 @@
 #define IMG_MISC(name)   "S:/spiffs/img/misc/" name ".bin"
 
 static const img_info_t images[IMG_ID_COUNT] = {
-    [IMG_ID_BASE_CENTER]      = {IMG_MISC("base"),            32,  83, 71, 73},
+    [IMG_ID_BASE]             = {IMG_MISC("base"),            32,  83, 71, 73},
     [IMG_ID_ULTRA_HAPPY]      = {IMG_FACE("ultra_happy"),     32, 137, 71, 73},
     [IMG_ID_HAPPY]            = {IMG_FACE("happy"),           32, 137, 71, 73},
     [IMG_ID_ORDINARY]         = {IMG_FACE("ordinary"),        32, 137, 71, 73},
@@ -16,8 +16,6 @@ static const img_info_t images[IMG_ID_COUNT] = {
     [IMG_ID_DEAD]             = {IMG_FACE("dead"),            32, 137, 71, 73},
     [IMG_ID_DIVER]            = {IMG_FACE("diver"),           32, 137, 81, 81},
     [IMG_ID_CAT_HUH]          = {IMG_FACE("cat_huh"),         32, 137, 82, 87},
-    [IMG_ID_CAT_HUH_CENTER]   = {IMG_FACE("cat_huh"),         32,  45, 82, 87},
-    [IMG_ID_NO_CHARGING]      = {IMG_FACE("dead"),            32,  80, 71, 73},
     [IMG_ID_TEMP_MINUS]       = {IMG_FACE("temp_minus"),      31, 127, 82, 98},
     [IMG_ID_TEMP_NORMAL]      = {IMG_FACE("temp_normal"),     31, 127, 82, 83},
     [IMG_ID_TEMP_PLUS]        = {IMG_FACE("temp_plus"),       31, 127, 84, 83},
@@ -70,6 +68,17 @@ void img_set_info(lv_obj_t* img_obj, const img_info_t* info)
     lv_obj_invalidate(img_obj);
 
     lv_obj_set_pos(img_obj, info->x, info->y);
+    lv_obj_set_size(img_obj, info->w, info->h);
+    lv_img_set_src(img_obj, info->path);
+}
+
+void img_set_at(lv_obj_t* img_obj, enum img_id id, int16_t x, int16_t y)
+{
+    if (!img_obj)
+        return;
+
+    const img_info_t* info = img_get(id);
+    lv_obj_set_pos(img_obj, x, y);
     lv_obj_set_size(img_obj, info->w, info->h);
     lv_img_set_src(img_obj, info->path);
 }

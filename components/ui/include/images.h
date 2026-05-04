@@ -12,7 +12,7 @@ typedef struct {
 } img_info_t;
 
 enum img_id {
-    IMG_ID_BASE_CENTER,
+    IMG_ID_BASE,
     IMG_ID_ULTRA_HAPPY,
     IMG_ID_HAPPY,
     IMG_ID_ORDINARY,
@@ -22,8 +22,6 @@ enum img_id {
     IMG_ID_DEAD,
     IMG_ID_DIVER,
     IMG_ID_CAT_HUH,
-    IMG_ID_CAT_HUH_CENTER,
-    IMG_ID_NO_CHARGING,
     IMG_ID_TEMP_MINUS,
     IMG_ID_TEMP_NORMAL,
     IMG_ID_TEMP_PLUS,
@@ -59,6 +57,7 @@ const img_info_t* img_get(enum img_id id);
 
 void img_set(lv_obj_t* img_obj, const img_info_t* info);
 void img_set_info(lv_obj_t* img_obj, const img_info_t* info);
+void img_set_at(lv_obj_t* img_obj, enum img_id id, int16_t x, int16_t y);
 
 const img_info_t* get_battery_info(int percent, bool charging);
 
