@@ -35,7 +35,7 @@ const img_info_t IMG_INFO_BATT_3_NOT_CHARGING = {IMG_BATT_3_NOT_CHARGING, 74, 11
 const img_info_t IMG_INFO_BATT_2_NOT_CHARGING = {IMG_BATT_2_NOT_CHARGING, 74, 11, 21, 10};
 const img_info_t IMG_INFO_BATT_1_NOT_CHARGING = {IMG_BATT_1_NOT_CHARGING, 74, 11, 21, 10};
 
-const img_info_t IMG_INFO_BASE_CENTER = {IMG_BASE, 32, 50, 71, 73};
+const img_info_t IMG_INFO_BASE_CENTER = {IMG_BASE, 32, 83, 71, 73};
 const img_info_t IMG_INFO_CHARGING = {IMG_CHARGING, 37, 70, 60, 99};
 const img_info_t IMG_INFO_NO_CHARGING = {IMG_DEAD, 32, 80, 71, 73};
 const img_info_t IMG_INFO_CAT_HUH_CENTER = {IMG_CAT_HUH, 32, 45, 82, 87};
@@ -151,3 +151,4 @@ const img_info_t* get_hum_status_info(int hum)
         return &IMG_INFO_HUM_GOOD;
     return &IMG_INFO_HUM_DAMP;
 }
+

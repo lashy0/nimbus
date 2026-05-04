@@ -3,47 +3,47 @@
 #include <stdbool.h>
 #include <lvgl.h>
 
-#define IMG_PATH(name) "S:/spiffs/img_" name ".bin"
+#define IMG_FACE(name)   "S:/spiffs/img/face/" name ".bin"
+#define IMG_STATUS(name) "S:/spiffs/img/status/" name ".bin"
+#define IMG_BATT(name)   "S:/spiffs/img/batt/" name ".bin"
+#define IMG_MISC(name)   "S:/spiffs/img/misc/" name ".bin"
 
-#define IMG_BASE IMG_PATH("base")
-#define IMG_ULTRA_HAPPY IMG_PATH("ultra_happy")
-#define IMG_HAPPY IMG_PATH("happy")
-#define IMG_ORDINARY IMG_PATH("ordinary")
-#define IMG_SAD IMG_PATH("sad")
-#define IMG_DIZZY IMG_PATH("dizzy")
-#define IMG_DEAD IMG_PATH("dead")
-#define IMG_TEMP_MINUS IMG_PATH("temp_minus")
-#define IMG_TEMP_NORMAL IMG_PATH("temp_normal")
-#define IMG_TEMP_PLUS IMG_PATH("temp_plus")
-#define IMG_DIVER IMG_PATH("diver")
-#define IMG_CAT_HUH IMG_PATH("cat_huh")
-#define IMG_ORDINARY_NIMBUS IMG_PATH("ordinary_nimbus")
-#define IMG_HAPPY_CLOSED_EYES IMG_PATH("happy_closed_eyes")
+#define IMG_ULTRA_HAPPY     IMG_FACE("ultra_happy")
+#define IMG_HAPPY           IMG_FACE("happy")
+#define IMG_ORDINARY        IMG_FACE("ordinary")
+#define IMG_SAD             IMG_FACE("sad")
+#define IMG_DIZZY           IMG_FACE("dizzy")
+#define IMG_DEAD            IMG_FACE("dead")
+#define IMG_DIVER           IMG_FACE("diver")
+#define IMG_CAT_HUH         IMG_FACE("cat_huh")
+#define IMG_ORDINARY_NIMBUS IMG_FACE("ordinary_nimbus")
+#define IMG_TEMP_MINUS      IMG_FACE("temp_minus")
+#define IMG_TEMP_NORMAL     IMG_FACE("temp_normal")
+#define IMG_TEMP_PLUS       IMG_FACE("temp_plus")
 
-#define IMG_BAD IMG_PATH("bad")
-#define IMG_CRIT IMG_PATH("crit")
-#define IMG_WARN IMG_PATH("warn")
-#define IMG_DAMP IMG_PATH("damp")
-#define IMG_DRY IMG_PATH("dry")
-#define IMG_MID IMG_PATH("mid")
-#define IMG_GOOD IMG_PATH("good")
+#define IMG_GOOD    IMG_STATUS("good")
+#define IMG_MID     IMG_STATUS("mid")
+#define IMG_BAD     IMG_STATUS("bad")
+#define IMG_WARN    IMG_STATUS("warn")
+#define IMG_CRIT    IMG_STATUS("crit")
+#define IMG_DAMP    IMG_STATUS("damp")
+#define IMG_DRY     IMG_STATUS("dry")
+#define IMG_MINUS   IMG_STATUS("minus")
+#define IMG_NOTHING IMG_STATUS("nothing")
+#define IMG_PLUS    IMG_STATUS("plus")
 
-#define IMG_MINUS IMG_PATH("minus")
-#define IMG_NOTHING IMG_PATH("nothing")
-#define IMG_PLUS IMG_PATH("plus")
+#define IMG_BATT_FULL_NOT_CHARGING IMG_BATT("full_not_charging")
+#define IMG_BATT_3_NOT_CHARGING    IMG_BATT("3_not_charging")
+#define IMG_BATT_2_NOT_CHARGING    IMG_BATT("2_not_charging")
+#define IMG_BATT_1_NOT_CHARGING    IMG_BATT("1_not_charging")
+#define IMG_BATT_FULL_CHARGING     IMG_BATT("full_charging")
+#define IMG_BATT_3_CHARGING        IMG_BATT("3_charging")
+#define IMG_BATT_2_CHARGING        IMG_BATT("2_charging")
+#define IMG_BATT_1_CHARGING        IMG_BATT("1_charging")
 
-#define IMG_BATT_FULL_NOT_CHARGING IMG_PATH("batt_full_not_charging")
-#define IMG_BATT_3_NOT_CHARGING IMG_PATH("batt_3_not_charging")
-#define IMG_BATT_2_NOT_CHARGING IMG_PATH("batt_2_not_charging")
-#define IMG_BATT_1_NOT_CHARGING IMG_PATH("batt_1_not_charging")
-#define IMG_BATT_FULL_CHARGING IMG_PATH("batt_full_charging")
-#define IMG_BATT_3_CHARGING IMG_PATH("batt_3_charging")
-#define IMG_BATT_2_CHARGING IMG_PATH("batt_2_charging")
-#define IMG_BATT_1_CHARGING IMG_PATH("batt_1_charging")
-
-#define IMG_CHARGING IMG_PATH("lightning_charge")
-
-#define IMG_SUN IMG_PATH("sun")
+#define IMG_BASE     IMG_MISC("base")
+#define IMG_CHARGING IMG_MISC("lightning_charge")
+#define IMG_SUN      IMG_MISC("sun")
 
 typedef struct {
     const char* path;
