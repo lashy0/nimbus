@@ -12,7 +12,7 @@ void ui_apply_brightness_value(void)
     snprintf(buf, sizeof(buf), "%u%%", (unsigned int)current_brightness_pct);
 
     if (ui_objects.lbl_brightness_value) {
-        font_set(ui_objects.lbl_brightness_value, &FONT_INFO_SF_SB_15, LV_PART_MAIN | LV_STATE_DEFAULT);
+        font_set(ui_objects.lbl_brightness_value, FONT_ID_SF_SB_15, LV_PART_MAIN | LV_STATE_DEFAULT);
         lv_label_set_text(ui_objects.lbl_brightness_value, buf);
     }
 
@@ -165,7 +165,7 @@ void ui_apply_current_values(void)
                 snprintf(buf, sizeof(buf), "%d%%", current_hum);
                 lv_label_set_text(ui_objects.lbl_hum_value, buf);
 
-                const font_info_t* info = (current_hum == 100) ? &FONT_INFO_SF_SB_50 : &FONT_INFO_SF_SB_60;
+                enum font_id info = (current_hum == 100) ? FONT_ID_SF_SB_50 : FONT_ID_SF_SB_60;
                 font_set(ui_objects.lbl_hum_value, info, LV_PART_MAIN | LV_STATE_DEFAULT);
             }
             if (ui_objects.img_hum_icon) {
@@ -226,7 +226,7 @@ void ui_update_hum(int value)
             snprintf(buf, sizeof(buf), "%d%%", value);
             lv_label_set_text(ui_objects.lbl_hum_value, buf);
 
-            const font_info_t* info = (value == 100) ? &FONT_INFO_SF_SB_50 : &FONT_INFO_SF_SB_60;
+            enum font_id info = (value == 100) ? FONT_ID_SF_SB_50 : FONT_ID_SF_SB_60;
             font_set(ui_objects.lbl_hum_value, info, LV_PART_MAIN | LV_STATE_DEFAULT);
         }
         if (ui_objects.img_hum_icon) {

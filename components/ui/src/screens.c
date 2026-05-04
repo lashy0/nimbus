@@ -18,7 +18,7 @@ static void create_status_bar(lv_obj_t* parent, lv_obj_t** out_img_batt, lv_obj_
     lv_obj_set_pos(lbl, 41, 12);
     lv_obj_set_size(lbl, 30, 8);
     lv_obj_set_style_text_color(lbl, lv_color_hex(0xffffffff), 0);
-    font_set(lbl, &FONT_INFO_SF_B_10, 0);
+    font_set(lbl, FONT_ID_SF_B_10, 0);
     lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_RIGHT, 0);
     lv_label_set_text(lbl, "00 %");
 }
@@ -58,7 +58,7 @@ void create_screen_iaq(void)
     lv_obj_set_pos(ui_objects.lbl_iaq_title, 13, 33);
     lv_obj_set_size(ui_objects.lbl_iaq_title, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_style_text_color(ui_objects.lbl_iaq_title, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
-    font_set(ui_objects.lbl_iaq_title, &FONT_INFO_SF_SB_30, LV_PART_MAIN | LV_STATE_DEFAULT);
+    font_set(ui_objects.lbl_iaq_title, FONT_ID_SF_SB_30, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_label_set_text(ui_objects.lbl_iaq_title, "IAQ");
 
     // Status Img
@@ -70,7 +70,7 @@ void create_screen_iaq(void)
     lv_obj_set_pos(ui_objects.lbl_iaq_value, 0, 72);
     lv_obj_set_size(ui_objects.lbl_iaq_value, 135, 49);
     lv_obj_set_style_text_color(ui_objects.lbl_iaq_value, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
-    font_set(ui_objects.lbl_iaq_value, &FONT_INFO_SF_SB_60, LV_PART_MAIN | LV_STATE_DEFAULT);
+    font_set(ui_objects.lbl_iaq_value, FONT_ID_SF_SB_60, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_align(ui_objects.lbl_iaq_value, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_label_set_text(ui_objects.lbl_iaq_value, "000");
 
@@ -78,7 +78,7 @@ void create_screen_iaq(void)
     lv_obj_set_pos(ui_objects.lbl_iaq_warmup, 0, 174);
     lv_obj_set_size(ui_objects.lbl_iaq_warmup, 135, LV_SIZE_CONTENT);
     lv_obj_set_style_text_color(ui_objects.lbl_iaq_warmup, lv_color_hex(0xffffffff), 0);
-    font_set(ui_objects.lbl_iaq_warmup, &FONT_INFO_SF_SB_15, 0);
+    font_set(ui_objects.lbl_iaq_warmup, FONT_ID_SF_SB_15, 0);
     lv_obj_set_style_text_align(ui_objects.lbl_iaq_warmup, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_text(ui_objects.lbl_iaq_warmup, "SENSOR\nCALIBRATION");
     lv_obj_add_flag(ui_objects.lbl_iaq_warmup, LV_OBJ_FLAG_HIDDEN);
@@ -109,7 +109,7 @@ void create_screen_temp(void)
     lv_obj_set_pos(ui_objects.lbl_temp_title, 20, 34);
     lv_obj_set_size(ui_objects.lbl_temp_title, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_style_text_color(ui_objects.lbl_temp_title, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
-    font_set(ui_objects.lbl_temp_title, &FONT_INFO_SF_SB_30, LV_PART_MAIN | LV_STATE_DEFAULT);
+    font_set(ui_objects.lbl_temp_title, FONT_ID_SF_SB_30, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_label_set_text(ui_objects.lbl_temp_title, "Temp");
 
     // Status Img
@@ -121,7 +121,7 @@ void create_screen_temp(void)
     lv_obj_set_pos(ui_objects.lbl_temp_value, 0, 72);
     lv_obj_set_size(ui_objects.lbl_temp_value, 135, 49);
     lv_obj_set_style_text_color(ui_objects.lbl_temp_value, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
-    font_set(ui_objects.lbl_temp_value, &FONT_INFO_SF_SB_60, LV_PART_MAIN | LV_STATE_DEFAULT);
+    font_set(ui_objects.lbl_temp_value, FONT_ID_SF_SB_60, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_align(ui_objects.lbl_temp_value, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_label_set_text(ui_objects.lbl_temp_value, "00°");
 
@@ -151,7 +151,7 @@ void create_screen_hum(void)
     lv_obj_set_pos(ui_objects.lbl_hum_title, 4, 34);
     lv_obj_set_size(ui_objects.lbl_hum_title, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_style_text_color(ui_objects.lbl_hum_title, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
-    font_set(ui_objects.lbl_hum_title, &FONT_INFO_SF_SB_30, LV_PART_MAIN | LV_STATE_DEFAULT);
+    font_set(ui_objects.lbl_hum_title, FONT_ID_SF_SB_30, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_label_set_text(ui_objects.lbl_hum_title, "Hum");
 
     // Status Img
@@ -163,7 +163,7 @@ void create_screen_hum(void)
     lv_obj_set_pos(ui_objects.lbl_hum_value, 0, 72);
     lv_obj_set_size(ui_objects.lbl_hum_value, 135, 49);
     lv_obj_set_style_text_color(ui_objects.lbl_hum_value, lv_color_hex(0xffffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
-    font_set(ui_objects.lbl_hum_value, &FONT_INFO_SF_SB_50, LV_PART_MAIN | LV_STATE_DEFAULT);
+    font_set(ui_objects.lbl_hum_value, FONT_ID_SF_SB_50, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_align(ui_objects.lbl_hum_value, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_label_set_text(ui_objects.lbl_hum_value, "00%");
 
@@ -251,7 +251,7 @@ void create_screen_brightness(uint8_t value_percent)
     lv_obj_set_pos(ui_objects.lbl_brightness_title, 0, 130);
     lv_obj_set_width(ui_objects.lbl_brightness_title, 135);
     lv_obj_set_style_text_color(ui_objects.lbl_brightness_title, lv_color_hex(0xffffffff), 0);
-    font_set(ui_objects.lbl_brightness_title, &FONT_INFO_SF_SB_15, 0);
+    font_set(ui_objects.lbl_brightness_title, FONT_ID_SF_SB_15, 0);
     lv_obj_set_style_text_align(ui_objects.lbl_brightness_title, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_text(ui_objects.lbl_brightness_title, "Brightness");
 
@@ -259,7 +259,7 @@ void create_screen_brightness(uint8_t value_percent)
     lv_obj_set_pos(ui_objects.lbl_brightness_value, 0, 146);
     lv_obj_set_width(ui_objects.lbl_brightness_value, 135);
     lv_obj_set_style_text_color(ui_objects.lbl_brightness_value, lv_color_hex(0xffffffff), 0);
-    font_set(ui_objects.lbl_brightness_value, &FONT_INFO_SF_SB_15, 0);
+    font_set(ui_objects.lbl_brightness_value, FONT_ID_SF_SB_15, 0);
     lv_obj_set_style_text_align(ui_objects.lbl_brightness_value, LV_TEXT_ALIGN_CENTER, 0);
 
     char value_buf[8];
@@ -299,7 +299,7 @@ void create_screen_question(const char* text)
     lv_obj_set_pos(ui_objects.lbl_question_text, 0, 155);
     lv_obj_set_width(ui_objects.lbl_question_text, 135);
     lv_obj_set_style_text_color(ui_objects.lbl_question_text, lv_color_hex(0xffffffff), 0);
-    font_set(ui_objects.lbl_question_text, &FONT_INFO_SF_SB_15, 0);
+    font_set(ui_objects.lbl_question_text, FONT_ID_SF_SB_15, 0);
     lv_obj_set_style_text_align(ui_objects.lbl_question_text, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_text(ui_objects.lbl_question_text, text ? text : "Question?");
 
@@ -314,7 +314,7 @@ void create_screen_question(const char* text)
     lv_obj_t* lbl_yes = lv_label_create(ui_objects.btn_question_yes);
     lv_label_set_text(lbl_yes, "Yes");
     lv_obj_set_style_text_color(lbl_yes, lv_color_hex(0xffffffff), 0);
-    font_set(lbl_yes, &FONT_INFO_SF_SB_15, 0);
+    font_set(lbl_yes, FONT_ID_SF_SB_15, 0);
     lv_obj_center(lbl_yes);
 
     // Button NO
@@ -328,7 +328,7 @@ void create_screen_question(const char* text)
     lv_obj_t* lbl_no = lv_label_create(ui_objects.btn_question_no);
     lv_label_set_text(lbl_no, "No");
     lv_obj_set_style_text_color(lbl_no, lv_color_hex(0xffffffff), 0);
-    font_set(lbl_no, &FONT_INFO_SF_SB_15, 0);
+    font_set(lbl_no, FONT_ID_SF_SB_15, 0);
     lv_obj_center(lbl_no);
 }
 
