@@ -1,5 +1,8 @@
 set(srcs
     "src/bme680_sensor.c"
+    "src/bme680_bus.c"
+    "src/bme680_nvs.c"
+    "src/bme680_bsec.c"
     "BME68x_SensorAPI/bme68x.c"
 )
 

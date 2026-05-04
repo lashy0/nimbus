@@ -24,10 +24,6 @@ typedef struct {
     uint32_t i2c_clk_speed_hz;
     /**< BME680 I2C address (typically 0x76 or 0x77). */
     uint8_t i2c_addr;
-    /**< Heater target temperature in Celsius. */
-    uint16_t heater_temp_c;
-    /**< Heater duration in milliseconds. */
-    uint16_t heater_dur_ms;
     /**< Disable BSEC state save/restore to NVS when true. */
     bool disable_state_persistence;
     /**< Reset BSEC baseline on power-on by clearing persisted state and skipping restore. */
@@ -108,13 +104,6 @@ void bme680_sensor_deinit(void);
  * @return true when initialized, false otherwise.
  */
 bool bme680_sensor_is_initialized(void);
-
-/**
- * @brief Check whether IAQ calibration is still in progress.
- *
- * @return true while calibrating, false when baseline is ready.
- */
-bool bme680_sensor_is_calibrating(void);
 
 /**
  * @brief Get recommended delay until next sensor read.
