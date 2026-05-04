@@ -28,6 +28,7 @@ static const char* TAG = "sensor_runtime";
 #define SENSOR_TASK_PRIORITY 4
 #define SENSOR_TASK_LOOP_MS 100
 #define SENSOR_DEFAULT_READ_PERIOD_MS 1000
+#define BME680_REINIT_FAIL_THRESHOLD 10
 
 #define IAQ_LOG_PERIOD_US (10LL * 1000000LL)
 #define IAQ_LOG_DELTA_TRIGGER 10U
@@ -195,6 +196,10 @@ static sensor_sample_result_t sensor_step_read(sensor_worker_state_t* state, boo
 
     esp_err_t ret = bme680_sensor_read(&result.data);
     if (ret == ESP_OK) {
+        if (state->read_fail_count > 0U) {
+            ESP_LOGI(TAG, "BME680 read recovered after %lu failures", (unsigned long)state->read_fail_count);
+            state->read_fail_count = 0U;
+        }
         result.has_sensor_data = true;
         result.next_period_ms = bme680_sensor_get_next_call_delay_ms();
         return result;
@@ -203,6 +208,17 @@ static sensor_sample_result_t sensor_step_read(sensor_worker_state_t* state, boo
     state->read_fail_count++;
     if ((state->read_fail_count % 10U) == 1U) {
         ESP_LOGW(TAG, "BME680 read failed (%lu times)", (unsigned long)state->read_fail_count);
+    }
+
+    if (state->read_fail_count >= BME680_REINIT_FAIL_THRESHOLD) {
+        ESP_LOGW(TAG, "BME680 unresponsive, attempting reinit");
+        esp_err_t reinit_ret = bme680_sensor_reinit();
+        if (reinit_ret == ESP_OK) {
+            ESP_LOGI(TAG, "BME680 reinit succeeded");
+        } else {
+            ESP_LOGE(TAG, "BME680 reinit failed: %s", esp_err_to_name(reinit_ret));
+        }
+        state->read_fail_count = 0U;
     }
 
     return result;

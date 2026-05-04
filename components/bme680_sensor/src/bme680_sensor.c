@@ -18,6 +18,9 @@ static const char* TAG = "bme680_sensor";
 
 bme680_sensor_ctx_t s_ctx;
 
+static bme680_sensor_config_t s_last_config;
+static bool s_has_last_config = false;
+
 int64_t bme680_now_us(void)
 {
     return esp_timer_get_time();
@@ -63,6 +66,9 @@ esp_err_t bme680_sensor_init(const bme680_sensor_config_t* config)
     if (!config) {
         return ESP_ERR_INVALID_ARG;
     }
+
+    s_last_config = *config;
+    s_has_last_config = true;
 
     memset(&s_ctx, 0, sizeof(s_ctx));
     s_ctx.current_op_mode = BME68X_SLEEP_MODE;
@@ -247,6 +253,16 @@ void bme680_sensor_deinit(void)
     }
 
     memset(&s_ctx, 0, sizeof(s_ctx));
+}
+
+esp_err_t bme680_sensor_reinit(void)
+{
+    if (!s_has_last_config) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    bme680_sensor_config_t saved = s_last_config;
+    bme680_sensor_deinit();
+    return bme680_sensor_init(&saved);
 }
 
 bool bme680_sensor_probe(const bme680_sensor_config_t* config)

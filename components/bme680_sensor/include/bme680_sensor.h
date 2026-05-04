@@ -91,6 +91,17 @@ bool bme680_sensor_probe(const bme680_sensor_config_t* config);
 esp_err_t bme680_sensor_init(const bme680_sensor_config_t* config);
 
 /**
+ * @brief Re-apply the last successful configuration after a deinit.
+ *
+ * Used to recover from a stuck I2C bus or sensor state when reads have
+ * been failing persistently. Returns ESP_ERR_INVALID_STATE if @ref
+ * bme680_sensor_init has never been called.
+ *
+ * @return ESP_OK on success, otherwise an ESP error code.
+ */
+esp_err_t bme680_sensor_reinit(void);
+
+/**
  * @brief Read latest processed sensor data.
  *
  * @param[out] out_data Output structure for sensor data.
