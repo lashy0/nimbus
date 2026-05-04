@@ -21,6 +21,7 @@ static const char* TAG = "sensor_runtime";
 #define BATTERY_UPDATE_INTERVAL_MS 2000
 #define BATTERY_UPDATE_INTERVAL_MONITORING_MS 60000
 #define BATTERY_LOW_SHUTDOWN_PCT 5
+#define BATTERY_LOW_SHUTDOWN_CONSECUTIVE 3
 #define CHARGING_SCREEN_DURATION_MS 3000
 #define SENSOR_UI_TIMER_PERIOD_MS 200
 #define SENSOR_TASK_STACK_SIZE 8192
@@ -34,6 +35,7 @@ static const char* TAG = "sensor_runtime";
 typedef struct {
     uint32_t read_fail_count;
     uint32_t battery_read_fail_count;
+    uint8_t low_battery_consecutive;
     power_battery_info_t battery_info;
     int64_t last_battery_update_us;
 } sensor_worker_state_t;
@@ -144,6 +146,14 @@ static void sensor_step_battery(
 
         state->battery_info = sampled_battery;
         state->last_battery_update_us = now_us;
+
+        bool low_now = (!sampled_battery.charging && sampled_battery.percent >= 0 &&
+                        sampled_battery.percent <= BATTERY_LOW_SHUTDOWN_PCT);
+        if (low_now) {
+            state->low_battery_consecutive++;
+        } else {
+            state->low_battery_consecutive = 0;
+        }
         return;
     }
 
@@ -399,9 +409,11 @@ static void sensor_task(void* arg)
         bool charging_now = false;
         sensor_step_battery(&worker_state, monitoring, now, &charging_transition, &charging_now);
 
-        if (worker_state.battery_info.valid && !worker_state.battery_info.charging &&
-            worker_state.battery_info.percent >= 0 && worker_state.battery_info.percent <= BATTERY_LOW_SHUTDOWN_PCT) {
-            ESP_LOGW(TAG, "Battery critically low (%d%%), shutting down", worker_state.battery_info.percent);
+        if (worker_state.low_battery_consecutive >= BATTERY_LOW_SHUTDOWN_CONSECUTIVE) {
+            ESP_LOGW(TAG,
+                "Battery critically low (%d%%) for %u readings, shutting down",
+                worker_state.battery_info.percent,
+                (unsigned int)worker_state.low_battery_consecutive);
             power_manager_shutdown();
         }
 
