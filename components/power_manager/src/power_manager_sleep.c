@@ -49,7 +49,10 @@ void power_manager_shutdown(void)
 
     // Ensure deep sleep wakeup sources are deterministic: button only.
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
-    esp_sleep_enable_ext0_wakeup(WAKEUP_GPIO, 0);
+    esp_err_t wake_cfg_ret = esp_sleep_enable_ext0_wakeup(WAKEUP_GPIO, 0);
+    if (wake_cfg_ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to configure deep sleep wakeup on GPIO0: %s", esp_err_to_name(wake_cfg_ret));
+    }
     bme680_sensor_deinit();
 
     ESP_LOGI(TAG, "Entering deep sleep. Press button to wake up.");

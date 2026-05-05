@@ -83,8 +83,6 @@ esp_err_t bme680_sensor_init(const bme680_sensor_config_t* config)
         (int)reset_reason,
         cold_start_on_power_on ? "yes" : "no");
 
-    bme680_nvs_init();
-
     s_ctx.sda_gpio = config->sda_io_num;
     s_ctx.scl_gpio = config->scl_io_num;
     s_ctx.i2c_port = config->i2c_port;

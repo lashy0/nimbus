@@ -2,7 +2,6 @@
 
 #include "esp_log.h"
 #include "nvs.h"
-#include "nvs_flash.h"
 
 static const char* TAG = "power_mgr";
 
@@ -13,7 +12,6 @@ static const char* TAG = "power_mgr";
 #define BRIGHTNESS_NVS_KEY "brightness_pct"
 
 static uint8_t s_active_brightness_pct = DISPLAY_ACTIVE_BRIGHTNESS_PCT;
-static const uint8_t brightness_presets[] = {20, 40, 60, 80, 100};
 
 static uint8_t brightness_clamp(uint8_t brightness_percent)
 {
@@ -24,17 +22,6 @@ static uint8_t brightness_clamp(uint8_t brightness_percent)
         return BRIGHTNESS_MAX_PCT;
     }
     return brightness_percent;
-}
-
-static void brightness_try_init_nvs(void)
-{
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_OK || ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND ||
-        ret == ESP_ERR_INVALID_STATE) {
-        return;
-    }
-
-    ESP_LOGW(TAG, "NVS init for brightness failed: %s", esp_err_to_name(ret));
 }
 
 static void brightness_load_from_nvs(void)
@@ -72,7 +59,6 @@ static void brightness_save_to_nvs(uint8_t brightness)
 
 void pm_brightness_init(void)
 {
-    brightness_try_init_nvs();
     brightness_load_from_nvs();
 }
 
@@ -93,26 +79,10 @@ esp_err_t power_manager_set_active_brightness(uint8_t brightness_percent, bool p
     pm_brightness_apply_current();
 
     if (persist) {
-        brightness_try_init_nvs();
         brightness_save_to_nvs(brightness_percent);
     }
 
     return ESP_OK;
-}
-
-esp_err_t power_manager_step_active_brightness(void)
-{
-    const size_t preset_count = sizeof(brightness_presets) / sizeof(brightness_presets[0]);
-    uint8_t next = brightness_presets[0];
-
-    for (size_t i = 0; i < preset_count; i++) {
-        if (brightness_presets[i] > s_active_brightness_pct) {
-            next = brightness_presets[i];
-            return power_manager_set_active_brightness(next, true);
-        }
-    }
-
-    return power_manager_set_active_brightness(next, true);
 }
 
 uint8_t power_manager_get_active_brightness(void)

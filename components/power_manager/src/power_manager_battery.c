@@ -8,6 +8,7 @@
 #include "esp_adc/adc_oneshot.h"
 #include "esp_log.h"
 #include "esp_rom_sys.h"
+#include "esp_timer.h"
 
 static const char* TAG = "power_mgr";
 
@@ -25,6 +26,15 @@ static const char* TAG = "power_mgr";
 #define BATTERY_ADC_EN_AUTODETECT_MARGIN_MV 120
 #define BATTERY_CHARGING_ABS_ON_MV 4400
 #define BATTERY_CHARGING_ABS_OFF_MV 4250
+/* Compensate for terminal-voltage lift caused by charging current when
+ * mapping mV→%. Approximate: 100mV at typical CC charge rate. Reduces
+ * the SOC overestimation that otherwise happens immediately after USB
+ * plug-in. */
+#define BATTERY_CHARGE_OFFSET_MV 100
+/* Maximum allowed change of the reported percent per second. 1%/30s
+ * keeps display motion plausible (≈2%/min) and absorbs both the plug-in
+ * voltage spike and unplug settle without UI jumps. */
+#define BATTERY_PCT_SLEW_PER_SEC (1.0f / 30.0f)
 
 static adc_oneshot_unit_handle_t battery_adc_handle = NULL;
 static adc_cali_handle_t battery_cali_handle = NULL;
@@ -36,11 +46,41 @@ static bool battery_charging = false;
 static uint8_t battery_charge_trend_count = 0;
 static uint8_t battery_discharge_trend_count = 0;
 static int battery_adc_en_active_level = 1;
+static float battery_displayed_pct = -1.0f;
+static int64_t battery_displayed_pct_update_us = 0;
 
 static esp_err_t battery_set_adc_enabled(bool enabled)
 {
     int level = enabled ? battery_adc_en_active_level : (battery_adc_en_active_level ? 0 : 1);
     return gpio_set_level(BATTERY_ADC_EN_GPIO, level);
+}
+
+static int battery_clamp_pct(int pct)
+{
+    if (pct < 0) return 0;
+    if (pct > 100) return 100;
+    return pct;
+}
+
+static int battery_apply_pct_slew(int target_pct, int64_t now_us)
+{
+    if (battery_displayed_pct < 0.0f) {
+        battery_displayed_pct = (float)target_pct;
+        battery_displayed_pct_update_us = now_us;
+        return battery_clamp_pct(target_pct);
+    }
+
+    float dt_sec = (float)(now_us - battery_displayed_pct_update_us) / 1000000.0f;
+    if (dt_sec < 0.0f) dt_sec = 0.0f;
+    battery_displayed_pct_update_us = now_us;
+
+    float max_change = BATTERY_PCT_SLEW_PER_SEC * dt_sec;
+    float delta = (float)target_pct - battery_displayed_pct;
+    if (delta > max_change) delta = max_change;
+    else if (delta < -max_change) delta = -max_change;
+    battery_displayed_pct += delta;
+
+    return battery_clamp_pct((int)(battery_displayed_pct + 0.5f));
 }
 
 static int battery_percent_from_mv(int mv)
@@ -105,17 +145,15 @@ static void battery_reset_trend_counters(void)
     battery_discharge_trend_count = 0;
 }
 
-static float battery_filter_apply(float batt_mv)
+static void battery_filter_apply(float batt_mv)
 {
     if (!battery_filter_valid) {
         battery_filter_valid = true;
         battery_filtered_mv = batt_mv;
         battery_prev_mv = batt_mv;
-    } else {
-        battery_filtered_mv = battery_filtered_mv * (1.0f - BATTERY_FILTER_ALPHA) + batt_mv * BATTERY_FILTER_ALPHA;
+        return;
     }
-
-    return battery_filtered_mv;
+    battery_filtered_mv = battery_filtered_mv * (1.0f - BATTERY_FILTER_ALPHA) + batt_mv * BATTERY_FILTER_ALPHA;
 }
 
 static void battery_update_charging_state(float delta_mv, int batt_mv)
@@ -294,7 +332,9 @@ esp_err_t power_manager_read_battery(power_battery_info_t* out_info)
 
     battery_update_charging_state(delta_mv, mv_rounded);
 
-    out_info->percent = battery_percent_from_mv(mv_rounded);
+    int target_mv = battery_charging ? (mv_rounded - BATTERY_CHARGE_OFFSET_MV) : mv_rounded;
+    int target_pct = battery_percent_from_mv(target_mv);
+    out_info->percent = battery_apply_pct_slew(target_pct, esp_timer_get_time());
     out_info->charging = battery_charging;
     out_info->valid = true;
 

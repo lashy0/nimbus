@@ -13,6 +13,7 @@
 #include "esp_spiffs.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
+#include "nvs_flash.h"
 #include "freertos/task.h"
 #include "fonts.h"
 #include "lvgl.h"
@@ -39,6 +40,19 @@ static const char* TAG = "main";
 
 static backlight_handle_t bl_handle;
 static display_handles_t disp_hw;
+
+static void init_nvs(void)
+{
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_LOGW(TAG, "NVS requires erase, retrying");
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "NVS init failed: %s", esp_err_to_name(ret));
+    }
+}
 
 static void init_power_management(void)
 {
@@ -135,6 +149,9 @@ static bool startup_lock_lvgl_with_retry(const char* operation)
 void app_main(void)
 {
     bool startup_has_non_critical_error = false;
+
+    ESP_LOGI(TAG, "Init NVS...");
+    init_nvs();
 
     ESP_LOGI(TAG, "Init Display...");
     disp_hw = display_init();

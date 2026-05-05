@@ -87,15 +87,6 @@ esp_err_t power_manager_read_battery(power_battery_info_t* out_info);
 esp_err_t power_manager_set_active_brightness(uint8_t brightness_percent, bool persist);
 
 /**
- * @brief Move brightness to the next preset value and persist it.
- *
- * Presets cycle through predefined levels.
- *
- * @return ESP_OK on success or an error from @ref power_manager_set_active_brightness.
- */
-esp_err_t power_manager_step_active_brightness(void);
-
-/**
  * @brief Get current active brightness level.
  *
  * @return Brightness percent in range [5..100].

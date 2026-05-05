@@ -15,6 +15,11 @@ static const char* TAG = "buttons";
 
 static QueueHandle_t s_event_queue = NULL;
 static uint32_t s_event_drop_count = 0;
+/* Suppress events for a button until its first release after init. Set
+ * when the button is found to be already pressed at startup (e.g. the
+ * user holding PREV to wake the device from deep sleep), so the wake
+ * press does not turn into a long-press shutdown question. */
+static bool s_ignore_until_release[2] = {false, false};
 
 static uint8_t detect_button_active_level(gpio_num_t gpio_num, bool disable_pull, uint8_t fallback_active_level)
 {
@@ -85,6 +90,11 @@ static void internal_short_press_cb(void* arg, void* data)
 {
     (void)arg;
     int btn_id = (int)(intptr_t)data;
+    if (btn_id >= 0 && btn_id < 2 && s_ignore_until_release[btn_id]) {
+        s_ignore_until_release[btn_id] = false;
+        ESP_LOGI(TAG, "Discarded boot-time release on button %d", btn_id);
+        return;
+    }
     queue_button_event((button_id_t)btn_id, false);
 }
 
@@ -92,6 +102,9 @@ static void internal_long_press_cb(void* arg, void* data)
 {
     (void)arg;
     int btn_id = (int)(intptr_t)data;
+    if (btn_id >= 0 && btn_id < 2 && s_ignore_until_release[btn_id]) {
+        return;
+    }
     queue_button_event((button_id_t)btn_id, true);
 }
 
@@ -117,7 +130,7 @@ bool buttons_init(const buttons_config_t* config)
         .short_press_time = config->short_press_time_ms,
     };
 
-    // PREV button
+    // PREV button.
     button_gpio_config_t gpio_cfg_prev = {
         .gpio_num = config->prev_gpio,
         .active_level = 0,
@@ -131,7 +144,9 @@ bool buttons_init(const buttons_config_t* config)
         iot_button_register_cb(btn_prev, BUTTON_PRESS_UP, NULL, internal_short_press_cb, (void*)(intptr_t)BTN_ID_PREV);
         iot_button_register_cb(
             btn_prev, BUTTON_LONG_PRESS_START, NULL, internal_long_press_cb, (void*)(intptr_t)BTN_ID_PREV);
-        ESP_LOGI(TAG, "PREV button OK");
+        s_ignore_until_release[BTN_ID_PREV] = (gpio_get_level(config->prev_gpio) == gpio_cfg_prev.active_level);
+        ESP_LOGI(TAG, "PREV button OK%s",
+            s_ignore_until_release[BTN_ID_PREV] ? " (held at boot, awaiting release)" : "");
     } else {
         ESP_LOGE(TAG, "Failed to create PREV button");
         all_ok = false;
@@ -152,7 +167,9 @@ bool buttons_init(const buttons_config_t* config)
         iot_button_register_cb(btn_next, BUTTON_PRESS_UP, NULL, internal_short_press_cb, (void*)(intptr_t)BTN_ID_NEXT);
         iot_button_register_cb(
             btn_next, BUTTON_LONG_PRESS_START, NULL, internal_long_press_cb, (void*)(intptr_t)BTN_ID_NEXT);
-        ESP_LOGI(TAG, "NEXT button OK");
+        s_ignore_until_release[BTN_ID_NEXT] = (gpio_get_level(config->next_gpio) == gpio_cfg_next.active_level);
+        ESP_LOGI(TAG, "NEXT button OK%s",
+            s_ignore_until_release[BTN_ID_NEXT] ? " (held at boot, awaiting release)" : "");
     } else {
         ESP_LOGE(TAG, "Failed to create NEXT button");
         all_ok = false;

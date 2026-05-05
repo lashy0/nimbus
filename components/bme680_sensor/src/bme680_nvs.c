@@ -4,7 +4,6 @@
 #include "bsec_interface.h"
 #include "esp_log.h"
 #include "nvs.h"
-#include "nvs_flash.h"
 
 static const char* TAG = "bme680_nvs";
 
@@ -14,26 +13,6 @@ static const char* TAG = "bme680_nvs";
 #define BSEC_NVS_NAMESPACE "bme680"
 #define BSEC_NVS_KEY_STATE "bsec_state"
 #define BSEC_NVS_KEY_STATE_LEN "bsec_len"
-
-void bme680_nvs_init(void)
-{
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_OK) {
-        return;
-    }
-
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_LOGW(TAG, "NVS requires erase, retrying");
-        if (nvs_flash_erase() == ESP_OK) {
-            ret = nvs_flash_init();
-            if (ret == ESP_OK) {
-                return;
-            }
-        }
-    }
-
-    ESP_LOGW(TAG, "NVS init failed: %s", esp_err_to_name(ret));
-}
 
 void bme680_nvs_clear_state(void)
 {
