@@ -1,9 +1,9 @@
-# ESP-IDF build output
+# Generated build output and editor caches
 build/
+.cache/
 
 # ESP-IDF Component Manager
 managed_components/
-dependencies.lock
 
 # Local project configuration
 sdkconfig

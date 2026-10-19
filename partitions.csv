@@ -1,5 +1,6 @@
-# Name,   Type, SubType, Offset,  Size, Flags
-nvs,      data, nvs,     ,        0x4000,
-phy_init, data, phy,     ,        0x1000,
-factory,  app,  factory, ,        2M,
-storage,  data, spiffs,  ,        1M,
+# Nimbus v2: reserve storage for future UI assets; no filesystem image is built yet.
+# Name,   Type, SubType, Offset,   Size, Flags
+nvs,      data, nvs,     0x9000,   0x4000,
+phy_init, data, phy,     0xd000,   0x1000,
+factory,  app,  factory, 0x10000,  2M,
+storage,  data, spiffs,  0x210000, 1M,
