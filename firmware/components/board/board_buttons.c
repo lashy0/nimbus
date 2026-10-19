@@ -136,7 +136,8 @@ esp_err_t board_buttons_init(board_button_sink_fn sink, void* ctx)
         ESP_RETURN_ON_ERROR(create_button((board_button_t)i), TAG, "button %u", i);
     }
 
-    ESP_LOGI(TAG,
+    ESP_LOGI(
+        TAG,
         "ready, held at init: PREV=%d NEXT=%d",
         s_slots[BOARD_BUTTON_PREV].held_at_init,
         s_slots[BOARD_BUTTON_NEXT].held_at_init);

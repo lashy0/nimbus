@@ -111,7 +111,10 @@ void sensing_sensor_close(sensing_sensor_t* sensor)
 }
 
 esp_err_t sensing_sensor_measure(
-    sensing_sensor_t* sensor, const bsec_bme_settings_t* settings, struct bme68x_data* data, bool* has_data)
+    sensing_sensor_t* sensor,
+    const bsec_bme_settings_t* settings,
+    struct bme68x_data* data,
+    bool* has_data)
 {
     struct bme68x_dev* bme = &sensor->bme;
     *has_data = false;

@@ -26,7 +26,8 @@ static uint8_t s_brightness_percent;
 
 void ui_log_memory(const char* stage)
 {
-    ESP_LOGI(TAG,
+    ESP_LOGI(
+        TAG,
         "%s: internal free=%u min=%u largest=%u, DMA free=%u largest=%u",
         stage,
         heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
@@ -63,8 +64,9 @@ static esp_err_t wait_first_flush(void)
 
 esp_err_t ui_init(const ui_config_t* config)
 {
-    ESP_RETURN_ON_FALSE(config != NULL && config->panel_io != NULL && config->panel != NULL &&
-                            config->set_backlight != NULL && config->brightness_percent <= 100,
+    ESP_RETURN_ON_FALSE(
+        config != NULL && config->panel_io != NULL && config->panel != NULL && config->set_backlight != NULL &&
+            config->brightness_percent <= 100,
         ESP_ERR_INVALID_ARG,
         TAG,
         "config");
@@ -119,7 +121,8 @@ esp_err_t ui_init(const ui_config_t* config)
     s_brightness_percent = config->brightness_percent;
     s_set_backlight = config->set_backlight;
 
-    ESP_LOGI(TAG,
+    ESP_LOGI(
+        TAG,
         "first frame flushed (waited %lld us), backlight %u%%",
         esp_timer_get_time() - flush_started,
         config->brightness_percent);

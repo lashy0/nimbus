@@ -149,8 +149,9 @@ static void app_task(void* arg)
 
 esp_err_t app_start(const app_config_t* config)
 {
-    ESP_RETURN_ON_FALSE(config != NULL && config->brightness_percent >= APP_BRIGHTNESS_MIN &&
-                            config->brightness_percent <= APP_BRIGHTNESS_MAX,
+    ESP_RETURN_ON_FALSE(
+        config != NULL && config->brightness_percent >= APP_BRIGHTNESS_MIN &&
+            config->brightness_percent <= APP_BRIGHTNESS_MAX,
         ESP_ERR_INVALID_ARG,
         TAG,
         "config");
@@ -161,7 +162,8 @@ esp_err_t app_start(const app_config_t* config)
     s_input = xQueueCreate(INPUT_QUEUE_LENGTH, sizeof(app_button_event_t));
     ESP_RETURN_ON_FALSE(s_input != NULL, ESP_ERR_NO_MEM, TAG, "input queue");
 
-    ESP_RETURN_ON_FALSE(xTaskCreate(app_task, "app", TASK_STACK_BYTES, NULL, TASK_PRIORITY, &s_task) == pdPASS,
+    ESP_RETURN_ON_FALSE(
+        xTaskCreate(app_task, "app", TASK_STACK_BYTES, NULL, TASK_PRIORITY, &s_task) == pdPASS,
         ESP_ERR_NO_MEM,
         TAG,
         "task");

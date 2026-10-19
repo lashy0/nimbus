@@ -27,7 +27,10 @@ void sensing_sensor_close(sensing_sensor_t* sensor);
 // Runs one forced-mode measurement with the settings BSEC asked for. *has_data is
 // false when the sensor reported no new data.
 esp_err_t sensing_sensor_measure(
-    sensing_sensor_t* sensor, const bsec_bme_settings_t* settings, struct bme68x_data* data, bool* has_data);
+    sensing_sensor_t* sensor,
+    const bsec_bme_settings_t* settings,
+    struct bme68x_data* data,
+    bool* has_data);
 
 // Creates the BSEC instance with the 3.3 V LP configuration and subscribes the outputs.
 esp_err_t sensing_bsec_open(sensing_bsec_t* bsec);
@@ -35,4 +38,7 @@ esp_err_t sensing_bsec_open(sensing_bsec_t* bsec);
 // Lets BSEC control the sensor at its next_call and stores returned outputs in
 // snapshot. *updated tells whether any output arrived.
 esp_err_t sensing_bsec_step(
-    sensing_bsec_t* bsec, sensing_sensor_t* sensor, sensing_snapshot_t* snapshot, bool* updated);
+    sensing_bsec_t* bsec,
+    sensing_sensor_t* sensor,
+    sensing_snapshot_t* snapshot,
+    bool* updated);

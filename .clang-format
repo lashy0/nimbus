@@ -28,7 +28,7 @@ AllowShortFunctionsOnASingleLine: Empty
 # Alignment
 PointerAlignment: Left
 DerivePointerAlignment: false
-AlignAfterOpenBracket: DontAlign
+AlignAfterOpenBracket: AlwaysBreak
 AlignConsecutiveAssignments: None
 AlignConsecutiveDeclarations: None
 AlignConsecutiveMacros: None
@@ -40,5 +40,7 @@ MaxEmptyLinesToKeep: 1
 # Arguments, includes
 BinPackArguments: false
 BinPackParameters: false
+AllowAllParametersOfDeclarationOnNextLine: false
+PenaltyReturnTypeOnItsOwnLine: 1000
 SortIncludes: false
 IncludeBlocks: Preserve

@@ -33,7 +33,8 @@ static esp_err_t load_config(void* instance)
 
     const uint32_t declared =
         s_config_start[0] | (s_config_start[1] << 8) | (s_config_start[2] << 16) | ((uint32_t)s_config_start[3] << 24);
-    ESP_RETURN_ON_FALSE(declared == size - CONFIG_HEADER_BYTES,
+    ESP_RETURN_ON_FALSE(
+        declared == size - CONFIG_HEADER_BYTES,
         ESP_ERR_INVALID_SIZE,
         TAG,
         "config declares %lu bytes, holds %u",
@@ -81,7 +82,8 @@ esp_err_t sensing_bsec_open(sensing_bsec_t* bsec)
 
     bsec_version_t version;
     if (bsec_get_version_m(instance, &version) == BSEC_OK) {
-        ESP_LOGI(TAG,
+        ESP_LOGI(
+            TAG,
             "BSEC %u.%u.%u.%u, instance %u bytes",
             version.major,
             version.minor,
@@ -144,7 +146,10 @@ static void add_input(bsec_input_t* inputs, uint8_t* count, uint8_t id, float si
 }
 
 static uint8_t collect_inputs(
-    const bsec_bme_settings_t* settings, const struct bme68x_data* data, int64_t time_ns, bsec_input_t* inputs)
+    const bsec_bme_settings_t* settings,
+    const struct bme68x_data* data,
+    int64_t time_ns,
+    bsec_input_t* inputs)
 {
     const uint32_t wanted = settings->process_data;
     const bool gas_valid = (data->status & BME68X_GASM_VALID_MSK) != 0;
@@ -192,7 +197,8 @@ esp_err_t sensing_bsec_step(sensing_bsec_t* bsec, sensing_sensor_t* sensor, sens
         return ESP_OK;
     }
 
-    ESP_RETURN_ON_FALSE(settings.op_mode == BME68X_FORCED_MODE,
+    ESP_RETURN_ON_FALSE(
+        settings.op_mode == BME68X_FORCED_MODE,
         ESP_ERR_NOT_SUPPORTED,
         TAG,
         "BME68x mode %u is not supported",

@@ -109,7 +109,8 @@ static void log_outputs(void)
         return;
     }
 
-    ESP_LOGI(TAG,
+    ESP_LOGI(
+        TAG,
         "#%lu static IAQ %.1f (accuracy %u, stab %d, run-in %d), %.2f C, %.1f %%RH, %.0f Pa",
         s_snapshot.generation,
         s_snapshot.static_iaq,
@@ -169,7 +170,8 @@ esp_err_t sensing_start(const sensing_config_t* config)
     s_lock = xSemaphoreCreateMutex();
     ESP_RETURN_ON_FALSE(s_lock != NULL, ESP_ERR_NO_MEM, TAG, "lock");
 
-    ESP_RETURN_ON_FALSE(xTaskCreate(sensing_task, "sensing", TASK_STACK_BYTES, NULL, TASK_PRIORITY, &s_task) == pdPASS,
+    ESP_RETURN_ON_FALSE(
+        xTaskCreate(sensing_task, "sensing", TASK_STACK_BYTES, NULL, TASK_PRIORITY, &s_task) == pdPASS,
         ESP_ERR_NO_MEM,
         TAG,
         "task");
