@@ -1,0 +1,8 @@
+menu "Nimbus diagnostics"
+    config NIMBUS_BOARD_DIAGNOSTICS
+        bool "Run stage 1 board diagnostics instead of the application"
+        default n
+        help
+            UART-only bring-up: ADC_EN LOW/HIGH readings, RTC marker and manual
+            deep-sleep. No UI, BSEC, battery percentage or automatic restart.
+endmenu

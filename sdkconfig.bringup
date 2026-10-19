@@ -1,0 +1,2 @@
+# Opt-in overlay: use a separate SDKCONFIG/build directory (see hardware-bringup.md).
+CONFIG_NIMBUS_BOARD_DIAGNOSTICS=y

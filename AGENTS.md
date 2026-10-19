@@ -6,6 +6,7 @@ This branch is a clean implementation for LILYGO T-Display (ESP32, ST7789
 135x240), BME680, and a 1150 mAh / 3.7 V battery in the onboard battery connector.
 The old application and its components have been removed. Only runtime fonts and
 images are reused from v1. Do not restore old application code as a starting point.
+Initial board diagnostics exist; full application services are still pending.
 
 Read `docs/architecture.md` before implementing a component. Implementation status
 and actual checks belong in `docs/verification-log.md`; electrical measurements
@@ -27,6 +28,8 @@ idf.py -p COM3 monitor
 COM3 is the port observed locally, not a portable setting. Flash with
 `idf.py -p COM3 flash monitor` when hardware execution is part of the requested
 work. Do not claim hardware verification from a build alone.
+Use the matching build directory/ELF for monitoring; board diagnostics commands
+are in docs/hardware-bringup.md.
 
 ## Architecture
 
