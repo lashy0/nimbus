@@ -8,3 +8,6 @@ managed_components/
 # Local project configuration
 sdkconfig
 sdkconfig.old
+
+# BSEC is supplied locally after acceptance of the Bosch license.
+local-deps/
