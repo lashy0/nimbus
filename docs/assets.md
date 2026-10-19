@@ -16,7 +16,7 @@
 
 | Каталог | Количество | Содержимое |
 | --- | --- | --- |
-| `artwork/img/face/` | 17 | Персонаж: основные состояния и варианты с закрытыми глазами |
+| `artwork/img/face/` | 21 | Персонаж: основные состояния, варианты с закрытыми глазами и с нимбом |
 | `artwork/img/batt/` | 8 | Четыре уровня батареи, с зарядкой (PNG RGBA) и без (JPG) |
 | `artwork/img/status/` | 10 | Плашки good/mid/bad/warn/crit, damp/dry, значки minus/nothing/plus |
 | `artwork/img/misc/` | 3 | `base.jpg`, `lightning-charge.jpg`, `sun.jpg` |
@@ -28,6 +28,17 @@
 | --- | --- | --- |
 | `TБlosed-eyes.jpg` | `img/face/ordinary-closed-eyes.jpg` | Персонаж `ordinary` с закрытыми глазами, 71×73; кириллическая «Б» в имени |
 | `Sun.jpg` | `img/misc/sun.jpg` | Единый нижний регистр |
+
+Позже, 19 октября 2026, пользователь добавил прямо в `artwork/img/` четыре
+изображения с макета, которых не было в `../Nimbus-assets`. Они перенесены в
+`img/face/` и названы по общему правилу (дефисы, имя персонажа v1 `cat-huh`):
+
+| Добавлено | В `artwork/` | Размер |
+| --- | --- | --- |
+| `ordinary_surprised.jpg` | `img/face/ordinary-surprised.jpg` | 82×88, кот с «!» |
+| `ordinary_surprised_nimbus.jpg` | `img/face/ordinary-surprised-nimbus.jpg` | 91×88, «!» и нимб |
+| `huh_nimbus.jpg` | `img/face/cat-huh-nimbus.jpg` | 92×89, «?» и нимб |
+| `dizzy_nimbus.jpg` | `img/face/dizzy-nimbus.jpg` | 82×78, dizzy с нимбом |
 
 Изображения уже имеют размеры для интерфейса и конвертируются без масштабирования.
 JPG-оригиналы нарисованы на чёрном фоне.
@@ -108,7 +119,7 @@ lv_font_conv --font <otf> --size <px> --bpp 4 --no-compress --no-kerning
 | --- | --- |
 | `firmware/assets/fonts/` | 5 шрифтов `.fnt` |
 | `firmware/assets/img/batt/` | `{1,2,3,full}_{charging,not_charging}.bin`, 8 файлов |
-| `firmware/assets/img/face/` | 17 файлов, включая 5 вариантов `*_closed_eyes.bin` |
+| `firmware/assets/img/face/` | 21 файл, включая 5 вариантов `*_closed_eyes.bin` и 4 добавленных позже |
 | `firmware/assets/img/status/` | 10 файлов |
 | `firmware/assets/img/misc/` | `base.bin`, `lightning_charge.bin`, `sun.bin` |
 
