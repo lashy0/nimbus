@@ -1,0 +1,5 @@
+# clangd only: the firmware is built by ESP-IDF with xtensa GCC in firmware/build.
+CompileFlags:
+  CompilationDatabase: firmware/build
+  # GCC-only options from the ESP-IDF build that clang rejects.
+  Remove: [-mlongcalls, -fno-shrink-wrap, -fstrict-volatile-bitfields, -fno-tree-switch-conversion]

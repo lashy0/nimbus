@@ -1,8 +1,8 @@
 #include "composition.h"
 
 #include "esp_app_desc.h"
+#include "esp_idf_version.h"
 #include "esp_log.h"
-#include "esp_system.h"
 
 static const char* TAG = "nimbus";
 

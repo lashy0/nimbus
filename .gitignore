@@ -6,3 +6,6 @@ artwork/fonts/*.otf
 
 # Local asset generator.
 tools/
+
+# Local editor settings with machine-specific paths.
+.zed/

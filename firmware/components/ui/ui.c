@@ -7,6 +7,8 @@
 #include "esp_lvgl_port.h"
 #include "esp_pm.h"
 #include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "ui_internal.h"
 
 #define LOCK_TIMEOUT_MS 1000
