@@ -96,7 +96,7 @@ nimbus/
 │   │   ├── storage/  include/storage.h
 │   │   └── ui/       include/{ui.h, ui_model.h}
 │   ├── assets/                   # .bin и .fnt, генерируются из artwork/
-│   ├── local-deps/               # локальный BSEC, вне Git
+│   ├── third_party/              # BSEC2 и BME68x, git submodules
 │   ├── dependencies.lock
 │   ├── sdkconfig.defaults
 │   └── partitions.csv

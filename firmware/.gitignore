@@ -8,8 +8,5 @@ managed_components/
 sdkconfig
 sdkconfig.old
 
-# BSEC is supplied locally after acceptance of the Bosch license.
-local-deps/
-
 # Editor index (clangd)
 .cache/
