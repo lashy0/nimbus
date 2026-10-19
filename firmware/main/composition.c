@@ -1,5 +1,6 @@
 #include "composition.h"
 
+#include "app.h"
 #include "board.h"
 #include "board_backlight.h"
 #include "board_buttons.h"
@@ -7,6 +8,8 @@
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_spiffs.h"
+#include "preview_readings.h"
+#include "sdkconfig.h"
 #include "ui.h"
 
 #define ASSETS_PARTITION "storage"
@@ -15,13 +18,20 @@
 
 static const char* TAG = "composition";
 
-// Until app exists, button events are only logged; nothing acts on them.
-static void log_button_event(void* ctx, const board_button_event_t* event)
+static void forward_button(void* ctx, const board_button_event_t* event)
 {
-    static const char* const BUTTONS[BOARD_BUTTON_COUNT] = {"PREV", "NEXT"};
-    static const char* const TYPES[] = {"PRESSED", "LONG", "SHORT", "RELEASED"};
+    static const app_gesture_t GESTURES[] = {
+        [BOARD_BUTTON_PRESSED] = APP_GESTURE_PRESSED,
+        [BOARD_BUTTON_LONG] = APP_GESTURE_LONG,
+        [BOARD_BUTTON_SHORT] = APP_GESTURE_SHORT,
+        [BOARD_BUTTON_RELEASED] = APP_GESTURE_RELEASED,
+    };
 
-    ESP_LOGI(TAG, "button %s %s t=%lld us", BUTTONS[event->button], TYPES[event->type], event->timestamp_us);
+    const app_button_event_t forwarded = {
+        .button = event->button == BOARD_BUTTON_PREV ? APP_BUTTON_PREV : APP_BUTTON_NEXT,
+        .gesture = GESTURES[event->type],
+    };
+    app_post_button(&forwarded);
 }
 
 // Never formats: a damaged asset image must not be erased on boot.
@@ -69,19 +79,26 @@ static esp_err_t start_display(void)
 esp_err_t composition_init(void)
 {
     ESP_RETURN_ON_ERROR(board_init_safe_gpio(), TAG, "safe GPIO");
-    ESP_RETURN_ON_ERROR(board_buttons_init(log_button_event, NULL), TAG, "buttons");
 
-    // Missing assets leave the UI on built-in fonts and warning symbols.
+    // Missing assets leave the UI on built-in fonts and empty images.
     esp_err_t err = mount_assets();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "assets unavailable: %s", esp_err_to_name(err));
     }
 
-    // The display is optional for the rest of the device: buttons keep working.
+    // The display is optional for the rest of the device: app and buttons keep working.
     err = start_display();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "display unavailable: %s", esp_err_to_name(err));
     }
+
+    const app_config_t app_config = {.brightness_percent = DEFAULT_BRIGHTNESS_PERCENT};
+    ESP_RETURN_ON_ERROR(app_start(&app_config), TAG, "app");
+    ESP_RETURN_ON_ERROR(board_buttons_init(forward_button, NULL), TAG, "buttons");
+
+#if CONFIG_NIMBUS_PREVIEW_READINGS
+    ESP_RETURN_ON_ERROR(preview_readings_start(), TAG, "preview readings");
+#endif
 
     return ESP_OK;
 }

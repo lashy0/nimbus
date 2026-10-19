@@ -1,6 +1,11 @@
+set(srcs "app_main.c" "composition.c")
+if(CONFIG_NIMBUS_PREVIEW_READINGS)
+    list(APPEND srcs "preview_readings.c")
+endif()
+
 idf_component_register(
-    SRCS "app_main.c" "composition.c"
-    PRIV_REQUIRES board esp_app_format esp_system espcoredump log spiffs ui
+    SRCS ${srcs}
+    PRIV_REQUIRES app board esp_app_format esp_system esp_timer espcoredump log spiffs ui
 )
 
 # assets/ is generated from artwork/; flashed to the storage partition.

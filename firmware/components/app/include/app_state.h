@@ -1,0 +1,52 @@
+#pragma once
+
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "app_events.h"
+#include "ui_model.h"
+
+#define APP_BRIGHTNESS_MIN 5
+#define APP_BRIGHTNESS_MAX 100
+#define APP_BRIGHTNESS_STEP 5
+#define APP_DIALOG_TIMEOUT_MS 15000
+
+#define APP_NO_DEADLINE INT64_MAX
+
+typedef enum {
+    APP_MODE_STARTING, // Input is ignored until startup finishes.
+    APP_MODE_ACTIVE,
+} app_mode_t;
+
+// What the caller has to carry out after a transition.
+typedef enum {
+    APP_EFFECT_NONE = 0,
+    APP_EFFECT_MODEL = 1 << 0,      // The screen model changed.
+    APP_EFFECT_BRIGHTNESS = 1 << 1, // The backlight must follow brightness_percent.
+    APP_EFFECT_SHUTDOWN = 1 << 2,   // The user confirmed power-off.
+} app_effect_t;
+
+typedef struct {
+    app_mode_t mode;
+    ui_screen_t screen;
+    ui_screen_t main_screen; // IAQ, TEMP or HUM to return to from a dialog.
+    uint8_t brightness_percent;
+    bool shutdown_yes_selected;
+    int64_t dialog_deadline_ms; // Auto-cancel of the shutdown question.
+    app_readings_t readings;
+} app_state_t;
+
+// Times are monotonic milliseconds. Functions return a mask of app_effect_t.
+void app_state_init(app_state_t* state, uint8_t brightness_percent);
+uint32_t app_state_activate(app_state_t* state);
+uint32_t app_state_button(app_state_t* state, const app_button_event_t* event, int64_t now_ms);
+uint32_t app_state_readings(app_state_t* state, const app_readings_t* readings);
+uint32_t app_state_tick(app_state_t* state, int64_t now_ms);
+
+// Closes an open dialog without acting on it, e.g. after input was lost.
+uint32_t app_state_cancel_dialog(app_state_t* state);
+
+// Earliest time app_state_tick() has work, or APP_NO_DEADLINE.
+int64_t app_state_next_deadline(const app_state_t* state);
+
+void app_state_model(const app_state_t* state, ui_model_t* model);

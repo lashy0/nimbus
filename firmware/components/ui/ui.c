@@ -12,12 +12,17 @@
 #include "ui_internal.h"
 
 #define LOCK_TIMEOUT_MS 1000
+#define APPLY_LOCK_TIMEOUT_MS 100
 #define FIRST_FLUSH_TIMEOUT_US (500 * 1000)
 
 static const char* TAG = "ui";
 
 static esp_pm_lock_handle_t s_pm_lock;
 static lv_disp_t* s_disp;
+static ui_fonts_t s_fonts;
+static ui_backlight_fn s_set_backlight; // Set once the display is fully up.
+static void* s_backlight_ctx;
+static uint8_t s_brightness_percent;
 
 void ui_log_memory(const char* stage)
 {
@@ -98,19 +103,66 @@ esp_err_t ui_init(const ui_config_t* config)
     // The panel shows stale RAM until the first flush, but the backlight is still off.
     ESP_RETURN_ON_ERROR(esp_lcd_panel_disp_on_off(config->panel, true), TAG, "display on");
 
+    const ui_model_t start = {.screen = UI_SCREEN_START};
     ESP_RETURN_ON_FALSE(lvgl_port_lock(LOCK_TIMEOUT_MS), ESP_ERR_TIMEOUT, TAG, "LVGL lock");
-    ui_bringup_create(lv_disp_get_scr_act(s_disp));
+    ui_fonts_load(&s_fonts);
+    ui_view_create(lv_disp_get_scr_act(s_disp), &s_fonts);
+    ui_view_apply(&start);
     lv_refr_now(s_disp);
     lvgl_port_unlock();
+    ui_log_memory("screens");
 
     const int64_t flush_started = esp_timer_get_time();
     ESP_RETURN_ON_ERROR(wait_first_flush(), TAG, "first flush");
     ESP_RETURN_ON_ERROR(config->set_backlight(config->backlight_ctx, config->brightness_percent), TAG, "backlight");
+    s_backlight_ctx = config->backlight_ctx;
+    s_brightness_percent = config->brightness_percent;
+    s_set_backlight = config->set_backlight;
 
     ESP_LOGI(TAG,
         "first frame flushed (waited %lld us), backlight %u%%",
         esp_timer_get_time() - flush_started,
         config->brightness_percent);
+
+    return ESP_OK;
+}
+
+esp_err_t ui_apply_model(const ui_model_t* model)
+{
+    ESP_RETURN_ON_FALSE(model != NULL, ESP_ERR_INVALID_ARG, TAG, "model");
+    if (s_set_backlight == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    // A busy render is not an error: the caller keeps the model and retries.
+    if (!lvgl_port_lock(APPLY_LOCK_TIMEOUT_MS)) {
+        return ESP_ERR_TIMEOUT;
+    }
+
+    ui_view_apply(model);
+    lvgl_port_unlock();
+
+    return ESP_OK;
+}
+
+esp_err_t ui_set_display_state(ui_display_state_t state, uint8_t brightness_percent)
+{
+    ESP_RETURN_ON_FALSE(brightness_percent <= 100, ESP_ERR_INVALID_ARG, TAG, "brightness");
+    if (s_set_backlight == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    // OFF has to stop the LVGL task before the panel sleeps; the pinned port cannot.
+    if (state == UI_DISPLAY_OFF) {
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+
+    if (brightness_percent == s_brightness_percent) {
+        return ESP_OK;
+    }
+
+    ESP_RETURN_ON_ERROR(s_set_backlight(s_backlight_ctx, brightness_percent), TAG, "backlight");
+    s_brightness_percent = brightness_percent;
 
     return ESP_OK;
 }
