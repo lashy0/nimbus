@@ -4,12 +4,14 @@
 #include <stdint.h>
 
 #include "app_events.h"
+#include "sensing_types.h"
 #include "ui_model.h"
 
 #define APP_BRIGHTNESS_MIN 5
 #define APP_BRIGHTNESS_MAX 100
 #define APP_BRIGHTNESS_STEP 5
 #define APP_DIALOG_TIMEOUT_MS 15000
+#define APP_MEASUREMENT_STALE_MS 10000 // LP outputs arrive every 3 s.
 
 #define APP_NO_DEADLINE INT64_MAX
 
@@ -33,14 +35,16 @@ typedef struct {
     uint8_t brightness_percent;
     bool shutdown_yes_selected;
     int64_t dialog_deadline_ms; // Auto-cancel of the shutdown question.
-    app_readings_t readings;
+    sensing_snapshot_t measurement;
+    bool measurement_stale; // No new outputs for APP_MEASUREMENT_STALE_MS.
 } app_state_t;
 
-// Times are monotonic milliseconds. Functions return a mask of app_effect_t.
+// Times are monotonic milliseconds, the clock of sensing_snapshot_t.updated_ms.
+// Functions return a mask of app_effect_t.
 void app_state_init(app_state_t* state, uint8_t brightness_percent);
 uint32_t app_state_activate(app_state_t* state);
 uint32_t app_state_button(app_state_t* state, const app_button_event_t* event, int64_t now_ms);
-uint32_t app_state_readings(app_state_t* state, const app_readings_t* readings);
+uint32_t app_state_measurement(app_state_t* state, const sensing_snapshot_t* measurement, int64_t now_ms);
 uint32_t app_state_tick(app_state_t* state, int64_t now_ms);
 
 // Closes an open dialog without acting on it, e.g. after input was lost.

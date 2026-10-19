@@ -5,11 +5,11 @@
 #include "board_backlight.h"
 #include "board_buttons.h"
 #include "board_display.h"
+#include "board_i2c.h"
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_spiffs.h"
-#include "preview_readings.h"
-#include "sdkconfig.h"
+#include "sensing.h"
 #include "ui.h"
 
 #define ASSETS_PARTITION "storage"
@@ -76,6 +76,24 @@ static esp_err_t start_display(void)
     return ui_init(&config);
 }
 
+static void forward_measurement(void* ctx)
+{
+    app_notify_measurement();
+}
+
+static esp_err_t start_sensing(void)
+{
+    i2c_master_bus_handle_t bus;
+    ESP_RETURN_ON_ERROR(board_i2c_init(&bus), TAG, "I2C bus");
+
+    const sensing_config_t config = {
+        .bus = bus,
+        .notify = forward_measurement,
+    };
+
+    return sensing_start(&config);
+}
+
 esp_err_t composition_init(void)
 {
     ESP_RETURN_ON_ERROR(board_init_safe_gpio(), TAG, "safe GPIO");
@@ -96,9 +114,11 @@ esp_err_t composition_init(void)
     ESP_RETURN_ON_ERROR(app_start(&app_config), TAG, "app");
     ESP_RETURN_ON_ERROR(board_buttons_init(forward_button, NULL), TAG, "buttons");
 
-#if CONFIG_NIMBUS_PREVIEW_READINGS
-    ESP_RETURN_ON_ERROR(preview_readings_start(), TAG, "preview readings");
-#endif
+    // Without the bus the screens show no values until the next boot; input still works.
+    err = start_sensing();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "sensing unavailable: %s", esp_err_to_name(err));
+    }
 
     return ESP_OK;
 }

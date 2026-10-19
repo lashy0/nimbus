@@ -17,5 +17,6 @@ esp_err_t app_start(const app_config_t* config);
 // and cancels an open shutdown question rather than acting on partial input.
 void app_post_button(const app_button_event_t* event);
 
-// Replaces the latest readings; several posts before app_task runs coalesce.
-void app_post_readings(const app_readings_t* readings);
+// Tells app_task that sensing published a new snapshot; it reads the latest one.
+// Never blocks; safe from the sensing task.
+void app_notify_measurement(void);

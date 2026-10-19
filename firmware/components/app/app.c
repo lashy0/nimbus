@@ -8,8 +8,8 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
-#include "freertos/semphr.h"
 #include "freertos/task.h"
+#include "sensing.h"
 #include "ui.h"
 
 #define INPUT_QUEUE_LENGTH 16
@@ -18,7 +18,7 @@
 #define UI_RETRY_MS 100
 
 #define NOTIFY_INPUT (1u << 0)
-#define NOTIFY_READINGS (1u << 1)
+#define NOTIFY_MEASUREMENT (1u << 1)
 
 static const char* TAG = "app";
 
@@ -26,8 +26,6 @@ static app_state_t s_state;
 static TaskHandle_t s_task;
 static QueueHandle_t s_input;
 static atomic_bool s_input_lost;
-static SemaphoreHandle_t s_readings_lock;
-static app_readings_t s_readings;
 
 static int64_t now_ms(void)
 {
@@ -47,17 +45,11 @@ void app_post_button(const app_button_event_t* event)
     xTaskNotify(s_task, NOTIFY_INPUT, eSetBits);
 }
 
-void app_post_readings(const app_readings_t* readings)
+void app_notify_measurement(void)
 {
-    if (s_task == NULL) {
-        return;
+    if (s_task != NULL) {
+        xTaskNotify(s_task, NOTIFY_MEASUREMENT, eSetBits);
     }
-
-    xSemaphoreTake(s_readings_lock, portMAX_DELAY);
-    s_readings = *readings;
-    xSemaphoreGive(s_readings_lock);
-
-    xTaskNotify(s_task, NOTIFY_READINGS, eSetBits);
 }
 
 static uint32_t handle_notifications(uint32_t bits)
@@ -75,13 +67,11 @@ static uint32_t handle_notifications(uint32_t bits)
         }
     }
 
-    if (bits & NOTIFY_READINGS) {
-        app_readings_t readings;
-        xSemaphoreTake(s_readings_lock, portMAX_DELAY);
-        readings = s_readings;
-        xSemaphoreGive(s_readings_lock);
-
-        effects |= app_state_readings(&s_state, &readings);
+    // Notifications coalesce; only the latest snapshot matters.
+    if (bits & NOTIFY_MEASUREMENT) {
+        sensing_snapshot_t measurement;
+        sensing_get_snapshot(&measurement);
+        effects |= app_state_measurement(&s_state, &measurement, now_ms());
     }
 
     return effects | app_state_tick(&s_state, now_ms());
@@ -170,8 +160,6 @@ esp_err_t app_start(const app_config_t* config)
 
     s_input = xQueueCreate(INPUT_QUEUE_LENGTH, sizeof(app_button_event_t));
     ESP_RETURN_ON_FALSE(s_input != NULL, ESP_ERR_NO_MEM, TAG, "input queue");
-    s_readings_lock = xSemaphoreCreateMutex();
-    ESP_RETURN_ON_FALSE(s_readings_lock != NULL, ESP_ERR_NO_MEM, TAG, "readings lock");
 
     ESP_RETURN_ON_FALSE(xTaskCreate(app_task, "app", TASK_STACK_BYTES, NULL, TASK_PRIORITY, &s_task) == pdPASS,
         ESP_ERR_NO_MEM,

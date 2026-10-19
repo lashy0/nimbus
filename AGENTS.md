@@ -16,7 +16,7 @@ follow `docs/hardware-bringup.md`. Never present planned drivers as implemented.
 
 - ESP-IDF 5.5.3, target ESP32.
 - Future UI: LVGL 8.4.0 with esp_lvgl_port.
-- Future IAQ processing: Bosch BSEC2 2.6.1.0.
+- IAQ processing: Bosch BSEC2 2.6.1.0, git submodule in `firmware/third_party/bsec2`.
 - Commit `firmware/dependencies.lock` when generated; pin external library revisions.
 
 The ESP-IDF project lives in `firmware/` with its own `.gitignore`; the repository

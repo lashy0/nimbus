@@ -129,6 +129,7 @@ void app_state_init(app_state_t* state, uint8_t brightness_percent)
     state->main_screen = UI_SCREEN_IAQ;
     state->brightness_percent = brightness_percent;
     state->dialog_deadline_ms = APP_NO_DEADLINE;
+    state->measurement_stale = true;
 }
 
 uint32_t app_state_activate(app_state_t* state)
@@ -165,20 +166,37 @@ uint32_t app_state_button(app_state_t* state, const app_button_event_t* event, i
     return effects;
 }
 
-uint32_t app_state_readings(app_state_t* state, const app_readings_t* readings)
+uint32_t app_state_measurement(app_state_t* state, const sensing_snapshot_t* measurement, int64_t now_ms)
 {
-    state->readings = *readings;
+    state->measurement = *measurement;
+    state->measurement_stale =
+        measurement->updated_ms == 0 || now_ms - measurement->updated_ms >= APP_MEASUREMENT_STALE_MS;
 
     return APP_EFFECT_MODEL;
 }
 
-uint32_t app_state_tick(app_state_t* state, int64_t now_ms)
+static int64_t stale_deadline(const app_state_t* state)
 {
-    if (state->screen == UI_SCREEN_SHUTDOWN && now_ms >= state->dialog_deadline_ms) {
-        return close_dialog(state);
+    if (state->measurement_stale || state->measurement.updated_ms == 0) {
+        return APP_NO_DEADLINE;
     }
 
-    return APP_EFFECT_NONE;
+    return state->measurement.updated_ms + APP_MEASUREMENT_STALE_MS;
+}
+
+uint32_t app_state_tick(app_state_t* state, int64_t now_ms)
+{
+    uint32_t effects = APP_EFFECT_NONE;
+    if (now_ms >= stale_deadline(state)) {
+        state->measurement_stale = true;
+        effects |= APP_EFFECT_MODEL;
+    }
+
+    if (state->screen == UI_SCREEN_SHUTDOWN && now_ms >= state->dialog_deadline_ms) {
+        effects |= close_dialog(state);
+    }
+
+    return effects;
 }
 
 uint32_t app_state_cancel_dialog(app_state_t* state)
@@ -192,7 +210,12 @@ uint32_t app_state_cancel_dialog(app_state_t* state)
 
 int64_t app_state_next_deadline(const app_state_t* state)
 {
-    return state->screen == UI_SCREEN_SHUTDOWN ? state->dialog_deadline_ms : APP_NO_DEADLINE;
+    const int64_t stale = stale_deadline(state);
+    if (state->screen != UI_SCREEN_SHUTDOWN) {
+        return stale;
+    }
+
+    return state->dialog_deadline_ms < stale ? state->dialog_deadline_ms : stale;
 }
 
 static long round_clamped(float value, long min, long max)
@@ -205,31 +228,49 @@ static long round_clamped(float value, long min, long max)
     return rounded > max ? max : rounded;
 }
 
+static ui_iaq_state_t iaq_state(const app_state_t* state)
+{
+    const sensing_snapshot_t* measurement = &state->measurement;
+    switch (measurement->phase) {
+        case SENSING_PHASE_WARMUP:
+            return UI_IAQ_CALIBRATING;
+        case SENSING_PHASE_CALIBRATING:
+        case SENSING_PHASE_READY:
+            if (!state->measurement_stale && measurement->iaq_valid && isfinite(measurement->static_iaq)) {
+                return UI_IAQ_VALID;
+            }
+
+            break;
+        case SENSING_PHASE_INITIALIZING:
+        case SENSING_PHASE_ERROR:
+            break;
+    }
+
+    return UI_IAQ_NONE;
+}
+
 void app_state_model(const app_state_t* state, ui_model_t* model)
 {
-    const app_readings_t* readings = &state->readings;
+    const sensing_snapshot_t* measurement = &state->measurement;
+    const bool fresh = !state->measurement_stale;
     memset(model, 0, sizeof(*model));
 
     model->screen = state->screen;
     model->brightness_percent = state->brightness_percent;
     model->shutdown_yes_selected = state->shutdown_yes_selected;
 
-    model->battery_valid = readings->battery_valid && readings->battery_percent <= 100;
-    model->battery_percent = readings->battery_percent;
-    model->charging = readings->charging;
-
-    if (readings->iaq_valid && isfinite(readings->iaq)) {
-        model->iaq_state = readings->iaq_accuracy == 0 ? UI_IAQ_CALIBRATING : UI_IAQ_VALID;
-        model->iaq = (uint16_t)round_clamped(readings->iaq, 0, IAQ_MAX);
+    model->iaq_state = iaq_state(state);
+    if (model->iaq_state == UI_IAQ_VALID) {
+        model->iaq = (uint16_t)round_clamped(measurement->static_iaq, 0, IAQ_MAX);
     }
 
-    model->temperature_valid = readings->temperature_valid && isfinite(readings->temperature_c);
+    model->temperature_valid = fresh && measurement->temperature_valid && isfinite(measurement->temperature_c);
     if (model->temperature_valid) {
-        model->temperature_c = (int16_t)round_clamped(readings->temperature_c, TEMPERATURE_MIN_C, TEMPERATURE_MAX_C);
+        model->temperature_c = (int16_t)round_clamped(measurement->temperature_c, TEMPERATURE_MIN_C, TEMPERATURE_MAX_C);
     }
 
-    model->humidity_valid = readings->humidity_valid && isfinite(readings->humidity_percent);
+    model->humidity_valid = fresh && measurement->humidity_valid && isfinite(measurement->humidity_percent);
     if (model->humidity_valid) {
-        model->humidity_percent = (uint8_t)round_clamped(readings->humidity_percent, 0, HUMIDITY_MAX);
+        model->humidity_percent = (uint8_t)round_clamped(measurement->humidity_percent, 0, HUMIDITY_MAX);
     }
 }
