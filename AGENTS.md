@@ -84,11 +84,13 @@ Power validity and startup/safe-mode rules have one source of truth in
 Only UI owns LVGL objects; follow its locking and lifecycle contract in
 [architecture section 4](docs/architecture.md).
 
-`assets/fonts/*.fnt` and `assets/img/**/*.bin` are retained unchanged from v1.
-Original artwork is supplied by the user in `../Nimbus-assets` (38 JPG/PNG images
-and two OTF fonts). Read originals there; do not modify that sibling directory.
-See docs/assets.md for source gaps and import status. The current build must not
-depend on the sibling directory being present.
+Originals live in `artwork/` (imported from the user's `../Nimbus-assets`; never
+modify that sibling directory). SF Pro Rounded `.otf` files and the local
+generator in `tools/` are kept out of Git. `assets/` is generated from `artwork/`
+with the official `lv_font_conv` and `lv_img_conv`; names, versions and exact
+parameters are in docs/assets.md. Do not edit generated files by hand; record any
+parameter change there. The firmware build must not depend on Node.js or the
+sibling directory.
 Runtime asset packaging is not wired into the minimal build yet. Follow
 [assets.md](docs/assets.md) and
 [architecture section 10](docs/architecture.md) for

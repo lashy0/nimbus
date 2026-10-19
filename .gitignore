@@ -11,3 +11,9 @@ sdkconfig.old
 
 # BSEC is supplied locally after acceptance of the Bosch license.
 local-deps/
+
+# SF Pro Rounded is licensed by Apple and not redistributed; copy locally (docs/assets.md).
+artwork/fonts/*.otf
+
+# Local asset generator; its parameters are documented in docs/assets.md.
+tools/

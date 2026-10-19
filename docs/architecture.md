@@ -2,8 +2,9 @@
 
 Этот документ задаёт целевое поведение и контракты новой реализации с нуля.
 Текущее состояние кода и результаты проверок — в
-[verification-log.md](verification-log.md). Код v1 остаётся в истории `master`;
-в v2 используются его готовые изображения и шрифты, но не исходники приложения.
+[verification-log.md](verification-log.md). Код v1 остаётся в истории `master`
+и в v2 не используется; изображения и шрифты генерируются из оригиналов
+в `artwork/` ([assets.md](assets.md)).
 
 ## 1. Платформа и границы проекта
 
@@ -93,8 +94,8 @@ nimbus/
 │   ├── power/      include/power.h
 │   ├── storage/    include/storage.h
 │   └── ui/         include/{ui.h, ui_model.h}
-├── assets/                       # готовые .bin и .fnt
-├── artwork/                      # оригиналы после импорта
+├── assets/                       # .bin и .fnt, генерируются из artwork/
+├── artwork/                      # оригиналы изображений; OTF только локально
 ├── docs/
 ├── local-deps/                   # локальный BSEC, вне Git
 ├── dependencies.lock
