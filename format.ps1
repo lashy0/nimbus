@@ -11,7 +11,7 @@ if (-not $clangFormat) {
     throw 'clang-format.exe not found; install esp-clang with the ESP-IDF tools.'
 }
 
-$sources = Get-ChildItem -Path (Join-Path $PSScriptRoot 'main'), (Join-Path $PSScriptRoot 'components') `
+$sources = Get-ChildItem -Path (Join-Path $PSScriptRoot 'firmware\main'), (Join-Path $PSScriptRoot 'firmware\components') `
     -Recurse -Include '*.c', '*.h' | Select-Object -ExpandProperty FullName
 if ($Check) {
     & $clangFormat --dry-run --Werror $sources

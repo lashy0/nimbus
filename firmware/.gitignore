@@ -1,0 +1,15 @@
+# Generated build output
+build/
+
+# ESP-IDF Component Manager
+managed_components/
+
+# Local ESP-IDF configuration
+sdkconfig
+sdkconfig.old
+
+# BSEC is supplied locally after acceptance of the Bosch license.
+local-deps/
+
+# Editor index (clangd)
+.cache/

@@ -261,6 +261,20 @@ ELF/map/bin/sdkconfig.h и логи — `.cache/buttons-20261019/`.
   (раздел 11 архитектуры), DIM/OFF, адаптация `lvgl_port_stop`, передача GPIO4,
   видимость 5% яркости, длительная работа и утечки.
 
+## Перенос проекта ESP-IDF в firmware/, 19 октября 2026
+
+- `CMakeLists.txt`, `sdkconfig.defaults`, `partitions.csv`, `dependencies.lock`,
+  `main/`, `components/` и `assets/` перенесены в `firmware/` через `git mv`.
+  У `firmware/` свой `.gitignore` (build, managed_components, sdkconfig, local-deps,
+  индекс clangd); в корневом остались `.cache/`, локальные OTF и `tools/`.
+- Пути в записях выше относятся к расположению до переноса. Сборка, использованная
+  для проверки экрана, сохранена в `.cache/build-before-firmware-move/`.
+- `idf.py -C firmware build` с нуля: без предупреждений компилятора, `nimbus.bin`
+  0x7a4e0 байт, `storage.bin` собран из `firmware/assets/`. Генератор ассетов
+  с новым путём вывода воспроизвёл те же 43 файла побайтно.
+- После переноса и выноса подсветки в `board_backlight.c` на плату ничего не
+  записывалось; на COM3 остаётся сборка проверки экрана.
+
 ## Историческая команда запуска минимальной основы
 
 ```powershell

@@ -17,16 +17,19 @@ follow `docs/hardware-bringup.md`. Never present planned drivers as implemented.
 - ESP-IDF 5.5.3, target ESP32.
 - Future UI: LVGL 8.4.0 with esp_lvgl_port.
 - Future IAQ processing: Bosch BSEC2 2.6.1.0.
-- Commit `dependencies.lock` when generated; pin external library revisions.
+- Commit `firmware/dependencies.lock` when generated; pin external library revisions.
+
+The ESP-IDF project lives in `firmware/` with its own `.gitignore`; the repository
+root holds docs, artwork and developer scripts. From the root:
 
 ```powershell
 . .\activate.ps1
-idf.py build
-idf.py -p COM3 monitor
+idf.py -C firmware build
+idf.py -C firmware -p COM3 monitor
 ```
 
 COM3 is the port observed locally, not a portable setting. Flash with
-`idf.py -p COM3 flash monitor` when hardware execution is part of the requested
+`idf.py -C firmware -p COM3 flash monitor` when hardware execution is part of the requested
 work. Do not claim hardware verification from a build alone.
 Use the matching build directory/ELF for monitoring; board diagnostics commands
 are in docs/hardware-bringup.md.
@@ -88,12 +91,12 @@ Only UI owns LVGL objects; follow its locking and lifecycle contract in
 
 Originals live in `artwork/` (imported from the user's `../Nimbus-assets`; never
 modify that sibling directory). SF Pro Rounded `.otf` files and the local
-generator in `tools/` are kept out of Git. `assets/` is generated from `artwork/`
-with the official `lv_font_conv` and `lv_img_conv`; names, versions and exact
-parameters are in docs/assets.md. Do not edit generated files by hand; record any
-parameter change there. The firmware build must not depend on Node.js or the
-sibling directory.
-Runtime asset packaging is not wired into the minimal build yet. Follow
+generator in `tools/` are kept out of Git. `firmware/assets/` is generated from
+`artwork/` with the official `lv_font_conv` and `lv_img_conv`; names, versions and
+exact parameters are in docs/assets.md. Do not edit generated files by hand; record
+any parameter change there. The firmware build must not depend on Node.js or the
+sibling directory. The build packs `firmware/assets/` into the SPIFFS `storage`
+partition image. Follow
 [assets.md](docs/assets.md) and
 [architecture section 10](docs/architecture.md) for
 formats, storage and memory decisions; no build outputs belong under assets.

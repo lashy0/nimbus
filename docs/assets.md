@@ -34,7 +34,7 @@ JPG-оригиналы нарисованы на чёрном фоне.
 
 ## Генерация
 
-Файлы в `assets/` создаются официальными конвертерами LVGL из `artwork/`;
+Файлы в `firmware/assets/` создаются официальными конвертерами LVGL из `artwork/`;
 вручную их не правят. Сгенерированные файлы хранятся в Git, прошивка конвертеры
 не запускает. Сам генератор (локальный `tools/`) в Git не входит, поэтому ниже
 записано всё, что нужно для воспроизведения результата.
@@ -50,13 +50,13 @@ JPG-оригиналы нарисованы на чёрном фоне.
   на Windows требует MSVC и GTK.
 
 Повторная генерация с этими версиями даёт побайтно одинаковый результат.
-Перед пересозданием `assets/fonts` и `assets/img` проверяется наличие всех исходников,
+Перед пересозданием `firmware/assets/fonts` и `firmware/assets/img` проверяется наличие всех исходников,
 включая локальные OTF, чтобы не удалить готовые файлы при их отсутствии.
 
 ### Имена
 
 Каждый файл `artwork/img/<group>/<name>.{jpg,png}` даёт
-`assets/img/<group>/<name>.bin`, где `-` заменён на `_`; у батарей дополнительно
+`firmware/assets/img/<group>/<name>.bin`, где `-` заменён на `_`; у батарей дополнительно
 убран префикс `battery-`. Пример: `batt/battery-1-not-charging.jpg` →
 `batt/1_not_charging.bin`, `face/temp-minus-closed-eyes.jpg` →
 `face/temp_minus_closed_eyes.bin`.
@@ -102,15 +102,15 @@ lv_font_conv --font <otf> --size <px> --bpp 4 --no-compress --no-kerning
 Размеры и наборы восстановлены из шрифтов v1 и дают побайтно те же `.fnt`.
 При разработке экранов их можно менять; изменение записывается в эту таблицу.
 
-## Результат: `assets/`
+## Результат: `firmware/assets/`
 
 | Каталог | Файлы |
 | --- | --- |
-| `assets/fonts/` | 5 шрифтов `.fnt` |
-| `assets/img/batt/` | `{1,2,3,full}_{charging,not_charging}.bin`, 8 файлов |
-| `assets/img/face/` | 17 файлов, включая 5 вариантов `*_closed_eyes.bin` |
-| `assets/img/status/` | 10 файлов |
-| `assets/img/misc/` | `base.bin`, `lightning_charge.bin`, `sun.bin` |
+| `firmware/assets/fonts/` | 5 шрифтов `.fnt` |
+| `firmware/assets/img/batt/` | `{1,2,3,full}_{charging,not_charging}.bin`, 8 файлов |
+| `firmware/assets/img/face/` | 17 файлов, включая 5 вариантов `*_closed_eyes.bin` |
+| `firmware/assets/img/status/` | 10 файлов |
+| `firmware/assets/img/misc/` | `base.bin`, `lightning_charge.bin`, `sun.bin` |
 
 Сравнение с готовыми файлами v1 (`master` на `d234ecc`):
 
@@ -122,11 +122,11 @@ lv_font_conv --font <otf> --size <px> --bpp 4 --no-compress --no-kerning
 Наличие картинки зарядки не означает, что аппаратное состояние зарядки уже
 можно достоверно определить.
 
-`main/CMakeLists.txt` собирает из `assets/` образ SPIFFS (`spiffs_create_partition_image`)
+`firmware/main/CMakeLists.txt` собирает из `firmware/assets/` образ SPIFFS (`spiffs_create_partition_image`)
 для раздела `storage`; `idf.py flash` записывает его вместе с прошивкой. `composition`
 монтирует раздел в `/spiffs` без форматирования при ошибке. LVGL читает файлы через
 драйвер STDIO с буквой `S`: `S:/spiffs/fonts/...` и `S:/spiffs/img/...`. Имена до
-64 символов (`CONFIG_SPIFFS_OBJ_NAME_LEN=64`). В `assets/` не добавляются документы,
+64 символов (`CONFIG_SPIFFS_OBJ_NAME_LEN=64`). В `firmware/assets/` не добавляются документы,
 исходники и артефакты сборки прошивки.
 
 ## Хранение и бюджет памяти

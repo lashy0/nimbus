@@ -1,16 +1,5 @@
-# Generated build output and editor caches
-build/
+# Local caches and saved build artifacts
 .cache/
-
-# ESP-IDF Component Manager
-managed_components/
-
-# Local project configuration
-sdkconfig
-sdkconfig.old
-
-# BSEC is supplied locally after acceptance of the Bosch license.
-local-deps/
 
 # SF Pro Rounded is licensed by Apple and not redistributed; copy locally.
 artwork/fonts/*.otf

@@ -141,8 +141,8 @@ LEDC остановлен с LOW → аппаратный адаптер → RTC
 
 ```powershell
 . .\activate.ps1
-idf.py -p COM3 coredump-info
-idf.py -p COM3 coredump-debug
+idf.py -C firmware -p COM3 coredump-info
+idf.py -C firmware -p COM3 coredump-debug
 ```
 
 Нужен backtrace в исходные строки именно этого ELF. Намеренную panic не включать

@@ -86,21 +86,23 @@ callback окончательного сна имеет отдельный ав�
 
 ```text
 nimbus/
-├── main/                         # app_main, composition, manifest
-├── components/
-│   ├── app/        include/{app.h, app_events.h, app_state.h}
-│   ├── board/      include/board.h
-│   ├── sensing/    include/sensing.h
-│   ├── power/      include/power.h
-│   ├── storage/    include/storage.h
-│   └── ui/         include/{ui.h, ui_model.h}
-├── assets/                       # .bin и .fnt, генерируются из artwork/
+├── firmware/                     # проект ESP-IDF, свой .gitignore
+│   ├── main/                     # app_main, composition, manifest
+│   ├── components/
+│   │   ├── app/      include/{app.h, app_events.h, app_state.h}
+│   │   ├── board/    include/board.h
+│   │   ├── sensing/  include/sensing.h
+│   │   ├── power/    include/power.h
+│   │   ├── storage/  include/storage.h
+│   │   └── ui/       include/{ui.h, ui_model.h}
+│   ├── assets/                   # .bin и .fnt, генерируются из artwork/
+│   ├── local-deps/               # локальный BSEC, вне Git
+│   ├── dependencies.lock
+│   ├── sdkconfig.defaults
+│   └── partitions.csv
 ├── artwork/                      # оригиналы изображений; OTF только локально
 ├── docs/
-├── local-deps/                   # локальный BSEC, вне Git
-├── dependencies.lock
-├── sdkconfig.defaults
-└── partitions.csv
+└── tools/                        # локальный генератор ассетов, вне Git
 ```
 
 Директории создаются вместе с реализацией. Используются новые API IDF:
@@ -236,7 +238,7 @@ ULP-ожидание 300 с не сопровождается пробужден
 Разделение ввода:
 
 - `board` распознаёт жесты библиотекой `espressif/button` (версия закреплена
-  в `components/board/idf_component.yml`). Опрос 10 мс × 5 отсчётов = debounce 50 мс.
+  в `firmware/components/board/idf_component.yml`). Опрос 10 мс × 5 отсчётов = debounce 50 мс.
   События: PRESSED, LONG (один раз за удержание), SHORT (отпускание без LONG, перед
   RELEASED), RELEASED. Callbacks выполняются в задаче esp_timer. Нажатие, удерживаемое
   при инициализации board, не выдаёт SHORT/LONG до отпускания: так потребляется
@@ -506,7 +508,7 @@ RTC_NOINIT не заменяет постоянный журнал: при по�
 не гарантирует сохранение любого fault: brownout/полная потеря питания могут
 не оставить дамп. Эталонный ELF и map сохраняются для каждого аппаратного запуска.
 
-Чтение: `idf.py -p COM3 coredump-info` или `coredump-debug` с соответствующим ELF.
+Чтение: `idf.py -C firmware -p COM3 coredump-info` или `coredump-debug` с соответствующим ELF.
 Контролируемая паника и чтение дампа входят в аппаратную диагностику этапа 1;
 в продуктовой точке входа намеренного panic нет.
 
