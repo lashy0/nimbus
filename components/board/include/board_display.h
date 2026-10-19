@@ -22,9 +22,3 @@ typedef struct {
 // SPI bus, panel IO and ST7789 reset/init. The panel is left with display off;
 // the backlight is not touched. The handles live for the whole boot.
 esp_err_t board_display_init(uint32_t max_transfer_bytes, board_display_t* out);
-
-// Switches GPIO4 from the LOW output of board_init_safe_gpio() to LEDC at duty 0.
-esp_err_t board_backlight_init(void);
-
-// percent 0..100. ctx is unused; the signature matches the UI backlight callback.
-esp_err_t board_backlight_set(void* ctx, uint8_t percent);

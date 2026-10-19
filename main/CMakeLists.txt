@@ -3,5 +3,5 @@ idf_component_register(
     PRIV_REQUIRES board esp_app_format esp_system espcoredump log spiffs ui
 )
 
-# assets/ is generated from artwork/ (docs/assets.md); flashed to the storage partition.
+# assets/ is generated from artwork/; flashed to the storage partition.
 spiffs_create_partition_image(storage ${CMAKE_CURRENT_SOURCE_DIR}/../assets FLASH_IN_PROJECT)

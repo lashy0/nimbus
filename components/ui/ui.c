@@ -63,7 +63,7 @@ esp_err_t ui_init(const ui_config_t* config)
         "config");
     ESP_RETURN_ON_FALSE(s_disp == NULL, ESP_ERR_INVALID_STATE, TAG, "already initialized");
 
-    // The display holds light-sleep off while it is ON or DIM (architecture section 9).
+    // The display holds light-sleep off while it is ON or DIM.
     ESP_RETURN_ON_ERROR(esp_pm_lock_create(ESP_PM_NO_LIGHT_SLEEP, 0, "display", &s_pm_lock), TAG, "PM lock");
     ESP_RETURN_ON_ERROR(esp_pm_lock_acquire(s_pm_lock), TAG, "PM lock acquire");
 

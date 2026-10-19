@@ -42,6 +42,8 @@ manage blank lines inside functions, so keep these by hand:
 - A blank line between logical steps: argument checks, local setup, actions, result.
 - Includes: own header, blank line, then the remaining headers alphabetically.
 - Wrap an arithmetic `*` at file scope in parentheses: clang-format misreads it as a pointer.
+- Comments in code and config files do not reference `docs/` files or architecture
+  sections; state the reason in the comment itself.
 
 ## Architecture
 

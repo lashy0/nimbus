@@ -1,6 +1,7 @@
 #include "composition.h"
 
 #include "board.h"
+#include "board_backlight.h"
 #include "board_buttons.h"
 #include "board_display.h"
 #include "esp_check.h"
