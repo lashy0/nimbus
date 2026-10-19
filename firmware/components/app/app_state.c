@@ -46,7 +46,18 @@ static uint32_t open_shutdown_question(app_state_t* state, int64_t now_ms)
     return APP_EFFECT_MODEL;
 }
 
-static uint32_t change_brightness(app_state_t* state, int delta)
+static uint32_t save_settings(app_state_t* state)
+{
+    if (state->settings_deadline_ms == APP_NO_DEADLINE) {
+        return APP_EFFECT_NONE;
+    }
+
+    state->settings_deadline_ms = APP_NO_DEADLINE;
+
+    return APP_EFFECT_SAVE_SETTINGS;
+}
+
+static uint32_t change_brightness(app_state_t* state, int delta, int64_t now_ms)
 {
     int percent = state->brightness_percent + delta;
     if (percent < APP_BRIGHTNESS_MIN) {
@@ -60,11 +71,12 @@ static uint32_t change_brightness(app_state_t* state, int delta)
     }
 
     state->brightness_percent = (uint8_t)percent;
+    state->settings_deadline_ms = now_ms + APP_SETTINGS_SAVE_DELAY_MS;
 
     return APP_EFFECT_MODEL | APP_EFFECT_BRIGHTNESS;
 }
 
-static uint32_t on_short(app_state_t* state, app_button_t button)
+static uint32_t on_short(app_state_t* state, app_button_t button, int64_t now_ms)
 {
     switch (state->screen) {
         case UI_SCREEN_IAQ:
@@ -76,12 +88,13 @@ static uint32_t on_short(app_state_t* state, app_button_t button)
             return APP_EFFECT_MODEL;
 
         case UI_SCREEN_BRIGHTNESS:
-            return change_brightness(state, button == APP_BUTTON_NEXT ? APP_BRIGHTNESS_STEP : -APP_BRIGHTNESS_STEP);
+            return change_brightness(
+                state, button == APP_BUTTON_NEXT ? APP_BRIGHTNESS_STEP : -APP_BRIGHTNESS_STEP, now_ms);
 
         case UI_SCREEN_SHUTDOWN:
             // A press on the highlighted answer chooses it; otherwise it moves the highlight.
             if (button == APP_BUTTON_PREV && state->shutdown_yes_selected) {
-                return close_dialog(state) | APP_EFFECT_SHUTDOWN;
+                return close_dialog(state) | save_settings(state) | APP_EFFECT_SHUTDOWN;
             }
 
             if (button == APP_BUTTON_NEXT && !state->shutdown_yes_selected) {
@@ -111,14 +124,19 @@ static uint32_t on_long(app_state_t* state, app_button_t button, int64_t now_ms)
         return APP_EFFECT_MODEL;
     }
 
-    // Brightness is not persisted yet: there is no storage component.
+    // Leaving the screen saves a pending change without waiting for the delay.
     if (state->screen == UI_SCREEN_BRIGHTNESS && button == APP_BUTTON_NEXT) {
         state->screen = state->main_screen;
 
-        return APP_EFFECT_MODEL;
+        return APP_EFFECT_MODEL | save_settings(state);
     }
 
     return APP_EFFECT_NONE;
+}
+
+bool app_brightness_valid(uint8_t percent)
+{
+    return percent >= APP_BRIGHTNESS_MIN && percent <= APP_BRIGHTNESS_MAX && percent % APP_BRIGHTNESS_STEP == 0;
 }
 
 void app_state_init(app_state_t* state, uint8_t brightness_percent)
@@ -128,6 +146,7 @@ void app_state_init(app_state_t* state, uint8_t brightness_percent)
     state->screen = UI_SCREEN_START;
     state->main_screen = UI_SCREEN_IAQ;
     state->brightness_percent = brightness_percent;
+    state->settings_deadline_ms = APP_NO_DEADLINE;
     state->dialog_deadline_ms = APP_NO_DEADLINE;
     state->measurement_stale = true;
 }
@@ -155,7 +174,7 @@ uint32_t app_state_button(app_state_t* state, const app_button_event_t* event, i
 
     switch (event->gesture) {
         case APP_GESTURE_SHORT:
-            return effects | on_short(state, event->button);
+            return effects | on_short(state, event->button, now_ms);
         case APP_GESTURE_LONG:
             return effects | on_long(state, event->button, now_ms);
         case APP_GESTURE_PRESSED:
@@ -196,6 +215,10 @@ uint32_t app_state_tick(app_state_t* state, int64_t now_ms)
         effects |= close_dialog(state);
     }
 
+    if (now_ms >= state->settings_deadline_ms) {
+        effects |= save_settings(state);
+    }
+
     return effects;
 }
 
@@ -210,12 +233,16 @@ uint32_t app_state_cancel_dialog(app_state_t* state)
 
 int64_t app_state_next_deadline(const app_state_t* state)
 {
-    const int64_t stale = stale_deadline(state);
-    if (state->screen != UI_SCREEN_SHUTDOWN) {
-        return stale;
+    int64_t deadline = stale_deadline(state);
+    if (state->settings_deadline_ms < deadline) {
+        deadline = state->settings_deadline_ms;
     }
 
-    return state->dialog_deadline_ms < stale ? state->dialog_deadline_ms : stale;
+    if (state->screen == UI_SCREEN_SHUTDOWN && state->dialog_deadline_ms < deadline) {
+        deadline = state->dialog_deadline_ms;
+    }
+
+    return deadline;
 }
 
 static long round_clamped(float value, long min, long max)

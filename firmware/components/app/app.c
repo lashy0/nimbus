@@ -10,6 +10,7 @@
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "sensing.h"
+#include "storage.h"
 #include "ui.h"
 
 #define INPUT_QUEUE_LENGTH 16
@@ -105,6 +106,17 @@ static void carry_out(uint32_t effects)
         }
     }
 
+    // A failed save keeps the previous value; the next change tries again.
+    if (effects & APP_EFFECT_SAVE_SETTINGS) {
+        const storage_settings_t settings = {.brightness_percent = s_state.brightness_percent};
+        const esp_err_t err = storage_save_settings(&settings);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "brightness %u%% saved", settings.brightness_percent);
+        } else {
+            ESP_LOGW(TAG, "brightness not saved: %s", esp_err_to_name(err));
+        }
+    }
+
     if (effects & APP_EFFECT_SHUTDOWN) {
         ESP_LOGW(TAG, "power-off confirmed, but there is no power component yet; staying on");
     }
@@ -145,6 +157,25 @@ static void app_task(void* arg)
         xTaskNotifyWait(0, UINT32_MAX, &bits, ticks_until(deadline));
         effects = handle_notifications(bits);
     }
+}
+
+uint8_t app_load_brightness(void)
+{
+    storage_settings_t settings;
+    const esp_err_t err = storage_load_settings(&settings);
+    if (err == ESP_OK && app_brightness_valid(settings.brightness_percent)) {
+        ESP_LOGI(TAG, "saved brightness %u%%", settings.brightness_percent);
+
+        return settings.brightness_percent;
+    }
+
+    if (err == ESP_OK) {
+        ESP_LOGW(TAG, "saved brightness %u%% is out of range", settings.brightness_percent);
+    } else if (err != ESP_ERR_NOT_FOUND) {
+        ESP_LOGW(TAG, "saved settings unavailable: %s", esp_err_to_name(err));
+    }
+
+    return APP_BRIGHTNESS_DEFAULT;
 }
 
 esp_err_t app_start(const app_config_t* config)

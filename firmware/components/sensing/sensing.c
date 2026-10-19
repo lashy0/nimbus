@@ -28,6 +28,7 @@ static sensing_snapshot_t s_published;
 static sensing_snapshot_t s_snapshot; // Task-owned working copy.
 static sensing_sensor_t s_sensor;
 static sensing_bsec_t s_bsec;
+static sensing_checkpoint_t s_checkpoint;
 
 static const char* phase_name(sensing_phase_t phase)
 {
@@ -91,7 +92,7 @@ static void wait_ms(int64_t duration_ms)
 static esp_err_t ensure_ready(void)
 {
     if (s_bsec.instance == NULL) {
-        ESP_RETURN_ON_ERROR(sensing_bsec_open(&s_bsec), TAG, "BSEC");
+        ESP_RETURN_ON_ERROR(sensing_bsec_open(&s_bsec, &s_checkpoint), TAG, "BSEC");
     }
 
     if (s_sensor.device == NULL) {
@@ -155,6 +156,7 @@ static void sensing_task(void* arg)
             set_phase(phase_of(&s_snapshot));
             log_outputs();
             publish();
+            sensing_state_checkpoint(&s_bsec, &s_snapshot, &s_checkpoint, s_snapshot.updated_ms);
         }
 
         wait_ms((s_bsec.next_call_ns - esp_timer_get_time() * 1000) / 1000000);

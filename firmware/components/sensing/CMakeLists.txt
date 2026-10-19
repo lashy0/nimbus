@@ -33,11 +33,11 @@ foreach(entry ${expected_hashes})
 endforeach()
 
 idf_component_register(
-    SRCS "sensing.c" "sensing_bme68x.c" "sensing_bsec.c" "${bme68x_dir}/bme68x.c"
+    SRCS "sensing.c" "sensing_bme68x.c" "sensing_bsec.c" "sensing_state.c" "${bme68x_dir}/bme68x.c"
     INCLUDE_DIRS "include"
     PRIV_INCLUDE_DIRS "${bsec_dir}/inc" "${bme68x_dir}"
     REQUIRES esp_driver_i2c
-    PRIV_REQUIRES esp_timer log
+    PRIV_REQUIRES esp_rom esp_timer log storage
     EMBED_FILES "${bsec_config}"
 )
 

@@ -10,6 +10,8 @@
 #define APP_BRIGHTNESS_MIN 5
 #define APP_BRIGHTNESS_MAX 100
 #define APP_BRIGHTNESS_STEP 5
+#define APP_BRIGHTNESS_DEFAULT 60
+#define APP_SETTINGS_SAVE_DELAY_MS 2000 // After the last change, so holding a button writes once.
 #define APP_DIALOG_TIMEOUT_MS 15000
 #define APP_MEASUREMENT_STALE_MS 10000 // LP outputs arrive every 3 s.
 
@@ -23,9 +25,10 @@ typedef enum {
 // What the caller has to carry out after a transition.
 typedef enum {
     APP_EFFECT_NONE = 0,
-    APP_EFFECT_MODEL = 1 << 0,      // The screen model changed.
-    APP_EFFECT_BRIGHTNESS = 1 << 1, // The backlight must follow brightness_percent.
-    APP_EFFECT_SHUTDOWN = 1 << 2,   // The user confirmed power-off.
+    APP_EFFECT_MODEL = 1 << 0,         // The screen model changed.
+    APP_EFFECT_BRIGHTNESS = 1 << 1,    // The backlight must follow brightness_percent.
+    APP_EFFECT_SHUTDOWN = 1 << 2,      // The user confirmed power-off.
+    APP_EFFECT_SAVE_SETTINGS = 1 << 3, // brightness_percent must be saved.
 } app_effect_t;
 
 typedef struct {
@@ -33,11 +36,15 @@ typedef struct {
     ui_screen_t screen;
     ui_screen_t main_screen; // IAQ, TEMP or HUM to return to from a dialog.
     uint8_t brightness_percent;
+    int64_t settings_deadline_ms; // Pending save of changed settings, or APP_NO_DEADLINE.
     bool shutdown_yes_selected;
     int64_t dialog_deadline_ms; // Auto-cancel of the shutdown question.
     sensing_snapshot_t measurement;
     bool measurement_stale; // No new outputs for APP_MEASUREMENT_STALE_MS.
 } app_state_t;
+
+// Whether a saved brightness is one the brightness screen can produce.
+bool app_brightness_valid(uint8_t percent);
 
 // Times are monotonic milliseconds, the clock of sensing_snapshot_t.updated_ms.
 // Functions return a mask of app_effect_t.

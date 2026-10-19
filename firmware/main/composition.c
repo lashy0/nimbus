@@ -10,11 +10,11 @@
 #include "esp_log.h"
 #include "esp_spiffs.h"
 #include "sensing.h"
+#include "storage.h"
 #include "ui.h"
 
 #define ASSETS_PARTITION "storage"
 #define ASSETS_MOUNT_POINT "/spiffs"
-#define DEFAULT_BRIGHTNESS_PERCENT 60
 
 static const char* TAG = "composition";
 
@@ -53,7 +53,7 @@ static esp_err_t mount_assets(void)
     return ESP_OK;
 }
 
-static esp_err_t start_display(void)
+static esp_err_t start_display(uint8_t brightness_percent)
 {
     board_display_t display;
     const uint32_t max_transfer = BOARD_DISPLAY_WIDTH * UI_DRAW_BUFFER_LINES * sizeof(uint16_t);
@@ -70,7 +70,7 @@ static esp_err_t start_display(void)
         .mirror_y = display.mirror_y,
         .set_backlight = board_backlight_set,
         .backlight_ctx = NULL,
-        .brightness_percent = DEFAULT_BRIGHTNESS_PERCENT,
+        .brightness_percent = brightness_percent,
     };
 
     return ui_init(&config);
@@ -98,19 +98,26 @@ esp_err_t composition_init(void)
 {
     ESP_RETURN_ON_ERROR(board_init_safe_gpio(), TAG, "safe GPIO");
 
+    // Without NVS the device runs on defaults and BSEC calibrates after every boot.
+    esp_err_t err = storage_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "storage unavailable: %s", esp_err_to_name(err));
+    }
+
     // Missing assets leave the UI on built-in fonts and empty images.
-    esp_err_t err = mount_assets();
+    err = mount_assets();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "assets unavailable: %s", esp_err_to_name(err));
     }
 
     // The display is optional for the rest of the device: app and buttons keep working.
-    err = start_display();
+    const uint8_t brightness_percent = app_load_brightness();
+    err = start_display(brightness_percent);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "display unavailable: %s", esp_err_to_name(err));
     }
 
-    const app_config_t app_config = {.brightness_percent = DEFAULT_BRIGHTNESS_PERCENT};
+    const app_config_t app_config = {.brightness_percent = brightness_percent};
     ESP_RETURN_ON_ERROR(app_start(&app_config), TAG, "app");
     ESP_RETURN_ON_ERROR(board_buttons_init(forward_button, NULL), TAG, "buttons");
 

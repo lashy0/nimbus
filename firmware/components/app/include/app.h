@@ -9,6 +9,10 @@ typedef struct {
     uint8_t brightness_percent; // Current backlight level set by ui_init().
 } app_config_t;
 
+// Saved brightness, or the default when storage has none or a value the
+// brightness screen cannot produce. Call after storage_init(), before ui_init().
+uint8_t app_load_brightness(void);
+
 // Starts app_task, the only writer of the application state. Call once after
 // ui_init(); without a display the state still runs and the UI calls fail quietly.
 esp_err_t app_start(const app_config_t* config);

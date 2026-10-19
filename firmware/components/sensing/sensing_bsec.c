@@ -3,6 +3,7 @@
 
 #include "esp_check.h"
 #include "esp_log.h"
+#include "esp_rom_crc.h"
 #include "esp_timer.h"
 #include "sensing_internal.h"
 
@@ -69,28 +70,54 @@ static esp_err_t subscribe(void* instance)
     return ESP_OK;
 }
 
-esp_err_t sensing_bsec_open(sensing_bsec_t* bsec)
+static esp_err_t start_instance(void* instance)
+{
+    const bsec_library_return_t rc = bsec_init_m(instance);
+    ESP_RETURN_ON_FALSE(rc == BSEC_OK, ESP_FAIL, TAG, "init: %d", rc);
+
+    return load_config(instance);
+}
+
+static esp_err_t identify(void* instance, storage_bsec_key_t* key)
+{
+    bsec_version_t version;
+    const bsec_library_return_t rc = bsec_get_version_m(instance, &version);
+    ESP_RETURN_ON_FALSE(rc == BSEC_OK, ESP_FAIL, TAG, "version: %d", rc);
+    ESP_LOGI(
+        TAG,
+        "BSEC %u.%u.%u.%u, instance %u bytes",
+        version.major,
+        version.minor,
+        version.major_bugfix,
+        version.minor_bugfix,
+        bsec_get_instance_size_m());
+
+    *key = (storage_bsec_key_t){
+        .bsec_version = ((uint32_t)version.major << 24) | (version.minor << 16) | (version.major_bugfix << 8) |
+                        version.minor_bugfix,
+        .config_crc = esp_rom_crc32_le(
+            0, s_config_start + CONFIG_HEADER_BYTES, s_config_end - s_config_start - CONFIG_HEADER_BYTES),
+        .profile = SENSING_PROFILE_LP,
+    };
+
+    return ESP_OK;
+}
+
+esp_err_t sensing_bsec_open(sensing_bsec_t* bsec, sensing_checkpoint_t* checkpoint)
 {
     void* instance = malloc(bsec_get_instance_size_m());
     ESP_RETURN_ON_FALSE(instance != NULL, ESP_ERR_NO_MEM, TAG, "instance");
 
     esp_err_t ret = ESP_OK; // Set by the ESP_GOTO_ON_* macros.
-    const bsec_library_return_t rc = bsec_init_m(instance);
-    ESP_GOTO_ON_FALSE(rc == BSEC_OK, ESP_FAIL, fail, TAG, "init: %d", rc);
-    ESP_GOTO_ON_ERROR(load_config(instance), fail, TAG, "configuration");
-    ESP_GOTO_ON_ERROR(subscribe(instance), fail, TAG, "subscription");
+    ESP_GOTO_ON_ERROR(start_instance(instance), fail, TAG, "start");
+    ESP_GOTO_ON_ERROR(identify(instance, &bsec->key), fail, TAG, "identify");
 
-    bsec_version_t version;
-    if (bsec_get_version_m(instance, &version) == BSEC_OK) {
-        ESP_LOGI(
-            TAG,
-            "BSEC %u.%u.%u.%u, instance %u bytes",
-            version.major,
-            version.minor,
-            version.major_bugfix,
-            version.minor_bugfix,
-            bsec_get_instance_size_m());
+    // A rejected state may be half applied, so BSEC starts over without it.
+    if (sensing_state_restore(instance, &bsec->key, checkpoint) == ESP_FAIL) {
+        ESP_GOTO_ON_ERROR(start_instance(instance), fail, TAG, "restart");
     }
+
+    ESP_GOTO_ON_ERROR(subscribe(instance), fail, TAG, "subscription");
 
     bsec->instance = instance;
     bsec->next_call_ns = 0;
