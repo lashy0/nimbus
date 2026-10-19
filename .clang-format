@@ -33,6 +33,10 @@ AlignConsecutiveAssignments: None
 AlignConsecutiveDeclarations: None
 AlignConsecutiveMacros: None
 
+# Blank lines
+SeparateDefinitionBlocks: Always
+MaxEmptyLinesToKeep: 1
+
 # Arguments, includes
 BinPackArguments: false
 BinPackParameters: false

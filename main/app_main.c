@@ -1,18 +1,18 @@
+#include "composition.h"
+
+#include "esp_app_desc.h"
 #include "esp_log.h"
 #include "esp_system.h"
-#include "sdkconfig.h"
 
-#if CONFIG_NIMBUS_BOARD_DIAGNOSTICS
-#include "board_diagnostics.h"
-#endif
+static const char* TAG = "nimbus";
 
 void app_main(void)
 {
-    ESP_LOGI("nimbus", "Nimbus v2: clean firmware foundation");
-    ESP_LOGI("nimbus", "ESP-IDF %s", esp_get_idf_version());
-#if CONFIG_NIMBUS_BOARD_DIAGNOSTICS
-    board_diagnostics_run();
-#else
-    ESP_LOGI("nimbus", "Application services are not implemented; enable NIMBUS_BOARD_DIAGNOSTICS for stage 1");
-#endif
+    ESP_LOGI(TAG, "Nimbus %s, ESP-IDF %s", esp_app_get_description()->version, esp_get_idf_version());
+
+    // No restart on failure: a reset loop would not fix a board-level error.
+    const esp_err_t err = composition_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Composition failed: %s", esp_err_to_name(err));
+    }
 }

@@ -1,0 +1,9 @@
+#pragma once
+
+#include "driver/gpio.h"
+
+#define BOARD_PIN_BACKLIGHT GPIO_NUM_4
+#define BOARD_PIN_ADC_ENABLE GPIO_NUM_14
+#define BOARD_PIN_PANEL_RESET GPIO_NUM_23
+#define BOARD_PIN_BUTTON_PREV GPIO_NUM_0
+#define BOARD_PIN_BUTTON_NEXT GPIO_NUM_35

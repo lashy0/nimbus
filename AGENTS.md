@@ -31,6 +31,18 @@ work. Do not claim hardware verification from a build alone.
 Use the matching build directory/ELF for monitoring; board diagnostics commands
 are in docs/hardware-bringup.md.
 
+## Code style
+
+Run `.\format.ps1` after editing C sources (`.\format.ps1 -Check` only reports);
+it applies `.clang-format` with esp-clang from the IDF tools. clang-format does not
+manage blank lines inside functions, so keep these by hand:
+
+- A blank line before `return` unless it is the only statement of its block.
+- A blank line after a closing `}` when more statements follow in the same block.
+- A blank line between logical steps: argument checks, local setup, actions, result.
+- Includes: own header, blank line, then the remaining headers alphabetically.
+- Wrap an arithmetic `*` at file scope in parentheses: clang-format misreads it as a pointer.
+
 ## Architecture
 
 - `main`: initialization and wiring only.
