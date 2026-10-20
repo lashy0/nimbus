@@ -418,6 +418,27 @@ ELF/map/bin/sdkconfig.h и логи — `.cache/buttons-20261019/`.
   подключении USB, ток сна (нет амперметра), удержание кнопки 3 с перед сном,
   старт при низком напряжении и после BROWNOUT.
 
+## Паника Cache error при переключении страниц, 20 октября 2026
+
+- Симптом: перезагрузка при нажатиях во время навигации (питание от USB).
+  UART: `Guru Meditation Error: Core 0 panic'ed (Cache error). Cache disabled but
+  cached memory region accessed`, PC `0x40119f80` = `gpio_intr_disable`.
+  Backtrace: `taskLVGL` → `lv_img_decoder_open` → `fopen` → SPIFFS →
+  `esp_flash_read` (кэш ядра 0 выключен) → прерывание GPIO →
+  `button_power_save_isr_handler` (IRAM) → `iot_button_power_save_wakeup_isr` →
+  `gpio_intr_disable` во flash. Два одинаковых падения подряд. ELF этой сборки
+  перезаписан пересборкой, coredump во flash ей больше не соответствует;
+  декодированный backtrace получен до пересборки.
+- Исправление: `CONFIG_GPIO_CTRL_FUNC_IN_IRAM=y` в `sdkconfig.defaults` (и
+  локальном `sdkconfig`). После сборки `gpio_intr_disable` `0x400867b8`,
+  `gpio_hal_intr_disable` `0x4008c1b4`; `esp_timer_start_periodic` и обработчики
+  кнопки уже были в IRAM.
+- Проверка: запись 7 мин, навигация по страницам, яркость (сохранена 60%),
+  диалог выключения — паник нет. Чистая сборка без диагностики: загрузка без
+  aborts/asserts, state BSEC восстановлен. Ранее неизменная строка
+  `gpio_install_isr_service ... already installed` — повторный вызов библиотеки
+  кнопок для второй кнопки, обрабатывается как успех.
+
 ## Историческая команда запуска минимальной основы
 
 ```powershell

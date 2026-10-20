@@ -27,6 +27,9 @@ CONFIG_ESP_TASK_WDT_TIMEOUT_S=10
 # espressif/button: 10 ms polling x 5 ticks = 50 ms debounce.
 CONFIG_BUTTON_PERIOD_TIME_MS=10
 CONFIG_BUTTON_DEBOUNCE_TICKS=5
+# Its power-save wake ISR is IRAM and calls gpio_intr_disable(); in flash that
+# panics with a cache error when a press arrives during a SPIFFS read.
+CONFIG_GPIO_CTRL_FUNC_IN_IRAM=y
 
 # LVGL 8.4: RGB565 in ST7789 byte order, heap allocation, assets via S:/spiffs/...
 CONFIG_LV_COLOR_DEPTH_16=y
