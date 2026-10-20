@@ -27,7 +27,7 @@ static const uint8_t OUTPUTS[] = {
 
 #define OUTPUT_COUNT (sizeof(OUTPUTS) / sizeof(OUTPUTS[0]))
 
-static esp_err_t load_config(void* instance)
+static esp_err_t load_config(void* instance, uint8_t* work)
 {
     const size_t size = s_config_end - s_config_start;
     ESP_RETURN_ON_FALSE(size > CONFIG_HEADER_BYTES, ESP_ERR_INVALID_SIZE, TAG, "config too short");
@@ -42,11 +42,8 @@ static esp_err_t load_config(void* instance)
         declared,
         size - CONFIG_HEADER_BYTES);
 
-    uint8_t* work = malloc(BSEC_MAX_WORKBUFFER_SIZE);
-    ESP_RETURN_ON_FALSE(work != NULL, ESP_ERR_NO_MEM, TAG, "work buffer");
     const bsec_library_return_t rc = bsec_set_configuration_m(
         instance, s_config_start + CONFIG_HEADER_BYTES, declared, work, BSEC_MAX_WORKBUFFER_SIZE);
-    free(work);
     ESP_RETURN_ON_FALSE(rc == BSEC_OK, ESP_FAIL, TAG, "set configuration: %d", rc);
 
     return ESP_OK;
@@ -70,12 +67,12 @@ static esp_err_t subscribe(void* instance)
     return ESP_OK;
 }
 
-static esp_err_t start_instance(void* instance)
+static esp_err_t start_instance(void* instance, uint8_t* work)
 {
     const bsec_library_return_t rc = bsec_init_m(instance);
     ESP_RETURN_ON_FALSE(rc == BSEC_OK, ESP_FAIL, TAG, "init: %d", rc);
 
-    return load_config(instance);
+    return load_config(instance, work);
 }
 
 static esp_err_t identify(void* instance, storage_bsec_key_t* key)
@@ -105,26 +102,31 @@ static esp_err_t identify(void* instance, storage_bsec_key_t* key)
 
 esp_err_t sensing_bsec_open(sensing_bsec_t* bsec, sensing_checkpoint_t* checkpoint)
 {
+    // The work buffer lives as long as the instance, so a later save, the one at
+    // power-off included, cannot fail for lack of memory.
     void* instance = malloc(bsec_get_instance_size_m());
-    ESP_RETURN_ON_FALSE(instance != NULL, ESP_ERR_NO_MEM, TAG, "instance");
+    uint8_t* work = malloc(BSEC_MAX_WORKBUFFER_SIZE);
 
     esp_err_t ret = ESP_OK; // Set by the ESP_GOTO_ON_* macros.
-    ESP_GOTO_ON_ERROR(start_instance(instance), fail, TAG, "start");
+    ESP_GOTO_ON_FALSE(instance != NULL && work != NULL, ESP_ERR_NO_MEM, fail, TAG, "instance and work buffer");
+    ESP_GOTO_ON_ERROR(start_instance(instance, work), fail, TAG, "start");
     ESP_GOTO_ON_ERROR(identify(instance, &bsec->key), fail, TAG, "identify");
 
     // A rejected state may be half applied, so BSEC starts over without it.
-    if (sensing_state_restore(instance, &bsec->key, checkpoint) == ESP_FAIL) {
-        ESP_GOTO_ON_ERROR(start_instance(instance), fail, TAG, "restart");
+    if (sensing_state_restore(instance, work, &bsec->key, checkpoint) == ESP_FAIL) {
+        ESP_GOTO_ON_ERROR(start_instance(instance, work), fail, TAG, "restart");
     }
 
     ESP_GOTO_ON_ERROR(subscribe(instance), fail, TAG, "subscription");
 
     bsec->instance = instance;
+    bsec->work = work;
     bsec->next_call_ns = 0;
 
     return ESP_OK;
 
 fail:
+    free(work);
     free(instance);
 
     return ret;
@@ -207,17 +209,26 @@ static uint8_t collect_inputs(
     return count;
 }
 
+// For calls whose warnings do not invalidate the step: errors are negative and
+// fail, a positive warning is only logged. Set-up calls treat warnings as errors.
+static esp_err_t accept_warning(bsec_library_return_t rc, const char* what)
+{
+    if (rc > BSEC_OK) {
+        ESP_LOGW(TAG, "%s: %d", what, rc);
+    }
+
+    return rc < BSEC_OK ? ESP_FAIL : ESP_OK;
+}
+
 esp_err_t sensing_bsec_step(sensing_bsec_t* bsec, sensing_sensor_t* sensor, sensing_snapshot_t* snapshot, bool* updated)
 {
     *updated = false;
 
     const int64_t now_ns = esp_timer_get_time() * 1000;
     bsec_bme_settings_t settings;
+    // Warning 100: called too late, e.g. after a retry.
     bsec_library_return_t rc = bsec_sensor_control_m(bsec->instance, now_ns, &settings);
-    ESP_RETURN_ON_FALSE(rc >= BSEC_OK, ESP_FAIL, TAG, "sensor control: %d", rc);
-    if (rc != BSEC_OK) {
-        ESP_LOGW(TAG, "sensor control: %d", rc); // 100: called too late, e.g. after a retry.
-    }
+    ESP_RETURN_ON_ERROR(accept_warning(rc, "sensor control"), TAG, "sensor control: %d", rc);
 
     bsec->next_call_ns = settings.next_call;
     if (!settings.trigger_measurement || settings.op_mode == BME68X_SLEEP_MODE) {
@@ -249,10 +260,7 @@ esp_err_t sensing_bsec_step(sensing_bsec_t* bsec, sensing_sensor_t* sensor, sens
     bsec_output_t outputs[BSEC_NUMBER_OUTPUTS];
     uint8_t output_count = BSEC_NUMBER_OUTPUTS;
     rc = bsec_do_steps_m(bsec->instance, inputs, input_count, outputs, &output_count);
-    ESP_RETURN_ON_FALSE(rc >= BSEC_OK, ESP_FAIL, TAG, "do steps: %d", rc);
-    if (rc != BSEC_OK) {
-        ESP_LOGW(TAG, "do steps: %d", rc);
-    }
+    ESP_RETURN_ON_ERROR(accept_warning(rc, "do steps"), TAG, "do steps: %d", rc);
 
     store_outputs(outputs, output_count, snapshot);
     *updated = output_count > 0;

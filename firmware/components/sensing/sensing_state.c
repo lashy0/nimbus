@@ -1,7 +1,5 @@
-#include <stdlib.h>
 #include <string.h>
 
-#include "esp_check.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "sensing_internal.h"
@@ -19,7 +17,11 @@ static void mark_saved(sensing_checkpoint_t* checkpoint, uint8_t accuracy, int64
     checkpoint->saved_ms = now_ms;
 }
 
-esp_err_t sensing_state_restore(void* instance, const storage_bsec_key_t* key, sensing_checkpoint_t* checkpoint)
+esp_err_t sensing_state_restore(
+    void* instance,
+    uint8_t* work,
+    const storage_bsec_key_t* key,
+    sensing_checkpoint_t* checkpoint)
 {
     *checkpoint = (sensing_checkpoint_t){.saved_ms = NO_TIME, .attempt_ms = NO_TIME};
 
@@ -40,11 +42,8 @@ esp_err_t sensing_state_restore(void* instance, const storage_bsec_key_t* key, s
         return err;
     }
 
-    uint8_t* work = malloc(BSEC_MAX_WORKBUFFER_SIZE);
-    ESP_RETURN_ON_FALSE(work != NULL, ESP_ERR_NO_MEM, TAG, "work buffer");
     const bsec_library_return_t rc =
         bsec_set_state_m(instance, checkpoint->state, length, work, BSEC_MAX_WORKBUFFER_SIZE);
-    free(work);
     if (rc != BSEC_OK) {
         ESP_LOGW(TAG, "BSEC rejected the saved state: %d; calibration starts over", rc);
 
@@ -93,16 +92,8 @@ static void save(
 {
     uint8_t state[BSEC_MAX_STATE_BLOB_SIZE];
     uint32_t length = 0;
-    uint8_t* work = malloc(BSEC_MAX_WORKBUFFER_SIZE);
-    if (work == NULL) {
-        ESP_LOGW(TAG, "no memory to read the state");
-
-        return;
-    }
-
     const bsec_library_return_t rc =
-        bsec_get_state_m(bsec->instance, 0, state, sizeof(state), work, BSEC_MAX_WORKBUFFER_SIZE, &length);
-    free(work);
+        bsec_get_state_m(bsec->instance, 0, state, sizeof(state), bsec->work, BSEC_MAX_WORKBUFFER_SIZE, &length);
     if (rc != BSEC_OK) {
         ESP_LOGW(TAG, "get state: %d", rc);
 

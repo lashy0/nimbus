@@ -20,6 +20,7 @@ typedef struct {
 
 typedef struct {
     void* instance; // NULL until opened; BSEC keeps its calibration here.
+    uint8_t* work;  // BSEC_MAX_WORKBUFFER_SIZE bytes, allocated with the instance.
     int64_t next_call_ns;
     storage_bsec_key_t key; // Library version and configuration of this instance.
 } sensing_bsec_t;
@@ -52,10 +53,14 @@ esp_err_t sensing_sensor_measure(
 // saved state and subscribes the outputs.
 esp_err_t sensing_bsec_open(sensing_bsec_t* bsec, sensing_checkpoint_t* checkpoint);
 
-// Loads the saved state for key into instance and describes it in checkpoint.
-// ESP_FAIL means BSEC rejected the state and the instance must be set up again;
-// any other error leaves the instance untouched.
-esp_err_t sensing_state_restore(void* instance, const storage_bsec_key_t* key, sensing_checkpoint_t* checkpoint);
+// Loads the saved state for key into instance, using the instance's work buffer,
+// and describes it in checkpoint. ESP_FAIL means BSEC rejected the state and the
+// instance must be set up again; any other error leaves the instance untouched.
+esp_err_t sensing_state_restore(
+    void* instance,
+    uint8_t* work,
+    const storage_bsec_key_t* key,
+    sensing_checkpoint_t* checkpoint);
 
 // Saves a changed BSEC state at power-off, outside the automatic schedule.
 void sensing_state_save_final(
