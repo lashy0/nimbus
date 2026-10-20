@@ -55,13 +55,14 @@ void app_notify_measurement(void)
     }
 }
 
-static uint32_t handle_notifications(uint32_t bits)
+// Buttons act at their own timestamps; everything else at now.
+static uint32_t handle_notifications(uint32_t bits, int64_t now)
 {
     uint32_t effects = APP_EFFECT_NONE;
     if (bits & NOTIFY_INPUT) {
         app_button_event_t event;
         while (xQueueReceive(s_input, &event, 0) == pdTRUE) {
-            effects |= app_state_button(&s_state, &event, now_ms());
+            effects |= app_state_button(&s_state, &event);
         }
 
         if (atomic_exchange(&s_input_lost, false)) {
@@ -74,10 +75,10 @@ static uint32_t handle_notifications(uint32_t bits)
     if (bits & NOTIFY_MEASUREMENT) {
         sensing_snapshot_t measurement;
         sensing_get_snapshot(&measurement);
-        effects |= app_state_measurement(&s_state, &measurement, now_ms());
+        effects |= app_state_measurement(&s_state, &measurement, now);
     }
 
-    return effects | app_state_tick(&s_state, now_ms());
+    return effects | app_state_tick(&s_state, now);
 }
 
 // Returns false when the model must be sent again later.
@@ -100,7 +101,7 @@ static bool apply_model(void)
 }
 
 // Reads the battery when the state asks for it; the result may start a power-off.
-static uint32_t poll_power(uint32_t effects)
+static uint32_t poll_power(uint32_t effects, int64_t now)
 {
     if (!(effects & APP_EFFECT_POLL_POWER)) {
         return effects;
@@ -109,7 +110,7 @@ static uint32_t poll_power(uint32_t effects)
     power_status_t status;
     power_poll(&status);
 
-    return effects | app_state_power(&s_state, &status, now_ms());
+    return effects | app_state_power(&s_state, &status, now);
 }
 
 // Settings are already saved by the same transition. No storage write follows a
@@ -163,6 +164,8 @@ static void carry_out(uint32_t effects)
     }
 }
 
+// Rounds up and adds one tick: a wait of n ticks can end right after the next
+// tick boundary, so n = ceil(remaining) alone could wake before the deadline.
 static TickType_t ticks_until(int64_t deadline_ms)
 {
     if (deadline_ms == APP_NO_DEADLINE) {
@@ -171,12 +174,12 @@ static TickType_t ticks_until(int64_t deadline_ms)
 
     const int64_t remaining = deadline_ms - now_ms();
 
-    return remaining <= 0 ? 0 : pdMS_TO_TICKS(remaining) + 1;
+    return remaining <= 0 ? 0 : (TickType_t)((remaining * configTICK_RATE_HZ + 999) / 1000) + 1;
 }
 
 static void app_task(void* arg)
 {
-    uint32_t effects = poll_power(app_state_activate(&s_state));
+    uint32_t effects = poll_power(app_state_activate(&s_state), now_ms());
     bool model_dirty = false;
 
     for (;;) {
@@ -190,13 +193,17 @@ static void app_task(void* arg)
         }
 
         int64_t deadline = app_state_next_deadline(&s_state);
-        if (model_dirty && now_ms() + UI_RETRY_MS < deadline) {
-            deadline = now_ms() + UI_RETRY_MS;
+        const int64_t retry_ms = now_ms() + UI_RETRY_MS;
+        if (model_dirty && retry_ms < deadline) {
+            deadline = retry_ms;
         }
 
         uint32_t bits = 0;
         xTaskNotifyWait(0, UINT32_MAX, &bits, ticks_until(deadline));
-        effects = poll_power(handle_notifications(bits));
+
+        // One reading for the iteration, so all its transitions see the same time.
+        const int64_t now = now_ms();
+        effects = poll_power(handle_notifications(bits, now), now);
     }
 }
 

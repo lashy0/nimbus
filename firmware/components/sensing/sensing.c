@@ -81,17 +81,22 @@ static void enter_error(void)
     publish();
 }
 
-// sensing_stop() wakes the task early through its notification.
-static void wait_ms(int64_t duration_ms)
+// Returns once esp_timer reaches deadline_us; sensing_stop() wakes the task earlier
+// through its notification. Ticks are rounded up and one is added: a wait of n
+// ticks can end right after the next tick boundary, which would call BSEC before
+// next_call and cost an extra wake-up.
+static void wait_until(int64_t deadline_us)
 {
-    while (duration_ms > 0 && !atomic_load(&s_stop_requested)) {
-        const int64_t slice = duration_ms < WDT_SLICE_MS ? duration_ms : WDT_SLICE_MS;
+    for (;;) {
         esp_task_wdt_reset();
-        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(slice) > 0 ? pdMS_TO_TICKS(slice) : 1);
-        duration_ms -= slice;
-    }
+        const int64_t remaining_us = deadline_us - esp_timer_get_time();
+        if (remaining_us <= 0 || atomic_load(&s_stop_requested)) {
+            return;
+        }
 
-    esp_task_wdt_reset();
+        const int64_t slice_us = remaining_us < WDT_SLICE_MS * 1000LL ? remaining_us : WDT_SLICE_MS * 1000LL;
+        ulTaskNotifyTake(pdTRUE, (TickType_t)((slice_us * configTICK_RATE_HZ + 999999) / 1000000) + 1);
+    }
 }
 
 // Saves what BSEC learned, confirms the stop and parks the task for good.
@@ -171,7 +176,7 @@ static void sensing_task(void* arg)
             ESP_LOGE(TAG, "%s; retry in %lu ms", esp_err_to_name(err), backoff_ms);
             sensing_sensor_close(&s_sensor);
             enter_error();
-            wait_ms(backoff_ms);
+            wait_until(esp_timer_get_time() + backoff_ms * 1000LL);
 
             continue;
         }
@@ -186,7 +191,8 @@ static void sensing_task(void* arg)
             sensing_state_checkpoint(&s_bsec, &s_snapshot, &s_checkpoint, s_snapshot.updated_ms);
         }
 
-        wait_ms((s_bsec.next_call_ns - esp_timer_get_time() * 1000) / 1000000);
+        // Rounded up to whole microseconds, so BSEC is never called before next_call.
+        wait_until((s_bsec.next_call_ns + 999) / 1000);
     }
 }
 

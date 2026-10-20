@@ -20,11 +20,11 @@
 #define RELEASE_TIMEOUT_US 3000000
 #define RELEASE_POLL_MS 10
 
+// Masks of buttons that stayed released, bit i for board_button_t i.
+#define RELEASED(button) (1u << (button))
+#define ALL_RELEASED ((1u << BOARD_BUTTON_COUNT) - 1)
+
 static const char* TAG = "board_sleep";
-
-static const gpio_num_t BUTTONS[] = {BOARD_PIN_BUTTON_PREV, BOARD_PIN_BUTTON_NEXT};
-
-#define BUTTON_COUNT (sizeof(BUTTONS) / sizeof(BUTTONS[0]))
 
 static esp_err_t hold_rtc_low(gpio_num_t pin)
 {
@@ -49,29 +49,29 @@ static esp_err_t reset_panel_into_sleep(void)
     return ESP_OK;
 }
 
-// Bit i is set for BUTTONS[i] once it has stayed released for RELEASE_STABLE_US.
+// A button counts as released once it has stayed released for RELEASE_STABLE_US.
 static uint32_t wait_for_release(void)
 {
-    int64_t released_since[BUTTON_COUNT] = {0};
+    int64_t released_since[BOARD_BUTTON_COUNT] = {0};
     const int64_t deadline = esp_timer_get_time() + RELEASE_TIMEOUT_US;
     uint32_t released = 0;
 
     for (;;) {
         const int64_t now = esp_timer_get_time();
         released = 0;
-        for (size_t i = 0; i < BUTTON_COUNT; i++) {
-            if (gpio_get_level(BUTTONS[i]) == 0) {
+        for (unsigned i = 0; i < BOARD_BUTTON_COUNT; i++) {
+            if (gpio_get_level(board_button_pin((board_button_t)i)) == 0) {
                 released_since[i] = 0;
             } else if (released_since[i] == 0) {
                 released_since[i] = now;
             }
 
             if (released_since[i] != 0 && now - released_since[i] >= RELEASE_STABLE_US) {
-                released |= 1u << i;
+                released |= RELEASED(i);
             }
         }
 
-        if (released == (1u << BUTTON_COUNT) - 1 || now >= deadline) {
+        if (released == ALL_RELEASED || now >= deadline) {
             return released;
         }
 
@@ -82,14 +82,16 @@ static uint32_t wait_for_release(void)
 static esp_err_t arm_wake(uint32_t released)
 {
     ESP_RETURN_ON_ERROR(esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL), TAG, "clear wake");
-    if (released & 1u) {
-        ESP_RETURN_ON_ERROR(esp_sleep_enable_ext0_wakeup(BOARD_PIN_BUTTON_PREV, 0), TAG, "EXT0 PREV");
+    if (released & RELEASED(BOARD_BUTTON_PREV)) {
+        ESP_RETURN_ON_ERROR(esp_sleep_enable_ext0_wakeup(board_button_pin(BOARD_BUTTON_PREV), 0), TAG, "EXT0 PREV");
     }
 
     // ALL_LOW with a single pin: either button wakes on its own.
-    if (released & 2u) {
+    if (released & RELEASED(BOARD_BUTTON_NEXT)) {
         ESP_RETURN_ON_ERROR(
-            esp_sleep_enable_ext1_wakeup_io(1ULL << BOARD_PIN_BUTTON_NEXT, ESP_EXT1_WAKEUP_ALL_LOW), TAG, "EXT1 NEXT");
+            esp_sleep_enable_ext1_wakeup_io(1ULL << board_button_pin(BOARD_BUTTON_NEXT), ESP_EXT1_WAKEUP_ALL_LOW),
+            TAG,
+            "EXT1 NEXT");
     }
 
     return ESP_OK;
@@ -119,8 +121,12 @@ void board_enter_deep_sleep(void* ctx)
         ESP_LOGE(TAG, "wake sources: %s", esp_err_to_name(err));
     }
 
-    if (released != (1u << BUTTON_COUNT) - 1) {
-        ESP_LOGW(TAG, "button held for 3 s; wake by PREV=%d NEXT=%d", (released & 1u) != 0, (released & 2u) != 0);
+    if (released != ALL_RELEASED) {
+        ESP_LOGW(
+            TAG,
+            "button held for 3 s; wake by PREV=%d NEXT=%d",
+            (released & RELEASED(BOARD_BUTTON_PREV)) != 0,
+            (released & RELEASED(BOARD_BUTTON_NEXT)) != 0);
     }
 
     ESP_LOGI(TAG, "deep sleep");

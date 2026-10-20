@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #include "app_events.h"
-#include "power_battery.h"
+#include "power_types.h"
 #include "sensing_types.h"
 #include "ui_model.h"
 
@@ -59,7 +59,9 @@ bool app_brightness_valid(uint8_t percent);
 // Functions return a mask of app_effect_t.
 void app_state_init(app_state_t* state, uint8_t brightness_percent);
 uint32_t app_state_activate(app_state_t* state);
-uint32_t app_state_button(app_state_t* state, const app_button_event_t* event, int64_t now_ms);
+
+// Acts at event->timestamp_ms, so a queued press is judged by when it happened.
+uint32_t app_state_button(app_state_t* state, const app_button_event_t* event);
 uint32_t app_state_measurement(app_state_t* state, const sensing_snapshot_t* measurement, int64_t now_ms);
 uint32_t app_state_power(app_state_t* state, const power_status_t* power, int64_t now_ms);
 uint32_t app_state_tick(app_state_t* state, int64_t now_ms);

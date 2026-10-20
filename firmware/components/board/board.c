@@ -19,16 +19,16 @@ static esp_err_t restore_low_output(gpio_num_t pin)
     return rtc_gpio_deinit(pin);
 }
 
-static esp_err_t release_button_pin(gpio_num_t pin)
+static esp_err_t release_button_pin(board_button_t button)
 {
+    const gpio_num_t pin = board_button_pin(button);
     ESP_RETURN_ON_ERROR(rtc_gpio_hold_dis(pin), TAG, "button RTC release");
     ESP_RETURN_ON_ERROR(rtc_gpio_deinit(pin), TAG, "button RTC mux");
 
     const gpio_config_t config = {
         .pin_bit_mask = 1ULL << pin,
         .mode = GPIO_MODE_INPUT,
-        // GPIO35 is input-only without internal pulls; the board has an external pull-up.
-        .pull_up_en = pin == BOARD_PIN_BUTTON_PREV ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE,
+        .pull_up_en = board_button_internal_pull_up(button) ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE,
         .intr_type = GPIO_INTR_DISABLE,
     };
 
@@ -45,7 +45,9 @@ esp_err_t board_init_safe_gpio(void)
     ESP_RETURN_ON_ERROR(gpio_hold_dis(BOARD_PIN_PANEL_RESET), TAG, "RST release");
     gpio_deep_sleep_hold_dis();
 
-    ESP_RETURN_ON_ERROR(release_button_pin(BOARD_PIN_BUTTON_PREV), TAG, "PREV input");
+    for (unsigned i = 0; i < BOARD_BUTTON_COUNT; ++i) {
+        ESP_RETURN_ON_ERROR(release_button_pin((board_button_t)i), TAG, "button %u input", i);
+    }
 
-    return release_button_pin(BOARD_PIN_BUTTON_NEXT);
+    return ESP_OK;
 }

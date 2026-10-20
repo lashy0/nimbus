@@ -25,7 +25,6 @@ typedef struct {
 } button_slot_t;
 
 static const char* TAG = "board_buttons";
-static const gpio_num_t PINS[BOARD_BUTTON_COUNT] = {BOARD_PIN_BUTTON_PREV, BOARD_PIN_BUTTON_NEXT};
 
 static board_button_sink_fn s_sink;
 static void* s_sink_ctx;
@@ -100,16 +99,17 @@ static esp_err_t create_button(board_button_t button)
         .long_press_time = LONG_PRESS_MS,
         .short_press_time = REPEAT_WINDOW_MS,
     };
+    const gpio_num_t pin = board_button_pin(button);
     const button_gpio_config_t gpio_config = {
-        .gpio_num = PINS[button],
+        .gpio_num = pin,
         .active_level = 0,
         .enable_power_save = true,
-        // GPIO35 has no internal pulls; GPIO0 keeps the pull-up from board_init_safe_gpio.
-        .disable_pull = PINS[button] == BOARD_PIN_BUTTON_NEXT,
+        // Same pull-up as board_init_safe_gpio: only where the pin has one.
+        .disable_pull = !board_button_internal_pull_up(button),
     };
     button_slot_t* slot = &s_slots[button];
 
-    slot->held_at_init = gpio_get_level(PINS[button]) == 0;
+    slot->held_at_init = gpio_get_level(pin) == 0;
     ESP_RETURN_ON_ERROR(iot_button_new_gpio_device(&config, &gpio_config, &slot->handle), TAG, "create");
 
     void* arg = (void*)(intptr_t)button;

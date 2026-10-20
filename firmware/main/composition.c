@@ -34,6 +34,7 @@ static void forward_button(void* ctx, const board_button_event_t* event)
     const app_button_event_t forwarded = {
         .button = event->button == BOARD_BUTTON_PREV ? APP_BUTTON_PREV : APP_BUTTON_NEXT,
         .gesture = GESTURES[event->type],
+        .timestamp_ms = event->timestamp_us / 1000,
     };
     app_post_button(&forwarded);
 }

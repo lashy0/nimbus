@@ -176,11 +176,13 @@ uint32_t app_state_activate(app_state_t* state)
     return APP_EFFECT_MODEL | APP_EFFECT_POLL_POWER;
 }
 
-uint32_t app_state_button(app_state_t* state, const app_button_event_t* event, int64_t now_ms)
+uint32_t app_state_button(app_state_t* state, const app_button_event_t* event)
 {
     if (state->mode != APP_MODE_ACTIVE) {
         return APP_EFFECT_NONE;
     }
+
+    const int64_t now_ms = event->timestamp_ms;
 
     // A press at the dialog deadline already belongs to the main screen.
     const uint32_t effects = app_state_tick(state, now_ms);

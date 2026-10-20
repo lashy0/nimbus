@@ -3,6 +3,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "power_types.h"
+
+// Battery math without ESP-IDF headers, private to power.
+
 // Initial thresholds for a single Li-ion cell, chosen before any measurement on
 // battery power alone; revisit them with a reference voltmeter.
 #define POWER_EXTERNAL_MIN_MV 4400  // A cell stays below 4.2 V; GPIO34 read 4.7 V on USB.
@@ -12,20 +16,6 @@
 #define POWER_CRITICAL_READINGS 3 // Consecutive low readings that confirm a discharge.
 #define POWER_STARTUP_MIN_MV 3400
 #define POWER_STARTUP_AFTER_BROWNOUT_MV 3500 // Above the start threshold: a brownout repeats otherwise.
-
-typedef enum {
-    POWER_SOURCE_UNKNOWN,  // No plausible reading.
-    POWER_SOURCE_BATTERY,  // Below POWER_EXTERNAL_MIN_MV.
-    POWER_SOURCE_EXTERNAL, // Inferred from the voltage; says nothing about charging.
-} power_source_t;
-
-typedef struct {
-    power_source_t source;
-    uint16_t battery_mv; // Last plausible reading; on EXTERNAL the charger rail.
-    bool percent_valid;  // Only on BATTERY.
-    uint8_t percent;     // Smoothed estimate from a generic Li-ion curve.
-    bool critical;       // Confirmed discharge: the device has to power off.
-} power_status_t;
 
 typedef struct {
     power_status_t status;

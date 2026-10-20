@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 typedef enum {
     APP_BUTTON_PREV,
     APP_BUTTON_NEXT,
@@ -15,4 +17,5 @@ typedef enum {
 typedef struct {
     app_button_t button;
     app_gesture_t gesture;
+    int64_t timestamp_ms; // Monotonic time the gesture was recognized, not when app_task took it.
 } app_button_event_t;

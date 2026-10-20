@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #include "esp_err.h"
-#include "power_battery.h"
+#include "power_types.h"
 
 // Reads the battery node in millivolts; must return within a few milliseconds.
 typedef esp_err_t (*power_read_battery_fn)(void* ctx, uint32_t* battery_mv);
@@ -32,7 +32,8 @@ esp_err_t power_init(const power_config_t* config);
 // Reads the battery once and returns the updated estimate. Call from one task.
 void power_poll(power_status_t* out);
 
-// One reading before the display and sensor start; see power_startup_allowed().
+// One reading before the display and sensor start. An unknown voltage is allowed
+// except after a brownout, which needs a margin above the start threshold.
 bool power_check_startup(bool after_brownout);
 
 // Records the reason in RTC memory for the next boot, then sleeps.
