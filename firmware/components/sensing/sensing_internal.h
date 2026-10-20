@@ -31,6 +31,7 @@ typedef struct {
     bool saved_high;       // A state with IAQ accuracy 3 is saved.
     int64_t saved_ms;      // When storage last matched BSEC; INT64_MIN before that.
     int64_t attempt_ms;    // Last automatic save attempt; INT64_MIN before the first.
+    bool record_unread;    // Storage could not be read at boot; its record may be good.
     uint8_t state[BSEC_MAX_STATE_BLOB_SIZE];
     size_t length; // 0 while nothing is saved.
 } sensing_checkpoint_t;
@@ -55,6 +56,13 @@ esp_err_t sensing_bsec_open(sensing_bsec_t* bsec, sensing_checkpoint_t* checkpoi
 // ESP_FAIL means BSEC rejected the state and the instance must be set up again;
 // any other error leaves the instance untouched.
 esp_err_t sensing_state_restore(void* instance, const storage_bsec_key_t* key, sensing_checkpoint_t* checkpoint);
+
+// Saves a changed BSEC state at power-off, outside the automatic schedule.
+void sensing_state_save_final(
+    const sensing_bsec_t* bsec,
+    const sensing_snapshot_t* snapshot,
+    sensing_checkpoint_t* checkpoint,
+    int64_t now_ms);
 
 // Saves the BSEC state when the save policy calls for it after new outputs.
 void sensing_state_checkpoint(

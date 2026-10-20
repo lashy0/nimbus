@@ -77,7 +77,11 @@ esp_err_t ui_init(const ui_config_t* config)
     ESP_RETURN_ON_ERROR(esp_pm_lock_acquire(s_pm_lock), TAG, "PM lock acquire");
 
     ui_log_memory("before LVGL");
-    const lvgl_port_cfg_t port_config = ESP_LVGL_PORT_INIT_CONFIG();
+    // The SPI bus interrupt lives on the core that initialized the bus, the one
+    // calling here. Flushing from the other core hung the LVGL task for good in
+    // spi_device_acquire_bus (ESP-IDF 5.5.3), so the task stays on this core.
+    lvgl_port_cfg_t port_config = ESP_LVGL_PORT_INIT_CONFIG();
+    port_config.task_affinity = xPortGetCoreID();
     ESP_RETURN_ON_ERROR(lvgl_port_init(&port_config), TAG, "LVGL port");
 
     const lvgl_port_display_cfg_t display_config = {
@@ -102,9 +106,6 @@ esp_err_t ui_init(const ui_config_t* config)
     ESP_RETURN_ON_FALSE(s_disp != NULL, ESP_ERR_NO_MEM, TAG, "LVGL display");
     ui_log_memory("draw buffers");
 
-    // The panel shows stale RAM until the first flush, but the backlight is still off.
-    ESP_RETURN_ON_ERROR(esp_lcd_panel_disp_on_off(config->panel, true), TAG, "display on");
-
     const ui_model_t start = {.screen = UI_SCREEN_START};
     ESP_RETURN_ON_FALSE(lvgl_port_lock(LOCK_TIMEOUT_MS), ESP_ERR_TIMEOUT, TAG, "LVGL lock");
     ui_fonts_load(&s_fonts);
@@ -116,6 +117,11 @@ esp_err_t ui_init(const ui_config_t* config)
 
     const int64_t flush_started = esp_timer_get_time();
     ESP_RETURN_ON_ERROR(wait_first_flush(), TAG, "first flush");
+
+    // Panel RAM keeps the last frame through a reset: after deep sleep the shutdown
+    // question was visible before the new frame. Display output starts only once
+    // the new frame is in RAM.
+    ESP_RETURN_ON_ERROR(esp_lcd_panel_disp_on_off(config->panel, true), TAG, "display on");
     ESP_RETURN_ON_ERROR(config->set_backlight(config->backlight_ctx, config->brightness_percent), TAG, "backlight");
     s_backlight_ctx = config->backlight_ctx;
     s_brightness_percent = config->brightness_percent;

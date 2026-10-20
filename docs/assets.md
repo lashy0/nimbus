@@ -101,12 +101,14 @@ lv_font_conv --font <otf> --size <px> --bpp 4 --no-compress --no-kerning
 
 | Файл | Начертание, размер | Набор |
 | --- | --- | --- |
-| `sf_b_10.fnt` | Bold, 10 px | digits |
+| `sf_b_10.fnt` | Bold, 10 px | battery |
 | `sf_sb_15.fnt`, `sf_sb_30.fnt` | Semibold, 15 и 30 px | text |
 | `sf_sb_50.fnt`, `sf_sb_60.fnt` | Semibold, 50 и 60 px | digits |
 
 - digits: `0x20,0x25,0x2B,0x2D-0x2E,0x30-0x39,0xB0` — пробел, `%`, `+`, `-`, `.`,
   цифры, `°`.
+- battery: digits и `0x42,0x53,0x55` — буквы `B`, `S`, `U` для надписи `USB`
+  у батареи (добавлено в v2; остальные шрифты совпадают с v1).
 - text: `0x20-0x7E,0xA0-0xAC,0xAE-0xFF,0x400-0x45F,0x2116` — ASCII, Latin-1 без
   мягкого переноса `U+00AD`, кириллица, `№`.
 
@@ -146,7 +148,8 @@ lv_font_conv --font <otf> --size <px> --bpp 4 --no-compress --no-kerning
 EMBED_FILES для изображений и LittleFS остаются альтернативами для измерения
 на этапе 2; решение о смене хранения пока не принято.
 
-Пять шрифтов суммарно занимают 80752 байта файлов. `lv_font_load` в LVGL8
+Пять шрифтов суммарно занимают 80840 байт файлов (80752 до добавления `USB`
+в `sf_b_10.fnt`). `lv_font_load` в LVGL8
 загружает данные в heap; размер файлов не равен гарантированному расходу кучи.
 После каждого шрифта и создания draw buffers/экранов фиксируются свободная
 память, minimum free и largest block, отдельно для DMA-capable памяти.

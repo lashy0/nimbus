@@ -27,7 +27,10 @@ esp_err_t sensing_state_restore(void* instance, const storage_bsec_key_t* key, s
     uint8_t accuracy = 0;
     esp_err_t err = storage_load_bsec_state(key, checkpoint->state, sizeof(checkpoint->state), &length, &accuracy);
     if (err != ESP_OK) {
-        // Nothing usable is kept: a mismatching record is replaced by the first save.
+        // A mismatching or damaged record is replaced by the first save; one that
+        // could not be read at all (storage down, no memory) may still be good.
+        checkpoint->record_unread = err != ESP_ERR_NOT_FOUND && err != ESP_ERR_INVALID_VERSION &&
+                                    err != ESP_ERR_INVALID_SIZE && err != ESP_ERR_INVALID_CRC;
         if (err == ESP_ERR_NOT_FOUND) {
             ESP_LOGI(TAG, "no saved state; calibration starts over");
         } else {
@@ -81,20 +84,13 @@ static const char* save_reason(
     return NULL;
 }
 
-void sensing_state_checkpoint(
+static void save(
     const sensing_bsec_t* bsec,
     const sensing_snapshot_t* snapshot,
     sensing_checkpoint_t* checkpoint,
-    int64_t now_ms)
+    int64_t now_ms,
+    const char* reason)
 {
-    const char* reason = save_reason(checkpoint, snapshot, now_ms);
-    if (reason == NULL ||
-        (checkpoint->attempt_ms != NO_TIME && now_ms - checkpoint->attempt_ms < MIN_SAVE_INTERVAL_MS)) {
-        return;
-    }
-
-    checkpoint->attempt_ms = now_ms;
-
     uint8_t state[BSEC_MAX_STATE_BLOB_SIZE];
     uint32_t length = 0;
     uint8_t* work = malloc(BSEC_MAX_WORKBUFFER_SIZE);
@@ -131,4 +127,37 @@ void sensing_state_checkpoint(
     checkpoint->length = length;
     mark_saved(checkpoint, snapshot->iaq_accuracy, now_ms);
     ESP_LOGI(TAG, "saved state (%s): %lu bytes, IAQ accuracy %u", reason, length, snapshot->iaq_accuracy);
+}
+
+void sensing_state_checkpoint(
+    const sensing_bsec_t* bsec,
+    const sensing_snapshot_t* snapshot,
+    sensing_checkpoint_t* checkpoint,
+    int64_t now_ms)
+{
+    const char* reason = save_reason(checkpoint, snapshot, now_ms);
+    if (reason == NULL ||
+        (checkpoint->attempt_ms != NO_TIME && now_ms - checkpoint->attempt_ms < MIN_SAVE_INTERVAL_MS)) {
+        return;
+    }
+
+    checkpoint->attempt_ms = now_ms;
+    save(bsec, snapshot, checkpoint, now_ms, reason);
+}
+
+void sensing_state_save_final(
+    const sensing_bsec_t* bsec,
+    const sensing_snapshot_t* snapshot,
+    sensing_checkpoint_t* checkpoint,
+    int64_t now_ms)
+{
+    // An unreadable record may be a good one: only a calibrated state replaces it.
+    const bool calibrated = snapshot->phase == SENSING_PHASE_CALIBRATING || snapshot->phase == SENSING_PHASE_READY;
+    if (checkpoint->record_unread && !calibrated) {
+        ESP_LOGW(TAG, "saved record was unreadable; uncalibrated state not saved");
+
+        return;
+    }
+
+    save(bsec, snapshot, checkpoint, now_ms, "power-off");
 }

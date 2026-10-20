@@ -29,3 +29,10 @@ void ui_blink_init(lv_obj_t* face);
 // Shows open_src on the face and, when closed_src is not NULL, blinks with it at
 // random intervals. Both are static strings; NULL open_src stops blinking.
 void ui_blink_set(const char* open_src, const char* closed_src);
+
+// Cycles the battery icon through frames. Call with the LVGL lock held.
+void ui_charge_init(lv_obj_t* battery);
+
+// Starts cycling a static array of count image paths; NULL stops and leaves the
+// icon to the caller.
+void ui_charge_set(const char* const* frames, size_t count);

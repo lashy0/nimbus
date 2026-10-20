@@ -155,6 +155,7 @@ void ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts)
     lv_obj_set_width(s_widgets[UI_W_BATTERY_TEXT], 30);
     lv_obj_set_style_text_align(s_widgets[UI_W_BATTERY_TEXT], LV_TEXT_ALIGN_RIGHT, 0);
     s_widgets[UI_W_BATTERY] = lv_img_create(screen);
+    ui_charge_init(s_widgets[UI_W_BATTERY]);
 
     s_widgets[UI_W_TITLE] = create_label(screen, fonts->text_30);
     s_widgets[UI_W_PLATE] = lv_img_create(screen);
@@ -175,6 +176,11 @@ void ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts)
     s_no = create_answer(s_widgets[UI_W_ANSWERS], 70, fonts->text_15, "НЕТ");
     s_widgets[UI_W_DOTS] = create_dots(screen);
 
+    // 60x99, centered on the 135x240 screen.
+    s_widgets[UI_W_LIGHTNING] = lv_img_create(screen);
+    lv_img_set_src(s_widgets[UI_W_LIGHTNING], UI_IMG("misc/lightning_charge"));
+    lv_obj_set_pos(s_widgets[UI_W_LIGHTNING], 38, 70);
+
     for (size_t i = 0; i < UI_W_COUNT; i++) {
         lv_obj_add_flag(s_widgets[i], LV_OBJ_FLAG_HIDDEN);
     }
@@ -182,6 +188,7 @@ void ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts)
 
 uint32_t ui_show_battery(const char* text, const char* icon_src, lv_coord_t icon_y)
 {
+    ui_charge_set(NULL, 0);
     set_text(s_widgets[UI_W_BATTERY_TEXT], text);
     if (icon_src == NULL) {
         return UI_SHOW(UI_W_BATTERY_TEXT);
@@ -191,6 +198,20 @@ uint32_t ui_show_battery(const char* text, const char* icon_src, lv_coord_t icon
     set_src(s_widgets[UI_W_BATTERY], icon_src);
 
     return UI_SHOW(UI_W_BATTERY_TEXT) | UI_SHOW(UI_W_BATTERY);
+}
+
+// Without the percentage the 21 px icon alone is centered.
+uint32_t ui_show_battery_animation(const char* const* frames, size_t count, lv_coord_t icon_y)
+{
+    set_pos(s_widgets[UI_W_BATTERY], 57, icon_y);
+    ui_charge_set(frames, count);
+
+    return UI_SHOW(UI_W_BATTERY);
+}
+
+uint32_t ui_show_lightning(void)
+{
+    return UI_SHOW(UI_W_LIGHTNING);
 }
 
 uint32_t ui_show_title(const char* text, lv_coord_t x, lv_coord_t y)
@@ -264,9 +285,13 @@ uint32_t ui_show_face_image(const char* open_src, const char* closed_src, lv_coo
 
 void ui_widgets_set_visible(uint32_t visible)
 {
-    // A hidden face must not keep reading its images from flash for blinks.
+    // Hidden images must not keep reading frames from flash.
     if ((visible & UI_SHOW(UI_W_FACE)) == 0) {
         ui_blink_set(NULL, NULL);
+    }
+
+    if ((visible & UI_SHOW(UI_W_BATTERY)) == 0) {
+        ui_charge_set(NULL, 0);
     }
 
     for (size_t i = 0; i < UI_W_COUNT; i++) {

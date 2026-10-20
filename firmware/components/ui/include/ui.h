@@ -33,6 +33,7 @@ typedef enum {
 
 // Starts LVGL, shows the start screen and turns the backlight on after its first
 // flush. On error the backlight stays at 0. Assets are read from S:/spiffs/.
+// Call on the core that initialized the panel's SPI bus: the LVGL task is pinned to it.
 esp_err_t ui_init(const ui_config_t* config);
 
 // Updates the screen to the model; only fields that differ are redrawn. Returns

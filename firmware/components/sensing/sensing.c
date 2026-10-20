@@ -1,5 +1,7 @@
 #include "sensing.h"
 
+#include <stdatomic.h>
+
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_task_wdt.h"
@@ -29,6 +31,9 @@ static sensing_snapshot_t s_snapshot; // Task-owned working copy.
 static sensing_sensor_t s_sensor;
 static sensing_bsec_t s_bsec;
 static sensing_checkpoint_t s_checkpoint;
+
+static atomic_bool s_stop_requested;
+static SemaphoreHandle_t s_stopped; // Given once the task has saved and parked.
 
 static const char* phase_name(sensing_phase_t phase)
 {
@@ -76,16 +81,34 @@ static void enter_error(void)
     publish();
 }
 
+// sensing_stop() wakes the task early through its notification.
 static void wait_ms(int64_t duration_ms)
 {
-    while (duration_ms > 0) {
+    while (duration_ms > 0 && !atomic_load(&s_stop_requested)) {
         const int64_t slice = duration_ms < WDT_SLICE_MS ? duration_ms : WDT_SLICE_MS;
         esp_task_wdt_reset();
-        vTaskDelay(pdMS_TO_TICKS(slice) > 0 ? pdMS_TO_TICKS(slice) : 1);
+        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(slice) > 0 ? pdMS_TO_TICKS(slice) : 1);
         duration_ms -= slice;
     }
 
     esp_task_wdt_reset();
+}
+
+// Saves what BSEC learned, confirms the stop and parks the task for good.
+static void stop_task(void)
+{
+    if (s_bsec.instance != NULL && s_snapshot.generation > 0) {
+        sensing_state_save_final(&s_bsec, &s_snapshot, &s_checkpoint, esp_timer_get_time() / 1000);
+    }
+
+    sensing_sensor_close(&s_sensor);
+    ESP_LOGI(TAG, "stopped");
+    esp_task_wdt_delete(NULL);
+    xSemaphoreGive(s_stopped);
+
+    for (;;) {
+        vTaskDelay(portMAX_DELAY);
+    }
 }
 
 // BSEC keeps its calibration across sensor failures, so only the sensor is reopened.
@@ -129,6 +152,10 @@ static void sensing_task(void* arg)
     size_t failures = 0;
 
     for (;;) {
+        if (atomic_load(&s_stop_requested)) {
+            stop_task();
+        }
+
         bool updated = false;
         esp_err_t err = ensure_ready();
         if (err == ESP_OK) {
@@ -171,12 +198,26 @@ esp_err_t sensing_start(const sensing_config_t* config)
     s_config = *config;
     s_lock = xSemaphoreCreateMutex();
     ESP_RETURN_ON_FALSE(s_lock != NULL, ESP_ERR_NO_MEM, TAG, "lock");
+    s_stopped = xSemaphoreCreateBinary();
+    ESP_RETURN_ON_FALSE(s_stopped != NULL, ESP_ERR_NO_MEM, TAG, "stop semaphore");
 
     ESP_RETURN_ON_FALSE(
         xTaskCreate(sensing_task, "sensing", TASK_STACK_BYTES, NULL, TASK_PRIORITY, &s_task) == pdPASS,
         ESP_ERR_NO_MEM,
         TAG,
         "task");
+
+    return ESP_OK;
+}
+
+esp_err_t sensing_stop(uint32_t timeout_ms)
+{
+    ESP_RETURN_ON_FALSE(s_task != NULL, ESP_ERR_INVALID_STATE, TAG, "not started");
+    ESP_RETURN_ON_FALSE(!atomic_exchange(&s_stop_requested, true), ESP_ERR_INVALID_STATE, TAG, "already stopping");
+
+    xTaskNotifyGive(s_task);
+    ESP_RETURN_ON_FALSE(
+        xSemaphoreTake(s_stopped, pdMS_TO_TICKS(timeout_ms)) == pdTRUE, ESP_ERR_TIMEOUT, TAG, "no confirmation");
 
     return ESP_OK;
 }

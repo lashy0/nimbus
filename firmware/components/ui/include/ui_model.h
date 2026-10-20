@@ -21,7 +21,9 @@ typedef enum {
 // Everything the screens show. Values are already rounded and within their ranges.
 typedef struct {
     ui_screen_t screen;
+    bool usb_notice; // USB was just plugged in: the page is covered by a lightning bolt.
 
+    bool external_power; // Supply inferred from the voltage; battery_valid is then false.
     bool battery_valid;
     uint8_t battery_percent; // 0..100
     bool charging;

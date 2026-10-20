@@ -1,6 +1,6 @@
 idf_component_register(
     SRCS "app_main.c" "composition.c"
-    PRIV_REQUIRES app board esp_app_format esp_system espcoredump log sensing spiffs storage ui
+    PRIV_REQUIRES app board esp_app_format esp_hw_support esp_system espcoredump log power sensing spiffs storage ui
 )
 
 # assets/ is generated from artwork/; flashed to the storage partition.

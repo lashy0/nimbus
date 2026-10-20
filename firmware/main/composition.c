@@ -3,12 +3,16 @@
 #include "app.h"
 #include "board.h"
 #include "board_backlight.h"
+#include "board_battery.h"
 #include "board_buttons.h"
 #include "board_display.h"
 #include "board_i2c.h"
+#include "board_sleep.h"
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_spiffs.h"
+#include "esp_system.h"
+#include "power.h"
 #include "sensing.h"
 #include "storage.h"
 #include "ui.h"
@@ -94,9 +98,33 @@ static esp_err_t start_sensing(void)
     return sensing_start(&config);
 }
 
+// Runs before the display and sensor add their load: a cell too low to start
+// them goes back to sleep with the screen dark.
+static esp_err_t start_power(void)
+{
+    // Without the ADC the voltage stays unknown: no percentage and no low-battery power-off.
+    const esp_err_t err = board_battery_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "battery ADC unavailable: %s", esp_err_to_name(err));
+    }
+
+    const power_config_t config = {
+        .read_battery = board_battery_read,
+        .enter_sleep = board_enter_deep_sleep,
+    };
+    ESP_RETURN_ON_ERROR(power_init(&config), TAG, "init");
+
+    if (!power_check_startup(esp_reset_reason() == ESP_RST_BROWNOUT)) {
+        power_enter_sleep(POWER_SLEEP_STARTUP);
+    }
+
+    return ESP_OK;
+}
+
 esp_err_t composition_init(void)
 {
     ESP_RETURN_ON_ERROR(board_init_safe_gpio(), TAG, "safe GPIO");
+    ESP_RETURN_ON_ERROR(start_power(), TAG, "power");
 
     // Without NVS the device runs on defaults and BSEC calibrates after every boot.
     esp_err_t err = storage_init();

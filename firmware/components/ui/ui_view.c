@@ -14,18 +14,27 @@ void ui_view_create(lv_obj_t* screen, const ui_fonts_t* fonts)
     ui_widgets_create(screen, fonts);
 }
 
+static const char* const CHARGING[] = {
+    UI_IMG("batt/1_charging"),
+    UI_IMG("batt/2_charging"),
+    UI_IMG("batt/3_charging"),
+    UI_IMG("batt/full_charging"),
+};
+
+#define CHARGING_COUNT (sizeof(CHARGING) / sizeof(CHARGING[0]))
+
 static uint32_t show_battery(const ui_model_t* model)
 {
+    // The board has no charge signal and the cell is not readable on USB, so the
+    // levels cycle with no percentage, as phones show charging.
+    if (model->external_power) {
+        return ui_show_battery_animation(CHARGING, CHARGING_COUNT, 8);
+    }
+
     if (!model->battery_valid) {
         return ui_show_battery("-- %", NULL, 0);
     }
 
-    static const char* const CHARGING[] = {
-        UI_IMG("batt/1_charging"),
-        UI_IMG("batt/2_charging"),
-        UI_IMG("batt/3_charging"),
-        UI_IMG("batt/full_charging"),
-    };
     static const char* const DISCHARGING[] = {
         UI_IMG("batt/1_not_charging"),
         UI_IMG("batt/2_not_charging"),
@@ -181,6 +190,11 @@ void ui_view_apply(const ui_model_t* model)
 
     if (model->screen != UI_SCREEN_START) {
         visible |= show_battery(model);
+    }
+
+    // The USB notice covers the page without changing it.
+    if (model->usb_notice) {
+        visible = ui_show_lightning();
     }
 
     ui_widgets_set_visible(visible);

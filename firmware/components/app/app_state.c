@@ -57,6 +57,16 @@ static uint32_t save_settings(app_state_t* state)
     return APP_EFFECT_SAVE_SETTINGS;
 }
 
+// The pending settings are saved first; input stays ignored from here on.
+static uint32_t begin_shutdown(app_state_t* state, bool critical)
+{
+    state->mode = APP_MODE_SHUTTING_DOWN;
+    state->shutdown_critical = critical;
+    state->dialog_deadline_ms = APP_NO_DEADLINE;
+
+    return save_settings(state) | APP_EFFECT_SHUTDOWN;
+}
+
 static uint32_t change_brightness(app_state_t* state, int delta, int64_t now_ms)
 {
     int percent = state->brightness_percent + delta;
@@ -94,7 +104,7 @@ static uint32_t on_short(app_state_t* state, app_button_t button, int64_t now_ms
         case UI_SCREEN_SHUTDOWN:
             // A press on the highlighted answer chooses it; otherwise it moves the highlight.
             if (button == APP_BUTTON_PREV && state->shutdown_yes_selected) {
-                return close_dialog(state) | save_settings(state) | APP_EFFECT_SHUTDOWN;
+                return close_dialog(state) | begin_shutdown(state, false);
             }
 
             if (button == APP_BUTTON_NEXT && !state->shutdown_yes_selected) {
@@ -149,6 +159,9 @@ void app_state_init(app_state_t* state, uint8_t brightness_percent)
     state->settings_deadline_ms = APP_NO_DEADLINE;
     state->dialog_deadline_ms = APP_NO_DEADLINE;
     state->measurement_stale = true;
+    state->power.source = POWER_SOURCE_UNKNOWN;
+    state->power_deadline_ms = APP_NO_DEADLINE; // Polling starts with activation.
+    state->notice_deadline_ms = APP_NO_DEADLINE;
 }
 
 uint32_t app_state_activate(app_state_t* state)
@@ -160,7 +173,7 @@ uint32_t app_state_activate(app_state_t* state)
     state->mode = APP_MODE_ACTIVE;
     state->screen = state->main_screen;
 
-    return APP_EFFECT_MODEL;
+    return APP_EFFECT_MODEL | APP_EFFECT_POLL_POWER;
 }
 
 uint32_t app_state_button(app_state_t* state, const app_button_event_t* event, int64_t now_ms)
@@ -171,6 +184,14 @@ uint32_t app_state_button(app_state_t* state, const app_button_event_t* event, i
 
     // A press at the dialog deadline already belongs to the main screen.
     const uint32_t effects = app_state_tick(state, now_ms);
+
+    // A gesture over the USB notice only closes it: the page under it is hidden.
+    const bool gesture = event->gesture == APP_GESTURE_SHORT || event->gesture == APP_GESTURE_LONG;
+    if (gesture && state->notice_deadline_ms != APP_NO_DEADLINE) {
+        state->notice_deadline_ms = APP_NO_DEADLINE;
+
+        return effects | APP_EFFECT_MODEL;
+    }
 
     switch (event->gesture) {
         case APP_GESTURE_SHORT:
@@ -194,6 +215,36 @@ uint32_t app_state_measurement(app_state_t* state, const sensing_snapshot_t* mea
     return APP_EFFECT_MODEL;
 }
 
+uint32_t app_state_power(app_state_t* state, const power_status_t* power, int64_t now_ms)
+{
+    state->power_deadline_ms = now_ms + APP_POWER_POLL_MS;
+    if (state->mode == APP_MODE_SHUTTING_DOWN) {
+        return APP_EFFECT_NONE;
+    }
+
+    const power_status_t* shown = &state->power;
+    const bool changed = power->source != shown->source || power->percent_valid != shown->percent_valid ||
+                         power->percent != shown->percent;
+
+    // Only a plug-in is announced, not USB found at boot; the shutdown question
+    // stays in front of it.
+    if (shown->source == POWER_SOURCE_BATTERY && power->source == POWER_SOURCE_EXTERNAL &&
+        state->mode == APP_MODE_ACTIVE && state->screen != UI_SCREEN_SHUTDOWN) {
+        state->notice_deadline_ms = now_ms + APP_USB_NOTICE_MS;
+    } else if (power->source != POWER_SOURCE_EXTERNAL) {
+        state->notice_deadline_ms = APP_NO_DEADLINE;
+    }
+
+    state->power = *power;
+
+    uint32_t effects = changed ? APP_EFFECT_MODEL : APP_EFFECT_NONE;
+    if (power->critical) {
+        effects |= app_state_cancel_dialog(state) | begin_shutdown(state, true);
+    }
+
+    return effects;
+}
+
 static int64_t stale_deadline(const app_state_t* state)
 {
     if (state->measurement_stale || state->measurement.updated_ms == 0) {
@@ -205,7 +256,11 @@ static int64_t stale_deadline(const app_state_t* state)
 
 uint32_t app_state_tick(app_state_t* state, int64_t now_ms)
 {
-    uint32_t effects = APP_EFFECT_NONE;
+    if (state->mode == APP_MODE_SHUTTING_DOWN) {
+        return APP_EFFECT_NONE;
+    }
+
+    uint32_t effects = now_ms >= state->power_deadline_ms ? APP_EFFECT_POLL_POWER : APP_EFFECT_NONE;
     if (now_ms >= stale_deadline(state)) {
         state->measurement_stale = true;
         effects |= APP_EFFECT_MODEL;
@@ -217,6 +272,11 @@ uint32_t app_state_tick(app_state_t* state, int64_t now_ms)
 
     if (now_ms >= state->settings_deadline_ms) {
         effects |= save_settings(state);
+    }
+
+    if (now_ms >= state->notice_deadline_ms) {
+        state->notice_deadline_ms = APP_NO_DEADLINE;
+        effects |= APP_EFFECT_MODEL;
     }
 
     return effects;
@@ -233,9 +293,21 @@ uint32_t app_state_cancel_dialog(app_state_t* state)
 
 int64_t app_state_next_deadline(const app_state_t* state)
 {
+    if (state->mode == APP_MODE_SHUTTING_DOWN) {
+        return APP_NO_DEADLINE;
+    }
+
     int64_t deadline = stale_deadline(state);
+    if (state->power_deadline_ms < deadline) {
+        deadline = state->power_deadline_ms;
+    }
+
     if (state->settings_deadline_ms < deadline) {
         deadline = state->settings_deadline_ms;
+    }
+
+    if (state->notice_deadline_ms < deadline) {
+        deadline = state->notice_deadline_ms;
     }
 
     if (state->screen == UI_SCREEN_SHUTDOWN && state->dialog_deadline_ms < deadline) {
@@ -283,6 +355,10 @@ void app_state_model(const app_state_t* state, ui_model_t* model)
     memset(model, 0, sizeof(*model));
 
     model->screen = state->screen;
+    model->usb_notice = state->notice_deadline_ms != APP_NO_DEADLINE;
+    model->external_power = state->power.source == POWER_SOURCE_EXTERNAL;
+    model->battery_valid = state->power.percent_valid;
+    model->battery_percent = state->power.percent;
     model->brightness_percent = state->brightness_percent;
     model->shutdown_yes_selected = state->shutdown_yes_selected;
 

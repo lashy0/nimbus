@@ -9,6 +9,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
+#include "power.h"
 #include "sensing.h"
 #include "storage.h"
 #include "ui.h"
@@ -17,6 +18,7 @@
 #define TASK_STACK_BYTES 4096
 #define TASK_PRIORITY 5
 #define UI_RETRY_MS 100
+#define SENSING_STOP_TIMEOUT_MS 3000 // A stuck sensor must not keep the device awake.
 
 #define NOTIFY_INPUT (1u << 0)
 #define NOTIFY_MEASUREMENT (1u << 1)
@@ -97,6 +99,45 @@ static bool apply_model(void)
     return true;
 }
 
+// Reads the battery when the state asks for it; the result may start a power-off.
+static uint32_t poll_power(uint32_t effects)
+{
+    if (!(effects & APP_EFFECT_POLL_POWER)) {
+        return effects;
+    }
+
+    power_status_t status;
+    power_poll(&status);
+
+    return effects | app_state_power(&s_state, &status, now_ms());
+}
+
+// Settings are already saved by the same transition. No storage write follows a
+// sensing stop that was not confirmed, so the two cannot interleave.
+__attribute__((noreturn)) static void shut_down(void)
+{
+    const bool critical = s_state.shutdown_critical;
+    ESP_LOGI(TAG, "power-off: %s", critical ? "battery is flat" : "confirmed");
+
+    // Dark at once; the final GPIO path resets the panel later.
+    esp_err_t err = ui_set_display_state(UI_DISPLAY_ON, 0);
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        ESP_LOGW(TAG, "backlight off: %s", esp_err_to_name(err));
+    }
+
+    err = ui_set_display_state(UI_DISPLAY_OFF, 0);
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        ESP_LOGW(TAG, "UI off: %s; the sleep path resets the panel instead", esp_err_to_name(err));
+    }
+
+    err = sensing_stop(SENSING_STOP_TIMEOUT_MS);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "sensing stop: %s; sleeping without its last checkpoint", esp_err_to_name(err));
+    }
+
+    power_enter_sleep(critical ? POWER_SLEEP_CRITICAL : POWER_SLEEP_USER);
+}
+
 static void carry_out(uint32_t effects)
 {
     if (effects & APP_EFFECT_BRIGHTNESS) {
@@ -118,7 +159,7 @@ static void carry_out(uint32_t effects)
     }
 
     if (effects & APP_EFFECT_SHUTDOWN) {
-        ESP_LOGW(TAG, "power-off confirmed, but there is no power component yet; staying on");
+        shut_down();
     }
 }
 
@@ -135,7 +176,7 @@ static TickType_t ticks_until(int64_t deadline_ms)
 
 static void app_task(void* arg)
 {
-    uint32_t effects = app_state_activate(&s_state);
+    uint32_t effects = poll_power(app_state_activate(&s_state));
     bool model_dirty = false;
 
     for (;;) {
@@ -155,7 +196,7 @@ static void app_task(void* arg)
 
         uint32_t bits = 0;
         xTaskNotifyWait(0, UINT32_MAX, &bits, ticks_until(deadline));
-        effects = handle_notifications(bits);
+        effects = poll_power(handle_notifications(bits));
     }
 }
 

@@ -22,6 +22,7 @@ typedef enum {
     UI_W_BAR,
     UI_W_ANSWERS,
     UI_W_DOTS,
+    UI_W_LIGHTNING,
     UI_W_COUNT,
 } ui_widget_t;
 
@@ -49,6 +50,10 @@ void ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts);
 // Each ui_show_* fills its widget and returns its UI_SHOW() bit; only changed
 // properties are touched.
 uint32_t ui_show_battery(const char* text, const char* icon_src, lv_coord_t icon_y);
+
+// Battery icon cycling through frames (static array), no text.
+uint32_t ui_show_battery_animation(const char* const* frames, size_t count, lv_coord_t icon_y);
+uint32_t ui_show_lightning(void);
 uint32_t ui_show_title(const char* text, lv_coord_t x, lv_coord_t y);
 uint32_t ui_show_plate(const char* src, lv_coord_t x, lv_coord_t y);
 uint32_t ui_show_value(const char* text, const lv_font_t* font);
