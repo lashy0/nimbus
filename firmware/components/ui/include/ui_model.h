@@ -13,6 +13,12 @@ typedef enum {
 } ui_screen_t;
 
 typedef enum {
+    UI_DISPLAY_ON,
+    UI_DISPLAY_DIM, // Lit at a lower backlight level; otherwise the same as ON.
+    UI_DISPLAY_OFF, // Panel asleep, backlight held LOW, LVGL stopped.
+} ui_display_state_t;
+
+typedef enum {
     UI_IAQ_NONE,        // No reading yet.
     UI_IAQ_CALIBRATING, // The sensor reports a value it does not trust yet.
     UI_IAQ_VALID,

@@ -83,7 +83,40 @@ static uint32_t change_brightness(app_state_t* state, int delta, int64_t now_ms)
     state->brightness_percent = (uint8_t)percent;
     state->settings_deadline_ms = now_ms + APP_SETTINGS_SAVE_DELAY_MS;
 
-    return APP_EFFECT_MODEL | APP_EFFECT_BRIGHTNESS;
+    return APP_EFFECT_MODEL | APP_EFFECT_DISPLAY;
+}
+
+// A request that failed before is sent again even when it is the same.
+static uint32_t request_display(app_state_t* state, ui_display_state_t display)
+{
+    if (state->display == display && state->display_failures == 0) {
+        return APP_EFFECT_NONE;
+    }
+
+    state->display = display;
+    state->display_failures = 0;
+    state->display_retry_ms = APP_NO_DEADLINE;
+
+    return APP_EFFECT_DISPLAY;
+}
+
+// Monitoring starts with the main screen: open dialogs close and a pending
+// brightness is saved, so a wake shows the page the user left.
+static uint32_t turn_display_off(app_state_t* state)
+{
+    state->screen = state->main_screen;
+    state->dialog_deadline_ms = APP_NO_DEADLINE;
+    state->notice_deadline_ms = APP_NO_DEADLINE;
+
+    return APP_EFFECT_MODEL | save_settings(state) | request_display(state, UI_DISPLAY_OFF);
+}
+
+// The battery reading may be a minute old after monitoring.
+static uint32_t wake(app_state_t* state)
+{
+    state->mode = APP_MODE_ACTIVE;
+
+    return request_display(state, UI_DISPLAY_ON) | APP_EFFECT_MODEL | APP_EFFECT_POLL_POWER;
 }
 
 static uint32_t on_short(app_state_t* state, app_button_t button, int64_t now_ms)
@@ -162,9 +195,11 @@ void app_state_init(app_state_t* state, uint8_t brightness_percent)
     state->power.source = POWER_SOURCE_UNKNOWN;
     state->power_deadline_ms = APP_NO_DEADLINE; // Polling starts with activation.
     state->notice_deadline_ms = APP_NO_DEADLINE;
+    state->display = UI_DISPLAY_ON; // ui_init() leaves the display lit.
+    state->display_retry_ms = APP_NO_DEADLINE;
 }
 
-uint32_t app_state_activate(app_state_t* state)
+uint32_t app_state_activate(app_state_t* state, int64_t now_ms)
 {
     if (state->mode != APP_MODE_STARTING) {
         return APP_EFFECT_NONE;
@@ -172,40 +207,60 @@ uint32_t app_state_activate(app_state_t* state)
 
     state->mode = APP_MODE_ACTIVE;
     state->screen = state->main_screen;
+    state->activity_ms = now_ms;
 
     return APP_EFFECT_MODEL | APP_EFFECT_POLL_POWER;
 }
 
 uint32_t app_state_button(app_state_t* state, const app_button_event_t* event)
 {
-    if (state->mode != APP_MODE_ACTIVE) {
+    if (state->mode != APP_MODE_ACTIVE && state->mode != APP_MODE_MONITORING) {
         return APP_EFFECT_NONE;
     }
 
     const int64_t now_ms = event->timestamp_ms;
+    const uint8_t bit = 1u << event->button;
 
-    // A press at the dialog deadline already belongs to the main screen.
-    const uint32_t effects = app_state_tick(state, now_ms);
+    // A press at a deadline already belongs to what the deadline starts.
+    uint32_t effects = app_state_tick(state, now_ms);
+    state->activity_ms = now_ms;
+
+    if (event->gesture == APP_GESTURE_PRESSED) {
+        state->held_buttons |= bit;
+
+        // The press that wakes a dark display does nothing else until its release.
+        if (state->display == UI_DISPLAY_OFF) {
+            state->wake_buttons |= bit;
+
+            return effects | wake(state);
+        }
+
+        return effects | request_display(state, UI_DISPLAY_ON);
+    }
+
+    if (event->gesture == APP_GESTURE_RELEASED) {
+        state->held_buttons &= ~bit;
+        state->wake_buttons &= ~bit;
+
+        return effects;
+    }
+
+    if ((state->wake_buttons & bit) || state->display == UI_DISPLAY_OFF) {
+        return effects;
+    }
 
     // A gesture over the USB notice only closes it: the page under it is hidden.
-    const bool gesture = event->gesture == APP_GESTURE_SHORT || event->gesture == APP_GESTURE_LONG;
-    if (gesture && state->notice_deadline_ms != APP_NO_DEADLINE) {
+    if (state->notice_deadline_ms != APP_NO_DEADLINE) {
         state->notice_deadline_ms = APP_NO_DEADLINE;
 
         return effects | APP_EFFECT_MODEL;
     }
 
-    switch (event->gesture) {
-        case APP_GESTURE_SHORT:
-            return effects | on_short(state, event->button, now_ms);
-        case APP_GESTURE_LONG:
-            return effects | on_long(state, event->button, now_ms);
-        case APP_GESTURE_PRESSED:
-        case APP_GESTURE_RELEASED:
-            break;
+    if (event->gesture == APP_GESTURE_SHORT) {
+        return effects | on_short(state, event->button, now_ms);
     }
 
-    return effects;
+    return effects | on_long(state, event->button, now_ms);
 }
 
 uint32_t app_state_measurement(app_state_t* state, const sensing_snapshot_t* measurement, int64_t now_ms)
@@ -214,12 +269,20 @@ uint32_t app_state_measurement(app_state_t* state, const sensing_snapshot_t* mea
     state->measurement_stale =
         measurement->updated_ms == 0 || now_ms - measurement->updated_ms >= APP_MEASUREMENT_STALE_MS;
 
-    return APP_EFFECT_MODEL;
+    // Reading the battery now saves a wake-up of its own a few seconds later.
+    uint32_t effects = APP_EFFECT_MODEL;
+    if (state->mode == APP_MODE_MONITORING && now_ms - state->power_polled_ms >= APP_POWER_POLL_EARLY_MS) {
+        effects |= APP_EFFECT_POLL_POWER;
+    }
+
+    return effects;
 }
 
 uint32_t app_state_power(app_state_t* state, const power_status_t* power, int64_t now_ms)
 {
-    state->power_deadline_ms = now_ms + APP_POWER_POLL_MS;
+    const bool monitoring = state->mode == APP_MODE_MONITORING;
+    state->power_polled_ms = now_ms;
+    state->power_deadline_ms = now_ms + (monitoring ? APP_POWER_POLL_MONITORING_MS : APP_POWER_POLL_MS);
     if (state->mode == APP_MODE_SHUTTING_DOWN) {
         return APP_EFFECT_NONE;
     }
@@ -228,10 +291,10 @@ uint32_t app_state_power(app_state_t* state, const power_status_t* power, int64_
     const bool changed = power->source != shown->source || power->percent_valid != shown->percent_valid ||
                          power->percent != shown->percent;
 
-    // Only a plug-in is announced, not USB found at boot; the shutdown question
-    // stays in front of it.
+    // Only a plug-in is announced, not USB found at boot, and only on a lit display;
+    // the shutdown question stays in front of it.
     if (shown->source == POWER_SOURCE_BATTERY && power->source == POWER_SOURCE_EXTERNAL &&
-        state->mode == APP_MODE_ACTIVE && state->screen != UI_SCREEN_SHUTDOWN) {
+        state->mode == APP_MODE_ACTIVE && state->display != UI_DISPLAY_OFF && state->screen != UI_SCREEN_SHUTDOWN) {
         state->notice_deadline_ms = now_ms + APP_USB_NOTICE_MS;
     } else if (power->source != POWER_SOURCE_EXTERNAL) {
         state->notice_deadline_ms = APP_NO_DEADLINE;
@@ -254,6 +317,30 @@ static int64_t stale_deadline(const app_state_t* state)
     }
 
     return state->measurement.updated_ms + APP_MEASUREMENT_STALE_MS;
+}
+
+// Idle time counts only in ACTIVE with every button released.
+static bool idle_counts(const app_state_t* state)
+{
+    return state->mode == APP_MODE_ACTIVE && state->held_buttons == 0;
+}
+
+static int64_t dim_deadline(const app_state_t* state)
+{
+    if (!idle_counts(state) || state->display != UI_DISPLAY_ON) {
+        return APP_NO_DEADLINE;
+    }
+
+    return state->activity_ms + APP_DIM_AFTER_MS;
+}
+
+static int64_t off_deadline(const app_state_t* state)
+{
+    if (!idle_counts(state) || state->display == UI_DISPLAY_OFF) {
+        return APP_NO_DEADLINE;
+    }
+
+    return state->activity_ms + APP_OFF_AFTER_MS;
 }
 
 uint32_t app_state_tick(app_state_t* state, int64_t now_ms)
@@ -281,7 +368,53 @@ uint32_t app_state_tick(app_state_t* state, int64_t now_ms)
         effects |= APP_EFFECT_MODEL;
     }
 
+    if (now_ms >= dim_deadline(state)) {
+        effects |= request_display(state, UI_DISPLAY_DIM);
+    }
+
+    if (now_ms >= off_deadline(state)) {
+        effects |= turn_display_off(state);
+    }
+
+    if (now_ms >= state->display_retry_ms) {
+        state->display_retry_ms = APP_NO_DEADLINE;
+        effects |= APP_EFFECT_DISPLAY;
+    }
+
     return effects;
+}
+
+uint8_t app_state_backlight(const app_state_t* state)
+{
+    switch (state->display) {
+        case UI_DISPLAY_ON:
+            return state->brightness_percent;
+        case UI_DISPLAY_DIM:
+            return state->brightness_percent < APP_DIM_BRIGHTNESS_MAX ? state->brightness_percent
+                                                                      : APP_DIM_BRIGHTNESS_MAX;
+        case UI_DISPLAY_OFF:
+            break;
+    }
+
+    return 0;
+}
+
+void app_state_display_result(app_state_t* state, bool reached, int64_t now_ms)
+{
+    if (reached) {
+        state->display_failures = 0;
+        state->display_retry_ms = APP_NO_DEADLINE;
+        if (state->display == UI_DISPLAY_OFF && state->mode == APP_MODE_ACTIVE) {
+            state->mode = APP_MODE_MONITORING;
+        }
+
+        return;
+    }
+
+    // After the last retry the request waits for the next button event.
+    state->display_failures++;
+    state->display_retry_ms =
+        state->display_failures <= APP_DISPLAY_RETRIES ? now_ms + APP_DISPLAY_RETRY_MS : APP_NO_DEADLINE;
 }
 
 uint32_t app_state_cancel_dialog(app_state_t* state)
@@ -293,6 +426,13 @@ uint32_t app_state_cancel_dialog(app_state_t* state)
     return close_dialog(state);
 }
 
+uint32_t app_state_input_lost(app_state_t* state)
+{
+    state->held_buttons = 0;
+
+    return app_state_cancel_dialog(state);
+}
+
 int64_t app_state_next_deadline(const app_state_t* state)
 {
     if (state->mode == APP_MODE_SHUTTING_DOWN) {
@@ -300,6 +440,18 @@ int64_t app_state_next_deadline(const app_state_t* state)
     }
 
     int64_t deadline = stale_deadline(state);
+    if (dim_deadline(state) < deadline) {
+        deadline = dim_deadline(state);
+    }
+
+    if (off_deadline(state) < deadline) {
+        deadline = off_deadline(state);
+    }
+
+    if (state->display_retry_ms < deadline) {
+        deadline = state->display_retry_ms;
+    }
+
     if (state->power_deadline_ms < deadline) {
         deadline = state->power_deadline_ms;
     }

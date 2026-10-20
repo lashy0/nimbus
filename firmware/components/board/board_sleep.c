@@ -3,9 +3,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "board_gpio.h"
 #include "board_pins.h"
 #include "driver/gpio.h"
-#include "driver/rtc_io.h"
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_rom_sys.h"
@@ -25,17 +25,6 @@
 #define ALL_RELEASED ((1u << BOARD_BUTTON_COUNT) - 1)
 
 static const char* TAG = "board_sleep";
-
-static esp_err_t hold_rtc_low(gpio_num_t pin)
-{
-    ESP_RETURN_ON_ERROR(rtc_gpio_init(pin), TAG, "RTC mux");
-    ESP_RETURN_ON_ERROR(rtc_gpio_set_level(pin, 0), TAG, "RTC LOW");
-    ESP_RETURN_ON_ERROR(rtc_gpio_set_direction(pin, RTC_GPIO_MODE_OUTPUT_ONLY), TAG, "RTC output");
-    ESP_RETURN_ON_ERROR(rtc_gpio_pullup_dis(pin), TAG, "pull-up off");
-    ESP_RETURN_ON_ERROR(rtc_gpio_pulldown_dis(pin), TAG, "pull-down off");
-
-    return rtc_gpio_hold_en(pin);
-}
 
 static esp_err_t reset_panel_into_sleep(void)
 {
@@ -100,12 +89,12 @@ static esp_err_t arm_wake(uint32_t released)
 void board_enter_deep_sleep(void* ctx)
 {
     // Failures are logged and sleep goes on: staying awake would drain the battery.
-    esp_err_t err = hold_rtc_low(BOARD_PIN_BACKLIGHT);
+    esp_err_t err = board_gpio_hold_low(BOARD_PIN_BACKLIGHT);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "backlight hold: %s", esp_err_to_name(err));
     }
 
-    err = hold_rtc_low(BOARD_PIN_ADC_ENABLE);
+    err = board_gpio_hold_low(BOARD_PIN_ADC_ENABLE);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "ADC_EN hold: %s", esp_err_to_name(err));
     }

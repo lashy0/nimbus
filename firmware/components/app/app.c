@@ -67,7 +67,7 @@ static uint32_t handle_notifications(uint32_t bits, int64_t now)
 
         if (atomic_exchange(&s_input_lost, false)) {
             ESP_LOGE(TAG, "button queue overflowed; input lost");
-            effects |= app_state_cancel_dialog(&s_state);
+            effects |= app_state_input_lost(&s_state);
         }
     }
 
@@ -120,13 +120,9 @@ __attribute__((noreturn)) static void shut_down(void)
     const bool critical = s_state.shutdown_critical;
     ESP_LOGI(TAG, "power-off: %s", critical ? "battery is flat" : "confirmed");
 
-    // Dark at once; the final GPIO path resets the panel later.
-    esp_err_t err = ui_set_display_state(UI_DISPLAY_ON, 0);
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-        ESP_LOGW(TAG, "backlight off: %s", esp_err_to_name(err));
-    }
-
-    err = ui_set_display_state(UI_DISPLAY_OFF, 0);
+    // Dark before the sensor stops. If the panel cannot sleep, the final GPIO path
+    // holds the backlight LOW and resets the panel instead.
+    esp_err_t err = ui_set_display_state(UI_DISPLAY_OFF, 0);
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
         ESP_LOGW(TAG, "UI off: %s; the sleep path resets the panel instead", esp_err_to_name(err));
     }
@@ -139,13 +135,39 @@ __attribute__((noreturn)) static void shut_down(void)
     power_enter_sleep(critical ? POWER_SLEEP_CRITICAL : POWER_SLEEP_USER);
 }
 
-static void carry_out(uint32_t effects)
+static void update_display(int64_t now)
 {
-    if (effects & APP_EFFECT_BRIGHTNESS) {
-        const esp_err_t err = ui_set_display_state(UI_DISPLAY_ON, s_state.brightness_percent);
-        if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-            ESP_LOGE(TAG, "brightness %u%%: %s", s_state.brightness_percent, esp_err_to_name(err));
-        }
+    static const char* const NAMES[] = {
+        [UI_DISPLAY_ON] = "ON",
+        [UI_DISPLAY_DIM] = "DIM",
+        [UI_DISPLAY_OFF] = "OFF",
+    };
+
+    const app_mode_t mode = s_state.mode;
+    const esp_err_t err = ui_set_display_state(s_state.display, app_state_backlight(&s_state));
+
+    // Without a display there is nothing to light or darken.
+    const bool reached = err == ESP_OK || err == ESP_ERR_INVALID_STATE;
+    if (!reached) {
+        ESP_LOGE(
+            TAG,
+            "display %s failed: %s (attempt %u of %u)",
+            NAMES[s_state.display],
+            esp_err_to_name(err),
+            s_state.display_failures + 1,
+            APP_DISPLAY_RETRIES + 1);
+    }
+
+    app_state_display_result(&s_state, reached, now);
+    if (s_state.mode == APP_MODE_MONITORING && mode != APP_MODE_MONITORING) {
+        ESP_LOGI(TAG, "monitoring");
+    }
+}
+
+static void carry_out(uint32_t effects, int64_t now)
+{
+    if (effects & APP_EFFECT_DISPLAY) {
+        update_display(now);
     }
 
     // A failed save keeps the previous value; the next change tries again.
@@ -179,22 +201,26 @@ static TickType_t ticks_until(int64_t deadline_ms)
 
 static void app_task(void* arg)
 {
-    uint32_t effects = poll_power(app_state_activate(&s_state), now_ms());
+    int64_t now = now_ms();
+    uint32_t effects = poll_power(app_state_activate(&s_state, now), now);
     bool model_dirty = false;
 
     for (;;) {
-        carry_out(effects);
         if (effects & APP_EFFECT_MODEL) {
             model_dirty = true;
         }
 
-        if (model_dirty) {
+        // A dark display takes the model on its next wake. The model goes out before
+        // the display request, so the first frame after OFF already shows it.
+        if (model_dirty && s_state.display != UI_DISPLAY_OFF) {
             model_dirty = !apply_model();
         }
 
+        carry_out(effects, now);
+
         int64_t deadline = app_state_next_deadline(&s_state);
         const int64_t retry_ms = now_ms() + UI_RETRY_MS;
-        if (model_dirty && retry_ms < deadline) {
+        if (model_dirty && s_state.display != UI_DISPLAY_OFF && retry_ms < deadline) {
             deadline = retry_ms;
         }
 
@@ -202,7 +228,7 @@ static void app_task(void* arg)
         xTaskNotifyWait(0, UINT32_MAX, &bits, ticks_until(deadline));
 
         // One reading for the iteration, so all its transitions see the same time.
-        const int64_t now = now_ms();
+        now = now_ms();
         effects = poll_power(handle_notifications(bits, now), now);
     }
 }

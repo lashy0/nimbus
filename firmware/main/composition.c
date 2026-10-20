@@ -10,9 +10,11 @@
 #include "board_sleep.h"
 #include "esp_check.h"
 #include "esp_log.h"
+#include "esp_pm.h"
 #include "esp_spiffs.h"
 #include "esp_system.h"
 #include "power.h"
+#include "sdkconfig.h"
 #include "sensing.h"
 #include "storage.h"
 #include "ui.h"
@@ -74,6 +76,8 @@ static esp_err_t start_display(uint8_t brightness_percent)
         .mirror_x = display.mirror_x,
         .mirror_y = display.mirror_y,
         .set_backlight = board_backlight_set,
+        .release_backlight = board_backlight_release,
+        .reclaim_backlight = board_backlight_reclaim,
         .backlight_ctx = NULL,
         .brightness_percent = brightness_percent,
     };
@@ -122,9 +126,28 @@ static esp_err_t start_power(void)
     return ESP_OK;
 }
 
+// The chip light-sleeps whenever no lock forbids it: the display holds one while
+// lit and the buttons while pressed. The CPU frequency stays fixed, since the
+// backlight LEDC runs on APB, which a lower CPU frequency would slow down.
+static void configure_power_management(void)
+{
+    const esp_pm_config_t config = {
+        .max_freq_mhz = CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ,
+        .min_freq_mhz = CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ,
+        .light_sleep_enable = true,
+    };
+
+    // Without it the device works the same, only without light sleep.
+    const esp_err_t err = esp_pm_configure(&config);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "light sleep unavailable: %s", esp_err_to_name(err));
+    }
+}
+
 esp_err_t composition_init(void)
 {
     ESP_RETURN_ON_ERROR(board_init_safe_gpio(), TAG, "safe GPIO");
+    configure_power_management();
     ESP_RETURN_ON_ERROR(start_power(), TAG, "power");
 
     // Without NVS the device runs on defaults and BSEC calibrates after every boot.
