@@ -12,7 +12,7 @@ static const lv_font_t* load_font(const char* name)
     char path[FONT_PATH_MAX];
     snprintf(path, sizeof(path), "S:/spiffs/fonts/%s.fnt", name);
 
-    lv_font_t* font = lv_font_load(path);
+    lv_font_t* font = lv_binfont_create(path);
     if (font == NULL) {
         ESP_LOGE(TAG, "font %s not loaded; using the built-in font", path);
 

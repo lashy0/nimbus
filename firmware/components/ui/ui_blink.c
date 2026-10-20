@@ -23,14 +23,14 @@ static void wait_for_next_blink(void)
 static void blink_step(lv_timer_t* timer)
 {
     if (!s_closed) {
-        lv_img_set_src(s_face, s_closed_src);
+        lv_image_set_src(s_face, s_closed_src);
         s_closed = true;
         lv_timer_set_period(timer, CLOSED_MS);
 
         return;
     }
 
-    lv_img_set_src(s_face, s_open_src);
+    lv_image_set_src(s_face, s_open_src);
     s_closed = false;
 
     if (s_second_blink_due) {
@@ -61,7 +61,7 @@ void ui_blink_set(const char* open_src, const char* closed_src)
     s_closed = false;
 
     if (open_src != NULL) {
-        lv_img_set_src(s_face, open_src);
+        lv_image_set_src(s_face, open_src);
     }
 
     if (open_src == NULL || closed_src == NULL) {

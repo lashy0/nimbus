@@ -23,7 +23,7 @@
 
 Есть сборочная основа ESP-IDF 5.5.3: точка входа `firmware/main/app_main.c`,
 `composition.c`, компонент `board` (безопасные GPIO, кнопки на
-`espressif/button`, ST7789 и подсветка), `ui` на LVGL 8.4.0, `app` и `sensing`. Экран
+`espressif/button`, ST7789 и подсветка), `ui` на LVGL 9.5.0, `app` и `sensing`. Экран
 вертикальный, 135×240; ресурсы читаются из раздела SPIFFS `storage`.
 `ui` рисует экраны по [макету](docs/ui-mockup.png): IAQ, Temp, Hum, калибровку,
 яркость и вопрос о выключении; кот моргает, если для него есть картинка с

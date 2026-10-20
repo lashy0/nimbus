@@ -30,7 +30,7 @@ static void set_font(lv_obj_t* label, const lv_font_t* font)
     }
 }
 
-static void set_pos(lv_obj_t* obj, lv_coord_t x, lv_coord_t y)
+static void set_pos(lv_obj_t* obj, int32_t x, int32_t y)
 {
     if (lv_obj_get_style_x(obj, LV_PART_MAIN) != x || lv_obj_get_style_y(obj, LV_PART_MAIN) != y) {
         lv_obj_set_pos(obj, x, y);
@@ -40,15 +40,15 @@ static void set_pos(lv_obj_t* obj, lv_coord_t x, lv_coord_t y)
 // The image keeps its own copy of a file path, so compare contents, not pointers.
 static void set_src(lv_obj_t* image, const char* src)
 {
-    const char* current = lv_img_get_src(image);
+    const char* current = lv_image_get_src(image);
     if (current == NULL || strcmp(current, src) != 0) {
-        lv_img_set_src(image, src);
+        lv_image_set_src(image, src);
     }
 }
 
 static void set_bg(lv_obj_t* obj, lv_color_t color, lv_opa_t opa)
 {
-    if (lv_obj_get_style_bg_color(obj, LV_PART_MAIN).full != color.full) {
+    if (!lv_color_eq(lv_obj_get_style_bg_color(obj, LV_PART_MAIN), color)) {
         lv_obj_set_style_bg_color(obj, color, 0);
     }
 
@@ -64,17 +64,17 @@ static void set_visible(lv_obj_t* obj, bool visible)
     }
 
     if (visible) {
-        lv_obj_clear_flag(obj, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_remove_flag(obj, LV_OBJ_FLAG_HIDDEN);
     } else {
         lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
     }
 }
 
-static lv_obj_t* create_box(lv_obj_t* parent, lv_coord_t x, lv_coord_t y, lv_coord_t w, lv_coord_t h)
+static lv_obj_t* create_box(lv_obj_t* parent, int32_t x, int32_t y, int32_t w, int32_t h)
 {
     lv_obj_t* box = lv_obj_create(parent);
     lv_obj_remove_style_all(box);
-    lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_remove_flag(box, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
     lv_obj_set_pos(box, x, y);
     lv_obj_set_size(box, w, h);
 
@@ -99,7 +99,7 @@ static lv_obj_t* create_centered_label(lv_obj_t* parent, const lv_font_t* font)
     return label;
 }
 
-static lv_obj_t* create_answer(lv_obj_t* parent, lv_coord_t x, const lv_font_t* font, const char* text)
+static lv_obj_t* create_answer(lv_obj_t* parent, int32_t x, const lv_font_t* font, const char* text)
 {
     lv_obj_t* answer = create_box(parent, x, 0, 50, 28);
     lv_obj_set_style_radius(answer, LV_RADIUS_CIRCLE, 0);
@@ -147,27 +147,27 @@ void ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts)
     lv_obj_set_style_bg_color(screen, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(screen, LV_OPA_COVER, 0);
     lv_obj_set_style_text_color(screen, lv_color_white(), 0);
-    lv_obj_clear_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
 
     // Battery percentage ends just left of the battery icon at x=74.
     s_widgets[UI_W_BATTERY_TEXT] = create_label(screen, fonts->digits_10);
     lv_obj_set_pos(s_widgets[UI_W_BATTERY_TEXT], 41, 12);
     lv_obj_set_width(s_widgets[UI_W_BATTERY_TEXT], 30);
     lv_obj_set_style_text_align(s_widgets[UI_W_BATTERY_TEXT], LV_TEXT_ALIGN_RIGHT, 0);
-    s_widgets[UI_W_BATTERY] = lv_img_create(screen);
+    s_widgets[UI_W_BATTERY] = lv_image_create(screen);
     ui_charge_init(s_widgets[UI_W_BATTERY]);
 
     s_widgets[UI_W_TITLE] = create_label(screen, fonts->text_30);
-    s_widgets[UI_W_PLATE] = lv_img_create(screen);
+    s_widgets[UI_W_PLATE] = lv_image_create(screen);
     s_widgets[UI_W_VALUE] = create_centered_label(screen, fonts->digits_60);
     lv_obj_set_pos(s_widgets[UI_W_VALUE], 0, 72);
 
-    s_widgets[UI_W_FACE] = lv_img_create(screen);
+    s_widgets[UI_W_FACE] = lv_image_create(screen);
     ui_blink_init(s_widgets[UI_W_FACE]);
 
     s_widgets[UI_W_CAPTION] = create_centered_label(screen, fonts->text_15);
-    s_widgets[UI_W_SUN] = lv_img_create(screen);
-    lv_img_set_src(s_widgets[UI_W_SUN], UI_IMG("misc/sun"));
+    s_widgets[UI_W_SUN] = lv_image_create(screen);
+    lv_image_set_src(s_widgets[UI_W_SUN], UI_IMG("misc/sun"));
     lv_obj_set_pos(s_widgets[UI_W_SUN], 40, 60);
     s_widgets[UI_W_BAR] = create_bar(screen);
 
@@ -177,8 +177,8 @@ void ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts)
     s_widgets[UI_W_DOTS] = create_dots(screen);
 
     // 60x99, centered on the 135x240 screen.
-    s_widgets[UI_W_LIGHTNING] = lv_img_create(screen);
-    lv_img_set_src(s_widgets[UI_W_LIGHTNING], UI_IMG("misc/lightning_charge"));
+    s_widgets[UI_W_LIGHTNING] = lv_image_create(screen);
+    lv_image_set_src(s_widgets[UI_W_LIGHTNING], UI_IMG("misc/lightning_charge"));
     lv_obj_set_pos(s_widgets[UI_W_LIGHTNING], 38, 70);
 
     for (size_t i = 0; i < UI_W_COUNT; i++) {
@@ -186,7 +186,7 @@ void ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts)
     }
 }
 
-uint32_t ui_show_battery(const char* text, const char* icon_src, lv_coord_t icon_y)
+uint32_t ui_show_battery(const char* text, const char* icon_src, int32_t icon_y)
 {
     ui_charge_set(NULL, 0);
     set_text(s_widgets[UI_W_BATTERY_TEXT], text);
@@ -201,7 +201,7 @@ uint32_t ui_show_battery(const char* text, const char* icon_src, lv_coord_t icon
 }
 
 // Without the percentage the 21 px icon alone is centered.
-uint32_t ui_show_battery_animation(const char* const* frames, size_t count, lv_coord_t icon_y)
+uint32_t ui_show_battery_animation(const char* const* frames, size_t count, int32_t icon_y)
 {
     set_pos(s_widgets[UI_W_BATTERY], 57, icon_y);
     ui_charge_set(frames, count);
@@ -214,7 +214,7 @@ uint32_t ui_show_lightning(void)
     return UI_SHOW(UI_W_LIGHTNING);
 }
 
-uint32_t ui_show_title(const char* text, lv_coord_t x, lv_coord_t y)
+uint32_t ui_show_title(const char* text, int32_t x, int32_t y)
 {
     set_pos(s_widgets[UI_W_TITLE], x, y);
     set_text(s_widgets[UI_W_TITLE], text);
@@ -222,7 +222,7 @@ uint32_t ui_show_title(const char* text, lv_coord_t x, lv_coord_t y)
     return UI_SHOW(UI_W_TITLE);
 }
 
-uint32_t ui_show_plate(const char* src, lv_coord_t x, lv_coord_t y)
+uint32_t ui_show_plate(const char* src, int32_t x, int32_t y)
 {
     set_pos(s_widgets[UI_W_PLATE], x, y);
     set_src(s_widgets[UI_W_PLATE], src);
@@ -238,7 +238,7 @@ uint32_t ui_show_value(const char* text, const lv_font_t* font)
     return UI_SHOW(UI_W_VALUE);
 }
 
-uint32_t ui_show_caption(const char* text, lv_coord_t y)
+uint32_t ui_show_caption(const char* text, int32_t y)
 {
     set_pos(s_widgets[UI_W_CAPTION], 0, y);
     set_text(s_widgets[UI_W_CAPTION], text);
@@ -275,7 +275,7 @@ uint32_t ui_show_dots(size_t active)
     return UI_SHOW(UI_W_DOTS);
 }
 
-uint32_t ui_show_face_image(const char* open_src, const char* closed_src, lv_coord_t x, lv_coord_t y)
+uint32_t ui_show_face_image(const char* open_src, const char* closed_src, int32_t x, int32_t y)
 {
     set_pos(s_widgets[UI_W_FACE], x, y);
     ui_blink_set(open_src, closed_src);

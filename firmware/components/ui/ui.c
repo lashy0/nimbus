@@ -8,12 +8,14 @@
 #include "esp_pm.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
+#include "lvgl_private.h"
 #include "ui_internal.h"
 
 #define LOCK_TIMEOUT_MS 1000
 #define APPLY_LOCK_TIMEOUT_MS 100
-#define FIRST_FLUSH_TIMEOUT_US (500 * 1000)
+#define FRAME_TIMEOUT_MS 1000
 #define LAST_FLUSH_TIMEOUT_US (100 * 1000) // One draw buffer takes about 1 ms at 40 MHz.
 #define PANEL_SLEEP_GAP_US (120 * 1000)    // ST7789: between Sleep In and Sleep Out either way.
 
@@ -26,13 +28,15 @@ static const char* const STATE_NAMES[] = {
 };
 
 static esp_pm_lock_handle_t s_pm_lock;
-static lv_disp_t* s_disp;
+static lv_display_t* s_disp;
 static esp_lcd_panel_handle_t s_panel;
 static ui_fonts_t s_fonts;
 static ui_backlight_fn s_set_backlight; // Set once the display is fully up.
 static ui_backlight_pin_fn s_release_backlight;
 static ui_backlight_pin_fn s_reclaim_backlight;
 static void* s_backlight_ctx;
+static SemaphoreHandle_t s_frame_done; // Given by the LVGL task after a requested refresh.
+static bool s_frame_requested;         // Under the LVGL lock.
 
 // What the display has reached. A failed transition keeps the flags of the steps
 // already done, and the next request continues from them.
@@ -63,14 +67,16 @@ void ui_log_memory(const char* stage)
         heap_caps_get_largest_free_block(MALLOC_CAP_DMA));
 }
 
+// LVGL 9 has no public getter for a flush in progress; the flag is in its
+// private display struct.
 static bool flush_pending(void)
 {
-    return s_disp->driver->draw_buf->flushing != 0;
+    return s_disp->flushing != 0;
 }
 
-// lv_refr_now() returns while the last SPI transfer may still be in flight; the
-// port clears the flag from the transfer-done interrupt, which takes no lock, so
-// the wait also works while this task keeps the display quiesced.
+// A refresh ends while the last SPI transfer may still be in flight; the port
+// clears the flag from the transfer-done interrupt, which takes no lock, so the
+// wait also works while this task keeps the display quiesced.
 static esp_err_t wait_flush_done(int64_t timeout_us)
 {
     const int64_t deadline = esp_timer_get_time() + timeout_us;
@@ -87,6 +93,39 @@ static esp_err_t wait_flush_done(int64_t timeout_us)
     }
 
     return ESP_ERR_TIMEOUT;
+}
+
+// Runs in the LVGL task, under its lock, at the end of every refresh.
+static void on_refresh_ready(lv_event_t* event)
+{
+    if (s_frame_requested) {
+        s_frame_requested = false;
+        xSemaphoreGive(s_frame_done);
+    }
+}
+
+// Has the LVGL task draw the whole screen and waits until its last transfer is
+// done. Only the LVGL task renders: its stack is sized for LVGL 9 rendering, which
+// overflowed the 4 KiB stack of the main task.
+static esp_err_t draw_frame(void)
+{
+    if (s_display.quiesced) {
+        ESP_RETURN_ON_ERROR(lvgl_port_resume(), TAG, "LVGL resume");
+        s_display.quiesced = false; // Its lock is released below.
+    } else {
+        ESP_RETURN_ON_FALSE(lvgl_port_lock(LOCK_TIMEOUT_MS), ESP_ERR_TIMEOUT, TAG, "LVGL lock");
+    }
+
+    // No refresh can run while the lock is held, so a pending signal is stale.
+    xSemaphoreTake(s_frame_done, 0);
+    s_frame_requested = true;
+    lv_obj_invalidate(lv_display_get_screen_active(s_disp));
+    lvgl_port_unlock();
+
+    ESP_RETURN_ON_FALSE(
+        xSemaphoreTake(s_frame_done, pdMS_TO_TICKS(FRAME_TIMEOUT_MS)) == pdTRUE, ESP_ERR_TIMEOUT, TAG, "refresh");
+
+    return wait_flush_done(LAST_FLUSH_TIMEOUT_US);
 }
 
 esp_err_t ui_init(const ui_config_t* config)
@@ -124,26 +163,30 @@ esp_err_t ui_init(const ui_config_t* config)
                 .mirror_x = config->mirror_x,
                 .mirror_y = config->mirror_y,
             },
+        .color_format = LV_COLOR_FORMAT_RGB565,
         .flags =
             {
                 .buff_dma = true,
+                .swap_bytes = true, // The ST7789 takes RGB565 big-endian over SPI.
             },
     };
+    s_frame_done = xSemaphoreCreateBinary();
+    ESP_RETURN_ON_FALSE(s_frame_done != NULL, ESP_ERR_NO_MEM, TAG, "frame semaphore");
     s_disp = lvgl_port_add_disp(&display_config);
     ESP_RETURN_ON_FALSE(s_disp != NULL, ESP_ERR_NO_MEM, TAG, "LVGL display");
     ui_log_memory("draw buffers");
 
     const ui_model_t start = {.screen = UI_SCREEN_START};
     ESP_RETURN_ON_FALSE(lvgl_port_lock(LOCK_TIMEOUT_MS), ESP_ERR_TIMEOUT, TAG, "LVGL lock");
+    lv_display_add_event_cb(s_disp, on_refresh_ready, LV_EVENT_REFR_READY, NULL);
     ui_fonts_load(&s_fonts);
-    ui_view_create(lv_disp_get_scr_act(s_disp), &s_fonts);
+    ui_view_create(lv_display_get_screen_active(s_disp), &s_fonts);
     ui_view_apply(&start);
-    lv_refr_now(s_disp);
     lvgl_port_unlock();
     ui_log_memory("screens");
 
-    const int64_t flush_started = esp_timer_get_time();
-    ESP_RETURN_ON_ERROR(wait_flush_done(FIRST_FLUSH_TIMEOUT_US), TAG, "first flush");
+    const int64_t frame_started = esp_timer_get_time();
+    ESP_RETURN_ON_ERROR(draw_frame(), TAG, "first frame");
 
     // Panel RAM keeps the last frame through a reset: after deep sleep the shutdown
     // question was visible before the new frame. Display output starts only once
@@ -167,8 +210,8 @@ esp_err_t ui_init(const ui_config_t* config)
 
     ESP_LOGI(
         TAG,
-        "first frame flushed (waited %lld us), backlight %u%%",
-        esp_timer_get_time() - flush_started,
+        "first frame drawn in %lld us, backlight %u%%",
+        esp_timer_get_time() - frame_started,
         config->brightness_percent);
 
     return ESP_OK;
@@ -226,8 +269,8 @@ static esp_err_t set_panel_sleep(bool sleep)
 }
 
 // Stops rendering for as long as the display is OFF. lvgl_port_stop() alone leaves
-// the LVGL task polling every 5 ms, which keeps the chip out of light sleep; with
-// the lock kept by this task, the LVGL task blocks on it until the display wakes.
+// the LVGL task polling every two ticks, which keeps the chip out of light sleep;
+// with the lock kept by this task, the LVGL task blocks on it until the display wakes.
 // Holding the lock also proves that no render is under way.
 static esp_err_t quiesce(void)
 {
@@ -255,23 +298,6 @@ static esp_err_t quiesce(void)
     s_display.quiesce_owner = xTaskGetCurrentTaskHandle();
 
     return ESP_OK;
-}
-
-// Draws the whole screen again before the panel shows it.
-static esp_err_t redraw(void)
-{
-    if (s_display.quiesced) {
-        ESP_RETURN_ON_ERROR(lvgl_port_resume(), TAG, "LVGL resume");
-        s_display.quiesced = false; // Its lock is released below.
-    } else {
-        ESP_RETURN_ON_FALSE(lvgl_port_lock(LOCK_TIMEOUT_MS), ESP_ERR_TIMEOUT, TAG, "LVGL lock");
-    }
-
-    lv_obj_invalidate(lv_disp_get_scr_act(s_disp));
-    lv_refr_now(s_disp);
-    lvgl_port_unlock();
-
-    return wait_flush_done(FIRST_FLUSH_TIMEOUT_US);
 }
 
 static esp_err_t turn_off(void)
@@ -324,7 +350,7 @@ static esp_err_t wake(void)
     }
 
     ESP_RETURN_ON_ERROR(set_panel_sleep(false), TAG, "panel wake");
-    ESP_RETURN_ON_ERROR(redraw(), TAG, "first frame");
+    ESP_RETURN_ON_ERROR(draw_frame(), TAG, "first frame");
     ESP_RETURN_ON_ERROR(esp_lcd_panel_disp_on_off(s_panel, true), TAG, "display on");
     ESP_LOGI(TAG, "display woke in %lld us", esp_timer_get_time() - started_us);
 

@@ -31,16 +31,25 @@ CONFIG_BUTTON_DEBOUNCE_TICKS=5
 # panics with a cache error when a press arrives during a SPIFFS read.
 CONFIG_GPIO_CTRL_FUNC_IN_IRAM=y
 
-# LVGL 8.4: RGB565 in ST7789 byte order, heap allocation, assets via S:/spiffs/...
+# LVGL 9.5: RGB565 rendered in CPU byte order (the display flush swaps the bytes
+# for the ST7789), heap allocation, assets via S:/spiffs/...
 CONFIG_LV_COLOR_DEPTH_16=y
-CONFIG_LV_COLOR_16_SWAP=y
-CONFIG_LV_MEM_CUSTOM=y
+CONFIG_LV_USE_CLIB_MALLOC=y
 CONFIG_LV_USE_FS_STDIO=y
 CONFIG_LV_FS_STDIO_LETTER=83
 CONFIG_LV_FS_STDIO_CACHE_SIZE=4096
 CONFIG_LV_USE_LOG=y
 CONFIG_LV_LOG_LEVEL_WARN=y
 CONFIG_LV_LOG_PRINTF=y
+# Images are files in SPIFFS: without a cache every draw band reopens and rereads
+# them, and a page switch took 105-139 ms instead of 35-43 ms. 48 KiB holds the
+# images of the largest page, both blink frames included.
+CONFIG_LV_CACHE_DEF_SIZE=49152
+CONFIG_LV_IMAGE_HEADER_CACHE_DEF_CNT=32
+CONFIG_LV_BIN_DECODER_RAM_LOAD=y
+# Examples and demos are not part of the firmware.
+# CONFIG_LV_BUILD_EXAMPLES is not set
+# CONFIG_LV_BUILD_DEMOS is not set
 
 # SPIFFS paths such as /img/face/temp_normal_closed_eyes.bin exceed the default 32.
 CONFIG_SPIFFS_OBJ_NAME_LEN=64

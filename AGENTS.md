@@ -15,7 +15,7 @@ follow `docs/hardware-bringup.md`. Never present planned drivers as implemented.
 ## Toolchain and build
 
 - ESP-IDF 5.5.3, target ESP32.
-- Future UI: LVGL 8.4.0 with esp_lvgl_port.
+- UI: LVGL 9.5.0 with esp_lvgl_port 2.9.0.
 - IAQ processing: Bosch BSEC2 2.6.1.0, git submodule in `firmware/third_party/bsec2`.
 - Commit `firmware/dependencies.lock` when generated; pin external library revisions.
 
@@ -92,10 +92,11 @@ Only UI owns LVGL objects; follow its locking and lifecycle contract in
 Originals live in `artwork/` (imported from the user's `../Nimbus-assets`; never
 modify that sibling directory). SF Pro Rounded `.otf` files and the local
 generator in `tools/` are kept out of Git. `firmware/assets/` is generated from
-`artwork/` with the official `lv_font_conv` and `lv_img_conv`; names, versions and
+`artwork/` with the official `lv_font_conv` and LVGL `LVGLImage.py`; names, versions and
 exact parameters are in docs/assets.md. Do not edit generated files by hand; record
-any parameter change there. The firmware build must not depend on Node.js or the
-sibling directory. The build packs `firmware/assets/` into the SPIFFS `storage`
+any parameter change there. The firmware build must not depend on Node.js, the
+converters' Python packages or the sibling directory. The build packs
+`firmware/assets/` into the SPIFFS `storage`
 partition image. Follow
 [assets.md](docs/assets.md) and
 [architecture section 10](docs/architecture.md) for

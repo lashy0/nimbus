@@ -95,7 +95,8 @@ static uint32_t show_iaq(const ui_model_t* model)
 
 static uint32_t show_temperature(const ui_model_t* model)
 {
-    const uint32_t visible = ui_show_title("Temp", 20, 34) | ui_show_dots(1);
+    // "Temp" is 76 px wide: it ends 4 px before the mark at x=97, as the other titles do.
+    const uint32_t visible = ui_show_title("Temp", 17, 34) | ui_show_dots(1);
     if (!model->temperature_valid) {
         return visible | ui_show_value("--°", s_fonts->digits_60) | ui_show_face(UI_FACE_TEMP_NORMAL);
     }

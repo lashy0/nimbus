@@ -49,21 +49,21 @@ void ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts);
 
 // Each ui_show_* fills its widget and returns its UI_SHOW() bit; only changed
 // properties are touched.
-uint32_t ui_show_battery(const char* text, const char* icon_src, lv_coord_t icon_y);
+uint32_t ui_show_battery(const char* text, const char* icon_src, int32_t icon_y);
 
 // Battery icon cycling through frames (static array), no text.
-uint32_t ui_show_battery_animation(const char* const* frames, size_t count, lv_coord_t icon_y);
+uint32_t ui_show_battery_animation(const char* const* frames, size_t count, int32_t icon_y);
 uint32_t ui_show_lightning(void);
-uint32_t ui_show_title(const char* text, lv_coord_t x, lv_coord_t y);
-uint32_t ui_show_plate(const char* src, lv_coord_t x, lv_coord_t y);
+uint32_t ui_show_title(const char* text, int32_t x, int32_t y);
+uint32_t ui_show_plate(const char* src, int32_t x, int32_t y);
 uint32_t ui_show_value(const char* text, const lv_font_t* font);
-uint32_t ui_show_caption(const char* text, lv_coord_t y);
+uint32_t ui_show_caption(const char* text, int32_t y);
 uint32_t ui_show_bar(uint8_t percent);
 uint32_t ui_show_answers(bool yes_selected);
 uint32_t ui_show_dots(size_t active);
 
 // open_src and closed_src as for ui_blink_set().
-uint32_t ui_show_face_image(const char* open_src, const char* closed_src, lv_coord_t x, lv_coord_t y);
+uint32_t ui_show_face_image(const char* open_src, const char* closed_src, int32_t x, int32_t y);
 uint32_t ui_show_face(ui_face_t face);
 
 // Shows the widgets whose bits are set and hides the rest.

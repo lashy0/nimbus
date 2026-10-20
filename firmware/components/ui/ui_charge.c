@@ -11,7 +11,7 @@ static size_t s_index;
 static void charge_step(lv_timer_t* timer)
 {
     s_index = (s_index + 1) % s_count;
-    lv_img_set_src(s_battery, s_frames[s_index]);
+    lv_image_set_src(s_battery, s_frames[s_index]);
 }
 
 void ui_charge_init(lv_obj_t* battery)
@@ -36,7 +36,7 @@ void ui_charge_set(const char* const* frames, size_t count)
     }
 
     s_index = 0;
-    lv_img_set_src(s_battery, frames[0]);
+    lv_image_set_src(s_battery, frames[0]);
     lv_timer_reset(s_timer);
     lv_timer_resume(s_timer);
 }

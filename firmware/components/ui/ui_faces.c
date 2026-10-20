@@ -3,8 +3,8 @@
 typedef struct {
     const char* open;
     const char* closed; // NULL: the artwork has no closed-eyes variant.
-    lv_coord_t x;
-    lv_coord_t y;
+    int32_t x;
+    int32_t y;
 } face_t;
 
 static const face_t FACES[] = {
