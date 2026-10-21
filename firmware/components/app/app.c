@@ -5,6 +5,7 @@
 #include "app_state.h"
 #include "esp_check.h"
 #include "esp_log.h"
+#include "esp_task_wdt.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -19,6 +20,9 @@
 #define TASK_PRIORITY 5
 #define UI_RETRY_MS 100
 #define SENSING_STOP_TIMEOUT_MS 3000 // A stuck sensor must not keep the device awake.
+// Longer waits run without the 10 s task watchdog, so monitoring needs no wake-ups
+// just to feed it; a shorter wait and the work after it stay within the timeout.
+#define WDT_WATCHED_WAIT_MS 5000
 
 #define NOTIFY_INPUT (1u << 0)
 #define NOTIFY_MEASUREMENT (1u << 1)
@@ -117,8 +121,23 @@ static uint32_t poll_power(uint32_t effects, int64_t now)
 // sensing stop that was not confirmed, so the two cannot interleave.
 __attribute__((noreturn)) static void shut_down(void)
 {
-    const bool critical = s_state.shutdown_critical;
-    ESP_LOGI(TAG, "power-off: %s", critical ? "battery is flat" : "confirmed");
+    static const char* const NAMES[] = {
+        [APP_SHUTDOWN_USER] = "confirmed",
+        [APP_SHUTDOWN_CRITICAL] = "battery is flat",
+        [APP_SHUTDOWN_FAULT] = "display cannot turn off",
+    };
+    static const power_sleep_reason_t SLEEP_REASONS[] = {
+        [APP_SHUTDOWN_USER] = POWER_SLEEP_USER,
+        [APP_SHUTDOWN_CRITICAL] = POWER_SLEEP_CRITICAL,
+        [APP_SHUTDOWN_FAULT] = POWER_SLEEP_FAULT,
+    };
+
+    const app_shutdown_reason_t reason = s_state.shutdown_reason;
+    if (reason == APP_SHUTDOWN_FAULT) {
+        ESP_LOGE(TAG, "power-off: %s", NAMES[reason]);
+    } else {
+        ESP_LOGI(TAG, "power-off: %s", NAMES[reason]);
+    }
 
     // Dark before the sensor stops. If the panel cannot sleep, the final GPIO path
     // holds the backlight LOW and resets the panel instead.
@@ -132,10 +151,10 @@ __attribute__((noreturn)) static void shut_down(void)
         ESP_LOGW(TAG, "sensing stop: %s; sleeping without its last checkpoint", esp_err_to_name(err));
     }
 
-    power_enter_sleep(critical ? POWER_SLEEP_CRITICAL : POWER_SLEEP_USER);
+    power_enter_sleep(SLEEP_REASONS[reason]);
 }
 
-static void update_display(int64_t now)
+static uint32_t update_display(int64_t now)
 {
     static const char* const NAMES[] = {
         [UI_DISPLAY_ON] = "ON",
@@ -158,16 +177,19 @@ static void update_display(int64_t now)
             APP_DISPLAY_RETRIES + 1);
     }
 
-    app_state_display_result(&s_state, reached, now);
+    const uint32_t effects = app_state_display_result(&s_state, reached, now);
     if (s_state.mode == APP_MODE_MONITORING && mode != APP_MODE_MONITORING) {
         ESP_LOGI(TAG, "monitoring");
     }
+
+    return effects;
 }
 
 static void carry_out(uint32_t effects, int64_t now)
 {
+    // The result may start a power-off, which the steps below carry out.
     if (effects & APP_EFFECT_DISPLAY) {
-        update_display(now);
+        effects |= update_display(now);
     }
 
     // A failed save keeps the previous value; the next change tries again.
@@ -201,6 +223,7 @@ static TickType_t ticks_until(int64_t deadline_ms)
 
 static void app_task(void* arg)
 {
+    ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
     int64_t now = now_ms();
     uint32_t effects = poll_power(app_state_activate(&s_state, now), now);
     bool model_dirty = false;
@@ -224,8 +247,20 @@ static void app_task(void* arg)
             deadline = retry_ms;
         }
 
+        const TickType_t ticks = ticks_until(deadline);
+        const bool unwatched = ticks > pdMS_TO_TICKS(WDT_WATCHED_WAIT_MS);
+        if (unwatched) {
+            ESP_ERROR_CHECK(esp_task_wdt_delete(NULL));
+        }
+
         uint32_t bits = 0;
-        xTaskNotifyWait(0, UINT32_MAX, &bits, ticks_until(deadline));
+        xTaskNotifyWait(0, UINT32_MAX, &bits, ticks);
+
+        if (unwatched) {
+            ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
+        } else {
+            esp_task_wdt_reset();
+        }
 
         // One reading for the iteration, so all its transitions see the same time.
         now = now_ms();

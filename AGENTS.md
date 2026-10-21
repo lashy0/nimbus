@@ -81,7 +81,7 @@ Do not change pins unless requested:
 
 Keep hardware transitions, button ownership and wake/hold sequencing consistent
 with [architecture sections 4–9](docs/architecture.md).
-Power validity and startup/safe-mode rules have one source of truth in
+Power validity, startup and crash-loop rules have one source of truth in
 [sections 8–11](docs/architecture.md).
 
 ## LVGL and assets

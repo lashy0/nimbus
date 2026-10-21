@@ -16,6 +16,7 @@ void app_main(void)
     // No restart on failure: a reset loop would not fix a board-level error.
     const esp_err_t err = composition_init();
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Composition failed: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "Composition failed: %s; sleeping until a button press", esp_err_to_name(err));
+        composition_enter_fault_sleep();
     }
 }

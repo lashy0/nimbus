@@ -8,9 +8,37 @@
 #define TEMPERATURE_MAX_C 85
 #define HUMIDITY_MAX 100
 
+typedef enum {
+    SENSOR_WAITING, // No output since boot yet; the start screen stays.
+    SENSOR_FAULT,   // One error page replaces the measurement pages.
+    SENSOR_WORKING,
+} sensor_status_t;
+
 static bool is_main_screen(ui_screen_t screen)
 {
     return screen == UI_SCREEN_IAQ || screen == UI_SCREEN_TEMP || screen == UI_SCREEN_HUM;
+}
+
+// An error ends the wait as well: retries may take far longer than the first output.
+static bool first_measurement_arrived(const sensing_snapshot_t* measurement)
+{
+    return measurement->updated_ms != 0 || measurement->phase == SENSING_PHASE_ERROR;
+}
+
+// Working means fresh temperature and humidity; IAQ may still be calibrating.
+static sensor_status_t sensor_status(const app_state_t* state)
+{
+    if (state->first_measurement_deadline_ms != APP_NO_DEADLINE) {
+        return SENSOR_WAITING;
+    }
+
+    const sensing_snapshot_t* measurement = &state->measurement;
+    const bool running = measurement->phase == SENSING_PHASE_WARMUP ||
+                         measurement->phase == SENSING_PHASE_CALIBRATING || measurement->phase == SENSING_PHASE_READY;
+    const bool values = measurement->temperature_valid && isfinite(measurement->temperature_c) &&
+                        measurement->humidity_valid && isfinite(measurement->humidity_percent);
+
+    return running && values && !state->measurement_stale ? SENSOR_WORKING : SENSOR_FAULT;
 }
 
 // NEXT walks IAQ -> TEMP -> HUM -> IAQ, PREV the other way.
@@ -58,10 +86,10 @@ static uint32_t save_settings(app_state_t* state)
 }
 
 // The pending settings are saved first; input stays ignored from here on.
-static uint32_t begin_shutdown(app_state_t* state, bool critical)
+static uint32_t begin_shutdown(app_state_t* state, app_shutdown_reason_t reason)
 {
     state->mode = APP_MODE_SHUTTING_DOWN;
-    state->shutdown_critical = critical;
+    state->shutdown_reason = reason;
     state->dialog_deadline_ms = APP_NO_DEADLINE;
 
     return save_settings(state) | APP_EFFECT_SHUTDOWN;
@@ -125,6 +153,11 @@ static uint32_t on_short(app_state_t* state, app_button_t button, int64_t now_ms
         case UI_SCREEN_IAQ:
         case UI_SCREEN_TEMP:
         case UI_SCREEN_HUM:
+            // The start screen and the error page stand for all three pages.
+            if (sensor_status(state) != SENSOR_WORKING) {
+                return APP_EFFECT_NONE;
+            }
+
             state->screen = step_main_screen(state->screen, button);
             state->main_screen = state->screen;
 
@@ -137,7 +170,7 @@ static uint32_t on_short(app_state_t* state, app_button_t button, int64_t now_ms
         case UI_SCREEN_SHUTDOWN:
             // A press on the highlighted answer chooses it; otherwise it moves the highlight.
             if (button == APP_BUTTON_PREV && state->shutdown_yes_selected) {
-                return close_dialog(state) | begin_shutdown(state, false);
+                return close_dialog(state) | begin_shutdown(state, APP_SHUTDOWN_USER);
             }
 
             if (button == APP_BUTTON_NEXT && !state->shutdown_yes_selected) {
@@ -149,6 +182,7 @@ static uint32_t on_short(app_state_t* state, app_button_t button, int64_t now_ms
             return APP_EFFECT_MODEL;
 
         case UI_SCREEN_START:
+        case UI_SCREEN_SENSOR_ERROR:
             break;
     }
 
@@ -192,6 +226,7 @@ void app_state_init(app_state_t* state, uint8_t brightness_percent)
     state->settings_deadline_ms = APP_NO_DEADLINE;
     state->dialog_deadline_ms = APP_NO_DEADLINE;
     state->measurement_stale = true;
+    state->first_measurement_deadline_ms = APP_NO_DEADLINE; // Counts from activation.
     state->power.source = POWER_SOURCE_UNKNOWN;
     state->power_deadline_ms = APP_NO_DEADLINE; // Polling starts with activation.
     state->notice_deadline_ms = APP_NO_DEADLINE;
@@ -208,6 +243,9 @@ uint32_t app_state_activate(app_state_t* state, int64_t now_ms)
     state->mode = APP_MODE_ACTIVE;
     state->screen = state->main_screen;
     state->activity_ms = now_ms;
+    if (!first_measurement_arrived(&state->measurement)) {
+        state->first_measurement_deadline_ms = now_ms + APP_FIRST_MEASUREMENT_MS;
+    }
 
     return APP_EFFECT_MODEL | APP_EFFECT_POLL_POWER;
 }
@@ -268,6 +306,9 @@ uint32_t app_state_measurement(app_state_t* state, const sensing_snapshot_t* mea
     state->measurement = *measurement;
     state->measurement_stale =
         measurement->updated_ms == 0 || now_ms - measurement->updated_ms >= APP_MEASUREMENT_STALE_MS;
+    if (first_measurement_arrived(measurement)) {
+        state->first_measurement_deadline_ms = APP_NO_DEADLINE;
+    }
 
     // Reading the battery now saves a wake-up of its own a few seconds later.
     uint32_t effects = APP_EFFECT_MODEL;
@@ -304,7 +345,7 @@ uint32_t app_state_power(app_state_t* state, const power_status_t* power, int64_
 
     uint32_t effects = changed ? APP_EFFECT_MODEL : APP_EFFECT_NONE;
     if (power->critical) {
-        effects |= app_state_cancel_dialog(state) | begin_shutdown(state, true);
+        effects |= app_state_cancel_dialog(state) | begin_shutdown(state, APP_SHUTDOWN_CRITICAL);
     }
 
     return effects;
@@ -355,6 +396,11 @@ uint32_t app_state_tick(app_state_t* state, int64_t now_ms)
         effects |= APP_EFFECT_MODEL;
     }
 
+    if (now_ms >= state->first_measurement_deadline_ms) {
+        state->first_measurement_deadline_ms = APP_NO_DEADLINE;
+        effects |= APP_EFFECT_MODEL;
+    }
+
     if (state->screen == UI_SCREEN_SHUTDOWN && now_ms >= state->dialog_deadline_ms) {
         effects |= close_dialog(state);
     }
@@ -399,7 +445,7 @@ uint8_t app_state_backlight(const app_state_t* state)
     return 0;
 }
 
-void app_state_display_result(app_state_t* state, bool reached, int64_t now_ms)
+uint32_t app_state_display_result(app_state_t* state, bool reached, int64_t now_ms)
 {
     if (reached) {
         state->display_failures = 0;
@@ -408,13 +454,24 @@ void app_state_display_result(app_state_t* state, bool reached, int64_t now_ms)
             state->mode = APP_MODE_MONITORING;
         }
 
-        return;
+        return APP_EFFECT_NONE;
     }
 
-    // After the last retry the request waits for the next button event.
     state->display_failures++;
-    state->display_retry_ms =
-        state->display_failures <= APP_DISPLAY_RETRIES ? now_ms + APP_DISPLAY_RETRY_MS : APP_NO_DEADLINE;
+    if (state->display_failures <= APP_DISPLAY_RETRIES) {
+        state->display_retry_ms = now_ms + APP_DISPLAY_RETRY_MS;
+
+        return APP_EFFECT_NONE;
+    }
+
+    // A display that cannot go dark keeps the chip out of light sleep for good;
+    // a failed ON waits for the next button event instead.
+    state->display_retry_ms = APP_NO_DEADLINE;
+    if (state->display == UI_DISPLAY_OFF && state->mode == APP_MODE_ACTIVE) {
+        return begin_shutdown(state, APP_SHUTDOWN_FAULT);
+    }
+
+    return APP_EFFECT_NONE;
 }
 
 uint32_t app_state_cancel_dialog(app_state_t* state)
@@ -464,6 +521,10 @@ int64_t app_state_next_deadline(const app_state_t* state)
         deadline = state->notice_deadline_ms;
     }
 
+    if (state->first_measurement_deadline_ms < deadline) {
+        deadline = state->first_measurement_deadline_ms;
+    }
+
     if (state->screen == UI_SCREEN_SHUTDOWN && state->dialog_deadline_ms < deadline) {
         deadline = state->dialog_deadline_ms;
     }
@@ -481,34 +542,30 @@ static long round_clamped(float value, long min, long max)
     return rounded > max ? max : rounded;
 }
 
-static ui_iaq_state_t iaq_state(const app_state_t* state)
+static ui_screen_t shown_screen(const app_state_t* state)
 {
-    const sensing_snapshot_t* measurement = &state->measurement;
-    switch (measurement->phase) {
-        case SENSING_PHASE_WARMUP:
-            return UI_IAQ_CALIBRATING;
-        case SENSING_PHASE_CALIBRATING:
-        case SENSING_PHASE_READY:
-            if (!state->measurement_stale && measurement->iaq_valid && isfinite(measurement->static_iaq)) {
-                return UI_IAQ_VALID;
-            }
+    if (!is_main_screen(state->screen)) {
+        return state->screen;
+    }
 
-            break;
-        case SENSING_PHASE_INITIALIZING:
-        case SENSING_PHASE_ERROR:
+    switch (sensor_status(state)) {
+        case SENSOR_WAITING:
+            return UI_SCREEN_START;
+        case SENSOR_FAULT:
+            return UI_SCREEN_SENSOR_ERROR;
+        case SENSOR_WORKING:
             break;
     }
 
-    return UI_IAQ_NONE;
+    return state->screen;
 }
 
 void app_state_model(const app_state_t* state, ui_model_t* model)
 {
     const sensing_snapshot_t* measurement = &state->measurement;
-    const bool fresh = !state->measurement_stale;
     memset(model, 0, sizeof(*model));
 
-    model->screen = state->screen;
+    model->screen = shown_screen(state);
     model->usb_notice = state->notice_deadline_ms != APP_NO_DEADLINE;
     model->external_power = state->power.source == POWER_SOURCE_EXTERNAL;
     model->battery_valid = state->power.percent_valid;
@@ -516,18 +573,16 @@ void app_state_model(const app_state_t* state, ui_model_t* model)
     model->brightness_percent = state->brightness_percent;
     model->shutdown_yes_selected = state->shutdown_yes_selected;
 
-    model->iaq_state = iaq_state(state);
-    if (model->iaq_state == UI_IAQ_VALID) {
+    if (sensor_status(state) != SENSOR_WORKING) {
+        return;
+    }
+
+    model->iaq_calibrating =
+        measurement->phase == SENSING_PHASE_WARMUP || !measurement->iaq_valid || !isfinite(measurement->static_iaq);
+    if (!model->iaq_calibrating) {
         model->iaq = (uint16_t)round_clamped(measurement->static_iaq, 0, IAQ_MAX);
     }
 
-    model->temperature_valid = fresh && measurement->temperature_valid && isfinite(measurement->temperature_c);
-    if (model->temperature_valid) {
-        model->temperature_c = (int16_t)round_clamped(measurement->temperature_c, TEMPERATURE_MIN_C, TEMPERATURE_MAX_C);
-    }
-
-    model->humidity_valid = fresh && measurement->humidity_valid && isfinite(measurement->humidity_percent);
-    if (model->humidity_valid) {
-        model->humidity_percent = (uint8_t)round_clamped(measurement->humidity_percent, 0, HUMIDITY_MAX);
-    }
+    model->temperature_c = (int16_t)round_clamped(measurement->temperature_c, TEMPERATURE_MIN_C, TEMPERATURE_MAX_C);
+    model->humidity_percent = (uint8_t)round_clamped(measurement->humidity_percent, 0, HUMIDITY_MAX);
 }

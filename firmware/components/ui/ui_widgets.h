@@ -34,6 +34,7 @@ typedef enum {
     UI_FACE_HAPPY,
     UI_FACE_ORDINARY,
     UI_FACE_NIMBUS,
+    UI_FACE_DIZZY_NIMBUS,
     UI_FACE_SAD,
     UI_FACE_DIZZY,
     UI_FACE_DEAD,

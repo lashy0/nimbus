@@ -13,6 +13,7 @@ static const face_t FACES[] = {
     [UI_FACE_HAPPY] = {UI_IMG("face/happy"), UI_IMG("face/happy_closed_eyes"), 32, 137},
     [UI_FACE_ORDINARY] = {UI_IMG("face/ordinary"), UI_IMG("face/ordinary_closed_eyes"), 32, 137},
     [UI_FACE_NIMBUS] = {UI_IMG("face/ordinary_nimbus"), NULL, 25, 83},
+    [UI_FACE_DIZZY_NIMBUS] = {UI_IMG("face/dizzy_nimbus"), NULL, 26, 45},
     [UI_FACE_SAD] = {UI_IMG("face/sad"), NULL, 32, 137},
     [UI_FACE_DIZZY] = {UI_IMG("face/dizzy"), NULL, 32, 137},
     [UI_FACE_DEAD] = {UI_IMG("face/dead"), NULL, 32, 137},

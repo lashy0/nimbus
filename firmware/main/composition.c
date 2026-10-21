@@ -8,12 +8,16 @@
 #include "board_display.h"
 #include "board_i2c.h"
 #include "board_sleep.h"
+#include "esp_attr.h"
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_pm.h"
+#include "esp_sleep.h"
 #include "esp_spiffs.h"
 #include "esp_system.h"
+#include "esp_timer.h"
 #include "power.h"
+#include "restart_guard.h"
 #include "sdkconfig.h"
 #include "sensing.h"
 #include "storage.h"
@@ -21,8 +25,13 @@
 
 #define ASSETS_PARTITION "storage"
 #define ASSETS_MOUNT_POINT "/spiffs"
+#define STABLE_RUN_US (5LL * 60 * 1000 * 1000) // Without a crash this long, the crash series ends.
 
 static const char* TAG = "composition";
+
+// Survives panic, watchdog and deep sleep; checked before it is trusted.
+static RTC_NOINIT_ATTR restart_record_t s_restart_record;
+static bool s_power_ready;
 
 static void forward_button(void* ctx, const board_button_event_t* event)
 {
@@ -118,12 +127,70 @@ static esp_err_t start_power(void)
         .enter_sleep = board_enter_deep_sleep,
     };
     ESP_RETURN_ON_ERROR(power_init(&config), TAG, "init");
+    s_power_ready = true;
 
     if (!power_check_startup(esp_reset_reason() == ESP_RST_BROWNOUT)) {
         power_enter_sleep(POWER_SLEEP_STARTUP);
     }
 
     return ESP_OK;
+}
+
+static restart_cause_t restart_cause(void)
+{
+    switch (esp_reset_reason()) {
+        case ESP_RST_POWERON:
+            return RESTART_POWER_ON;
+        case ESP_RST_PANIC:
+        case ESP_RST_TASK_WDT:
+        case ESP_RST_INT_WDT:
+        case ESP_RST_WDT:
+            return RESTART_CRASH;
+        default:
+            return RESTART_OTHER;
+    }
+}
+
+// Firmware that crashes on every boot would restart forever, flashing the screen
+// and draining the battery; after a few crashes in a row it sleeps instead.
+static void check_crash_loop(void)
+{
+    const restart_cause_t cause = restart_cause();
+    if (restart_guard_on_boot(&s_restart_record, cause)) {
+        ESP_LOGE(TAG, "%lu crashes in a row; sleeping until a button press", s_restart_record.crashes);
+        power_enter_sleep(POWER_SLEEP_FAULT);
+    }
+
+    if (cause == RESTART_CRASH) {
+        ESP_LOGW(TAG, "crash %lu in a row; the boot stops at %d", s_restart_record.crashes, RESTART_CRASH_LIMIT);
+    }
+}
+
+static void end_crash_series(void* arg)
+{
+    if (s_restart_record.crashes > 0) {
+        ESP_LOGI(TAG, "stable run; crash count cleared");
+    }
+
+    restart_guard_clear(&s_restart_record);
+}
+
+// Without the timer the count only clears at the next power-on.
+static void start_stability_timer(void)
+{
+    const esp_timer_create_args_t args = {
+        .callback = end_crash_series,
+        .name = "stable_run",
+    };
+    esp_timer_handle_t timer;
+    esp_err_t err = esp_timer_create(&args, &timer);
+    if (err == ESP_OK) {
+        err = esp_timer_start_once(timer, STABLE_RUN_US);
+    }
+
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "stability timer: %s", esp_err_to_name(err));
+    }
 }
 
 // The chip light-sleeps whenever no lock forbids it: the display holds one while
@@ -149,6 +216,7 @@ esp_err_t composition_init(void)
     ESP_RETURN_ON_ERROR(board_init_safe_gpio(), TAG, "safe GPIO");
     configure_power_management();
     ESP_RETURN_ON_ERROR(start_power(), TAG, "power");
+    check_crash_loop();
 
     // Without NVS the device runs on defaults and BSEC calibrates after every boot.
     esp_err_t err = storage_init();
@@ -162,22 +230,33 @@ esp_err_t composition_init(void)
         ESP_LOGE(TAG, "assets unavailable: %s", esp_err_to_name(err));
     }
 
-    // The display is optional for the rest of the device: app and buttons keep working.
+    // The screen is the only output the user sees in the case.
     const uint8_t brightness_percent = app_load_brightness();
-    err = start_display(brightness_percent);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "display unavailable: %s", esp_err_to_name(err));
-    }
+    ESP_RETURN_ON_ERROR(start_display(brightness_percent), TAG, "display");
 
+    // Buttons start first, so a failure of either leaves no app task running while
+    // this task puts the device to sleep. Presses before app_start() are dropped.
+    ESP_RETURN_ON_ERROR(board_buttons_init(forward_button, NULL), TAG, "buttons");
     const app_config_t app_config = {.brightness_percent = brightness_percent};
     ESP_RETURN_ON_ERROR(app_start(&app_config), TAG, "app");
-    ESP_RETURN_ON_ERROR(board_buttons_init(forward_button, NULL), TAG, "buttons");
 
-    // Without the bus the screens show no values until the next boot; input still works.
+    // Without the bus the sensor error page stays until the next boot; input still works.
     err = start_sensing();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "sensing unavailable: %s", esp_err_to_name(err));
     }
 
+    start_stability_timer();
+
     return ESP_OK;
+}
+
+void composition_enter_fault_sleep(void)
+{
+    if (s_power_ready) {
+        power_enter_sleep(POWER_SLEEP_FAULT);
+    }
+
+    board_enter_deep_sleep(NULL);
+    esp_deep_sleep_start();
 }

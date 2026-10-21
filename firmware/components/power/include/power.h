@@ -16,6 +16,7 @@ typedef enum {
     POWER_SLEEP_USER,     // Power-off confirmed on screen.
     POWER_SLEEP_CRITICAL, // Confirmed battery discharge.
     POWER_SLEEP_STARTUP,  // Not enough voltage to start the display and sensor.
+    POWER_SLEEP_FAULT,    // The device cannot work: a failed display, startup or repeated crashes.
 } power_sleep_reason_t;
 
 typedef struct {

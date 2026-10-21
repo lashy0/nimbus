@@ -57,14 +57,9 @@ static uint32_t show_battery(const ui_model_t* model)
 
 static uint32_t show_iaq(const ui_model_t* model)
 {
-    if (model->iaq_state == UI_IAQ_CALIBRATING) {
+    if (model->iaq_calibrating) {
         return ui_show_title("IAQ", 41, 33) | ui_show_face(UI_FACE_NIMBUS) |
                ui_show_caption("Калибровка\nсенсора", 174) | ui_show_dots(0);
-    }
-
-    const uint32_t visible = ui_show_title("IAQ", 13, 33) | ui_show_dots(0);
-    if (model->iaq_state == UI_IAQ_NONE) {
-        return visible | ui_show_value("---", s_fonts->digits_60) | ui_show_face(UI_FACE_ORDINARY);
     }
 
     static const ui_face_t FACE_BY_LEVEL[] = {
@@ -89,18 +84,14 @@ static uint32_t show_iaq(const ui_model_t* model)
     char text[TEXT_MAX];
     snprintf(text, sizeof(text), "%03u", iaq);
 
-    return visible | ui_show_value(text, s_fonts->digits_60) | ui_show_plate(PLATE_BY_LEVEL[level], 67, 34) |
-           ui_show_face(FACE_BY_LEVEL[level]);
+    return ui_show_title("IAQ", 13, 33) | ui_show_dots(0) | ui_show_value(text, s_fonts->digits_60) |
+           ui_show_plate(PLATE_BY_LEVEL[level], 67, 34) | ui_show_face(FACE_BY_LEVEL[level]);
 }
 
 static uint32_t show_temperature(const ui_model_t* model)
 {
     // "Temp" is 76 px wide: it ends 4 px before the mark at x=97, as the other titles do.
     const uint32_t visible = ui_show_title("Temp", 17, 34) | ui_show_dots(1);
-    if (!model->temperature_valid) {
-        return visible | ui_show_value("--°", s_fonts->digits_60) | ui_show_face(UI_FACE_TEMP_NORMAL);
-    }
-
     const int16_t celsius = model->temperature_c;
     char text[TEXT_MAX];
     snprintf(text, sizeof(text), "%d°", celsius);
@@ -124,10 +115,6 @@ static uint32_t show_temperature(const ui_model_t* model)
 static uint32_t show_humidity(const ui_model_t* model)
 {
     const uint32_t visible = ui_show_title("Hum", 4, 34) | ui_show_dots(2);
-    if (!model->humidity_valid) {
-        return visible | ui_show_value("--%", s_fonts->digits_60) | ui_show_face(UI_FACE_ORDINARY);
-    }
-
     const uint8_t percent = model->humidity_percent;
     char text[TEXT_MAX];
     snprintf(text, sizeof(text), "%u%%", percent);
@@ -149,6 +136,12 @@ static uint32_t show_humidity(const ui_model_t* model)
     }
 
     return visible | plate | ui_show_value(text, font) | ui_show_face(face);
+}
+
+// One page for all three measurements: they come from the same sensor.
+static uint32_t show_sensor_error(void)
+{
+    return ui_show_face(UI_FACE_DIZZY_NIMBUS) | ui_show_caption("Ошибка\nсенсора", 140);
 }
 
 static uint32_t show_brightness(const ui_model_t* model)
@@ -180,6 +173,9 @@ void ui_view_apply(const ui_model_t* model)
             break;
         case UI_SCREEN_HUM:
             visible = show_humidity(model);
+            break;
+        case UI_SCREEN_SENSOR_ERROR:
+            visible = show_sensor_error();
             break;
         case UI_SCREEN_BRIGHTNESS:
             visible = show_brightness(model);

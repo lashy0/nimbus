@@ -15,6 +15,7 @@
 #define APP_SETTINGS_SAVE_DELAY_MS 2000 // After the last change, so holding a button writes once.
 #define APP_DIALOG_TIMEOUT_MS 15000
 #define APP_MEASUREMENT_STALE_MS 10000 // LP outputs arrive every 3 s.
+#define APP_FIRST_MEASUREMENT_MS 10000 // The start screen waits this long for the first output.
 #define APP_POWER_POLL_MS 2000
 #define APP_POWER_POLL_MONITORING_MS 60000
 #define APP_POWER_POLL_EARLY_MS 55000 // In monitoring a sensor wake-up this late reads the battery too.
@@ -33,6 +34,12 @@ typedef enum {
     APP_MODE_MONITORING,    // The display is confirmed OFF; measurements go on.
     APP_MODE_SHUTTING_DOWN, // Power-off under way; input is ignored for good.
 } app_mode_t;
+
+typedef enum {
+    APP_SHUTDOWN_USER,     // Confirmed on screen.
+    APP_SHUTDOWN_CRITICAL, // Confirmed battery discharge.
+    APP_SHUTDOWN_FAULT,    // The display cannot be turned off, so the chip cannot sleep.
+} app_shutdown_reason_t;
 
 // What the caller has to carry out after a transition.
 typedef enum {
@@ -53,12 +60,13 @@ typedef struct {
     bool shutdown_yes_selected;
     int64_t dialog_deadline_ms; // Auto-cancel of the shutdown question.
     sensing_snapshot_t measurement;
-    bool measurement_stale; // No new outputs for APP_MEASUREMENT_STALE_MS.
+    bool measurement_stale;                // No new outputs for APP_MEASUREMENT_STALE_MS.
+    int64_t first_measurement_deadline_ms; // End of the start screen's wait, or APP_NO_DEADLINE.
     power_status_t power;
     int64_t power_deadline_ms;
     int64_t power_polled_ms;
     int64_t notice_deadline_ms; // End of the USB notice, or APP_NO_DEADLINE when none is shown.
-    bool shutdown_critical;     // The battery, not the user, started the power-off.
+    app_shutdown_reason_t shutdown_reason;
     ui_display_state_t display; // Requested from the UI; MONITORING follows a confirmed OFF.
     uint8_t display_failures;   // Failed attempts at the current request.
     int64_t display_retry_ms;   // Next attempt after a failure, or APP_NO_DEADLINE.
@@ -85,8 +93,9 @@ uint32_t app_state_tick(app_state_t* state, int64_t now_ms);
 uint8_t app_state_backlight(const app_state_t* state);
 
 // Reports whether the UI reached state->display after APP_EFFECT_DISPLAY. A failure
-// is retried APP_DISPLAY_RETRIES times; a failed OFF keeps the device ACTIVE.
-void app_state_display_result(app_state_t* state, bool reached, int64_t now_ms);
+// is retried APP_DISPLAY_RETRIES times; a failed OFF keeps the device ACTIVE, and
+// an OFF that still fails after that powers it off.
+uint32_t app_state_display_result(app_state_t* state, bool reached, int64_t now_ms);
 
 // Closes an open dialog without acting on it.
 uint32_t app_state_cancel_dialog(app_state_t* state);

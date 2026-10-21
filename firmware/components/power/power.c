@@ -24,7 +24,7 @@ static power_estimator_t s_estimator;
 
 static const char* reason_name(uint8_t reason)
 {
-    static const char* const NAMES[] = {"user", "critical battery", "low voltage at start"};
+    static const char* const NAMES[] = {"user", "critical battery", "low voltage at start", "fault"};
 
     return reason < sizeof(NAMES) / sizeof(NAMES[0]) ? NAMES[reason] : "unknown";
 }
