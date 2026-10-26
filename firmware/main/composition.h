@@ -2,10 +2,18 @@
 
 #include "esp_err.h"
 
-// Brings up board resources and wires them to their consumers. An error means the
-// device cannot work; a failing sensor, storage or assets are not errors here.
+/**
+ * Initializes board resources and connects the application components.
+ * Call once from app_main(); blocks during hardware initialization and startup checks.
+ * Low startup voltage enters sleep without returning. A sensor, storage or asset
+ * failure alone does not fail composition. On error, partial resources remain alive.
+ * @return ESP_OK or an error that requires composition_enter_fault_sleep().
+ */
 esp_err_t composition_init(void);
 
-// Final sleep after composition_init() failed, with the backlight LOW and the panel
-// reset; a button press boots again.
+/**
+ * Enters final sleep after composition_init() failed; never returns.
+ * Call from task context. Darkens the backlight and resets the panel; an armed
+ * button press boots again. May wait for panel reset and button release.
+ */
 __attribute__((noreturn)) void composition_enter_fault_sleep(void);

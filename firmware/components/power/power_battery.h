@@ -5,7 +5,11 @@
 
 #include "power_types.h"
 
-// Battery math without ESP-IDF headers, private to power.
+/**
+ * @file
+ * Pure battery calculations, private to power; no I/O, blocking or internal locking.
+ * Callers own the estimator, serialize access and pass non-NULL pointers.
+ */
 
 // Initial thresholds for a single Li-ion cell, chosen before any measurement on
 // battery power alone; revisit them with a reference voltmeter.
@@ -23,13 +27,22 @@ typedef struct {
     uint8_t low_readings;
 } power_estimator_t;
 
+/** Clears the estimator to UNKNOWN with no valid percentage or confirmed discharge. */
 void power_estimator_init(power_estimator_t* estimator);
 
-// Feeds one reading; ok is false when the read failed.
+/**
+ * Feeds one reading in millivolts; set ok to false on read failure.
+ * A failed or implausible reading invalidates the percentage and resets the
+ * voltage filter, retaining the last plausible voltage and discharge evidence.
+ */
 void power_estimator_update(power_estimator_t* estimator, bool ok, uint32_t battery_mv);
 
+/** Returns a 0..100% estimate from the generic Li-ion curve, clamped at its endpoints. */
 uint8_t power_percent_from_mv(uint32_t battery_mv);
 
-// Whether a start may switch on the display and sensor. An unknown voltage is
-// allowed except after a brownout, which needs a margin above the start threshold.
+/**
+ * Returns whether the reading in millivolts allows display and sensor startup.
+ * An unknown voltage is allowed except after a brownout, which needs a margin
+ * above the normal start threshold. Does not modify an estimator.
+ */
 bool power_startup_allowed(bool ok, uint32_t battery_mv, bool after_brownout);

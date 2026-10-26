@@ -1,120 +1,78 @@
-# Nimbus v2
+# Nimbus
 
-## Scope and current state
+## Проект
 
-This branch is a clean implementation for LILYGO T-Display (ESP32, ST7789
-135x240), BME680, and a 1150 mAh / 3.7 V battery in the onboard battery connector.
-The old application and its components have been removed. Only runtime fonts and
-images are reused from v1. Do not restore old application code as a starting point.
-Initial board diagnostics exist; full application services are still pending.
+- Прошивка ESP-IDF для ESP32 находится в `firmware/`; плата — LILYGO T-Display с BME680.
+- Версии зависимостей закреплены в манифестах, submodules и `firmware/dependencies.lock`.
+- Сохранять lock-файл в Git и закреплять ревизии внешних библиотек.
+- Подключения описаны в [README.md](README.md); GPIO без запроса не менять.
+- MISO экрана — `-1`; полярность кнопок задаётся платой, без автоопределения при запуске.
 
-Read `docs/architecture.md` before implementing a component. Implementation status
-and actual checks belong in `docs/verification-log.md`; electrical measurements
-follow `docs/hardware-bringup.md`. Never present planned drivers as implemented.
+## Команды
 
-## Toolchain and build
-
-- ESP-IDF 5.5.3, target ESP32.
-- UI: LVGL 9.5.0 with esp_lvgl_port 2.9.0.
-- IAQ processing: Bosch BSEC2 2.6.1.0, git submodule in `firmware/third_party/bsec2`.
-- Commit `firmware/dependencies.lock` when generated; pin external library revisions.
-
-The ESP-IDF project lives in `firmware/` with its own `.gitignore`; the repository
-root holds docs, artwork and developer scripts. From the root:
+Из корня проекта в PowerShell:
 
 ```powershell
-. .\activate.ps1
+. .\scripts\activate.ps1
 idf.py -C firmware build
-idf.py -C firmware -p COM3 monitor
+.\scripts\format.ps1
+.\scripts\format.ps1 -Check
+idf.py -C firmware -p <PORT> flash monitor
+idf.py -C firmware -p <PORT> monitor
 ```
 
-COM3 is the port observed locally, not a portable setting. Flash with
-`idf.py -C firmware -p COM3 flash monitor` when hardware execution is part of the requested
-work. Do not claim hardware verification from a build alone.
-Use the matching build directory/ELF for monitoring; board diagnostics commands
-are in docs/hardware-bringup.md.
+`<PORT>` заменить портом платы. `-Check` только проверяет форматирование.
+Прошивать устройство, когда аппаратная проверка входит в задачу.
 
-## Code style
+## Компоненты
 
-Run `.\format.ps1` after editing C sources (`.\format.ps1 -Check` only reports);
-it applies `.clang-format` with esp-clang from the IDF tools. clang-format does not
-manage blank lines inside functions, so keep these by hand:
+- `main` — инициализация, соединение компонентов и время жизни общих ресурсов.
+- `board` — GPIO и драйверы платы; только `main` зависит от `board`.
+- `app` — состояние приложения, события, навигация и политики.
+- `sensing` — единственный владелец BME680/BSEC и расписания измерений.
+- `power` — синхронный опрос батареи и сон MCU; без своей задачи и управления экраном.
+- `storage` — настройки и состояние калибровки.
+- `ui` — все объекты LVGL, сон панели, фактическая яркость и display PM lock; принимает обычную модель.
 
-- A blank line before `return` unless it is the only statement of its block.
-- A blank line after a closing `}` when more statements follow in the same block.
-- A blank line between logical steps: argument checks, local setup, actions, result.
-- Includes: own header, blank line, then the remaining headers alphabetically.
-- Wrap an arithmetic `*` at file scope in parentheses: clang-format misreads it as a pointer.
-- Comments in code and config files do not reference `docs/` files or architecture
-  sections; state the reason in the comment itself.
+Правила взаимодействия:
 
-## Architecture
+- `main` передаёт заимствованные handles и callbacks с контекстом; сервисы не зависят от `board`.
+- Использовать новые драйверы IDF: `driver/i2c_master.h`, `adc_oneshot`/`adc_cali`, `esp_lcd`.
+- Переходы состояний, навигация, политики, расчёт батареи и `ui_model.h` не включают ESP-IDF, FreeRTOS или LVGL.
+- Отделять переходы состояний от аппаратных API; каталоги компонентов создавать вместе с реализацией, без фиктивных драйверов и заглушек успеха.
 
-- `main`: initialization and wiring only.
-- `app`: single owner of application state; events, navigation and policies.
-- `board`: pins and low-level drivers for this board; only main depends on it.
-- `sensing`: sole owner of BME680/BSEC lifecycle and measurement schedule.
-- `power`: synchronous battery polling and MCU sleep commands; no task or display control.
-- `storage`: settings and calibration persistence.
-- `ui`: LVGL, panel sleep, actual brightness and display PM lock; accepts a plain model.
+## Стиль кода
 
-Main passes borrowed handles and callbacks with contexts; no service depends on
-board. Follow the ownership and display contracts in
-[architecture sections 2–5](docs/architecture.md).
+- После изменения C-кода запускать `scripts/format.ps1`; используется `.clang-format` и `esp-clang`.
+- Include: свой заголовок, пустая строка, остальные заголовки по алфавиту.
+- Перед `return` — пустая строка, кроме блока, где это единственный оператор.
+- После закрывающей `}` — пустая строка, если в том же блоке следуют другие операторы.
+- Разделять пустыми строками проверки аргументов, подготовку, действия и результат.
+- Арифметическое умножение на уровне файла заключать в скобки: clang-format может принять `*` за указатель.
 
-Only use new IDF drivers: driver/i2c_master.h, adc_oneshot/adc_cali, esp_lcd.
-Transitions, navigation, policies, battery math and ui_model.h include no ESP-IDF,
-FreeRTOS or LVGL headers.
+## Документация кода
 
-Create component directories with their implementation. Do not add fake drivers
-or success-returning placeholders. Keep state transitions separate from hardware APIs.
+- Контракты публичных функций описывать в `.h` комментариями Doxygen `/** ... */`; для простых функций достаточно одного предложения.
+- Документировать существенные условия вызова: порядок инициализации, единицы и диапазоны, владение и время жизни ресурсов, блокировки, контекст задачи/ISR и параллельные вызовы.
+- Указывать значимые ошибки и состояние выходных параметров при ошибке; для измерений различать новые данные и кэш.
+- Использовать `@param`, `@return` и `@retval`, когда они уточняют контракт; не повторять в них очевидное из сигнатуры.
+- Комментарии к полям, элементам enum и константам оформлять как `/**< ... */`, если это часть документируемого интерфейса.
+- В `.c` использовать `//` для неочевидных ограничений, аппаратных особенностей и алгоритмов; не пересказывать операции и не дублировать контракт из `.h`.
+- Простые внутренние функции не требуют отдельного описания. Документировать только гарантии, подтверждённые реализацией, и обновлять комментарии вместе с кодом.
 
-## Hardware assignments
+## Ресурсы
 
-Do not change pins unless requested:
+- Оригиналы — `artwork/`, готовые изображения и шрифты — `firmware/assets/`.
+- Использовать официальные конвертеры LVGL; сгенерированные файлы вручную не редактировать.
+- Исходные OTF хранить в Git; соседнюю папку `../Nimbus-assets` не изменять.
+- Ресурсы упаковываются в SPIFFS `storage`; артефакты сборки в `firmware/assets/` не добавлять.
+- Состав ресурсов — в [assets.md](docs/assets.md), правила BSEC — в [bsec.md](docs/bsec.md).
 
-- Display: MOSI19, SCLK18, CS5, DC16, RST23; backlight4.
-- Display MISO must be -1: GPIO21 is I2C SDA.
-- Buttons: PREV0, NEXT35; use board polarity, not boot-time autodetection.
-- BME680: SDA21, SCL22, 3.3 V, I2C addresses 0x76/0x77.
-- Battery ADC: GPIO34 / ADC1 channel6, ADC_EN14; verify actual measurements.
+## Проверки
 
-Keep hardware transitions, button ownership and wake/hold sequencing consistent
-with [architecture sections 4–9](docs/architecture.md).
-Power validity, startup and crash-loop rules have one source of truth in
-[sections 8–11](docs/architecture.md).
-
-## LVGL and assets
-
-Only UI owns LVGL objects; follow its locking and lifecycle contract in
-[architecture section 4](docs/architecture.md).
-
-Originals live in `artwork/` (imported from the user's `../Nimbus-assets`; never
-modify that sibling directory). SF Pro Rounded `.otf` files and the local
-generator in `tools/` are kept out of Git. `firmware/assets/` is generated from
-`artwork/` with the official `lv_font_conv` and LVGL `LVGLImage.py`; names, versions and
-exact parameters are in docs/assets.md. Do not edit generated files by hand; record
-any parameter change there. The firmware build must not depend on Node.js, the
-converters' Python packages or the sibling directory. The build packs
-`firmware/assets/` into the SPIFFS `storage`
-partition image. Follow
-[assets.md](docs/assets.md) and
-[architecture section 10](docs/architecture.md) for
-formats, storage and memory decisions; no build outputs belong under assets.
-
-BSEC phases, profiles, persistence, mandatory-package build policy and license
-constraints have one source of truth in [bsec.md](docs/bsec.md).
-
-## Verification
-
-A hardware feature is verified only after a build without new warnings, a boot
-without ESP_ERROR_CHECK aborts or LVGL asserts, and execution of its actual path
-on the connected device. Report unavailable hardware and unverified paths plainly.
-Inspect the earliest root error. Keep complete backtraces for decoding.
-Preserve matching ELF/map for core dumps. Follow the watchdog and crash-recovery
-rules in [architecture section 5](docs/architecture.md)
-and [section 11](docs/architecture.md).
-
-Do not automatically erase NVS, format assets or reboot forever on recoverable
-sensor/resource failures. A cached reading is not a fresh measurement. Pressure
-passed to BSEC is in Pa. Observe BSEC next_call and calibration status.
+- После изменений прошивки выполнять сборку без новых предупреждений.
+- Аппаратная функция проверена после сборки, загрузки без abort/assert и выполнения её реального пути на плате.
+- Недоступное оборудование и непроверенные пути отмечать явно; запланированное не выдавать за реализованное.
+- Искать первую причину ошибки, сохранять полный backtrace и соответствующие ELF/map для core dump и мониторинга.
+- При восстанавливаемых ошибках не стирать автоматически NVS, не форматировать ресурсы и не запускать бесконечные перезагрузки.
+- Кэш не считать свежим измерением; давление передавать в BSEC в Па, соблюдать `next_call` и статус калибровки.
