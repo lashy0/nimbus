@@ -230,6 +230,7 @@ esp_err_t ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts)
     ESP_RETURN_ON_FALSE(s_widgets[UI_W_LIGHTNING] != NULL, ESP_ERR_NO_MEM, TAG, "lightning");
     lv_image_set_src(s_widgets[UI_W_LIGHTNING], UI_IMAGE_LIGHTNING);
     lv_obj_set_pos(s_widgets[UI_W_LIGHTNING], 38, 70);
+    ui_lightning_init(s_widgets[UI_W_LIGHTNING]);
 
     for (size_t i = 0; i < UI_W_COUNT; i++) {
         lv_obj_add_flag(s_widgets[i], LV_OBJ_FLAG_HIDDEN);
@@ -344,6 +345,8 @@ void ui_widgets_set_visible(uint32_t visible)
     if ((visible & UI_SHOW(UI_W_BATTERY)) == 0) {
         ui_charge_set(NULL, 0);
     }
+
+    ui_lightning_set((visible & UI_SHOW(UI_W_LIGHTNING)) != 0);
 
     for (size_t i = 0; i < UI_W_COUNT; i++) {
         set_visible(s_widgets[i], (visible & UI_SHOW(i)) != 0);

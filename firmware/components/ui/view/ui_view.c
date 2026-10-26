@@ -55,6 +55,7 @@ void ui_view_deinit(void)
 {
     ui_blink_deinit();
     ui_charge_deinit();
+    ui_lightning_deinit();
     s_fonts = NULL;
 }
 
