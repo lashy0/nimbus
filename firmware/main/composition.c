@@ -145,13 +145,14 @@ static restart_cause_t restart_cause(void)
         case ESP_RST_TASK_WDT:
         case ESP_RST_INT_WDT:
         case ESP_RST_WDT:
+        case ESP_RST_BROWNOUT:
             return RESTART_CRASH;
         default:
             return RESTART_OTHER;
     }
 }
 
-// Firmware that crashes on every boot would restart forever, flashing the screen
+// Firmware that crashes or browns out on every boot would restart forever, flashing the screen
 // and draining the battery; after a few crashes in a row it sleeps instead.
 static void check_crash_loop(void)
 {
