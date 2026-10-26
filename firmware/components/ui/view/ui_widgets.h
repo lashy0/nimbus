@@ -6,9 +6,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "ui_internal.h"
-
-#define UI_IMG(path) "S:/spiffs/img/" path ".bin"
+#include "esp_err.h"
+#include "ui_fonts.h"
 
 typedef enum {
     UI_W_BATTERY_TEXT,
@@ -28,25 +27,8 @@ typedef enum {
 
 #define UI_SHOW(widget) (1u << (widget))
 
-typedef enum {
-    UI_FACE_BASE,
-    UI_FACE_ULTRA_HAPPY,
-    UI_FACE_HAPPY,
-    UI_FACE_ORDINARY,
-    UI_FACE_NIMBUS,
-    UI_FACE_DIZZY_NIMBUS,
-    UI_FACE_SAD,
-    UI_FACE_DIZZY,
-    UI_FACE_DEAD,
-    UI_FACE_DIVER,
-    UI_FACE_HUH,
-    UI_FACE_TEMP_MINUS,
-    UI_FACE_TEMP_NORMAL,
-    UI_FACE_TEMP_PLUS,
-} ui_face_t;
-
 // Creates every widget hidden.
-void ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts);
+esp_err_t ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts);
 
 // Each ui_show_* fills its widget and returns its UI_SHOW() bit; only changed
 // properties are touched.
@@ -65,7 +47,6 @@ uint32_t ui_show_dots(size_t active);
 
 // open_src and closed_src as for ui_blink_set().
 uint32_t ui_show_face_image(const char* open_src, const char* closed_src, int32_t x, int32_t y);
-uint32_t ui_show_face(ui_face_t face);
 
 // Shows the widgets whose bits are set and hides the rest.
 void ui_widgets_set_visible(uint32_t visible);

@@ -2,6 +2,10 @@
 
 #include <string.h>
 
+#include "esp_check.h"
+#include "ui_animation.h"
+#include "ui_assets.h"
+
 #define COLOR_ACCENT 0xff6600
 #define COLOR_INACTIVE_DOT 0x808080
 #define COLOR_BAR_TRACK 0x9a9a9a
@@ -10,6 +14,8 @@
 #define DOT_COUNT 3
 #define DOT_SIZE 5
 #define DOT_STEP 15
+
+static const char* TAG = "ui_widgets";
 
 static lv_obj_t* s_widgets[UI_W_COUNT];
 static lv_obj_t* s_yes;
@@ -73,6 +79,10 @@ static void set_visible(lv_obj_t* obj, bool visible)
 static lv_obj_t* create_box(lv_obj_t* parent, int32_t x, int32_t y, int32_t w, int32_t h)
 {
     lv_obj_t* box = lv_obj_create(parent);
+    if (box == NULL) {
+        return NULL;
+    }
+
     lv_obj_remove_style_all(box);
     lv_obj_remove_flag(box, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
     lv_obj_set_pos(box, x, y);
@@ -84,6 +94,10 @@ static lv_obj_t* create_box(lv_obj_t* parent, int32_t x, int32_t y, int32_t w, i
 static lv_obj_t* create_label(lv_obj_t* parent, const lv_font_t* font)
 {
     lv_obj_t* label = lv_label_create(parent);
+    if (label == NULL) {
+        return NULL;
+    }
+
     lv_obj_set_style_text_font(label, font, 0);
     lv_label_set_text(label, "");
 
@@ -93,6 +107,10 @@ static lv_obj_t* create_label(lv_obj_t* parent, const lv_font_t* font)
 static lv_obj_t* create_centered_label(lv_obj_t* parent, const lv_font_t* font)
 {
     lv_obj_t* label = create_label(parent, font);
+    if (label == NULL) {
+        return NULL;
+    }
+
     lv_obj_set_width(label, SCREEN_WIDTH);
     lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
 
@@ -102,10 +120,18 @@ static lv_obj_t* create_centered_label(lv_obj_t* parent, const lv_font_t* font)
 static lv_obj_t* create_answer(lv_obj_t* parent, int32_t x, const lv_font_t* font, const char* text)
 {
     lv_obj_t* answer = create_box(parent, x, 0, 50, 28);
+    if (answer == NULL) {
+        return NULL;
+    }
+
     lv_obj_set_style_radius(answer, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_bg_color(answer, lv_color_hex(COLOR_ACCENT), 0);
 
     lv_obj_t* label = create_label(answer, font);
+    if (label == NULL) {
+        return NULL;
+    }
+
     lv_label_set_text(label, text);
     lv_obj_center(label);
 
@@ -115,6 +141,10 @@ static lv_obj_t* create_answer(lv_obj_t* parent, int32_t x, const lv_font_t* fon
 static lv_obj_t* create_bar(lv_obj_t* parent)
 {
     lv_obj_t* bar = lv_bar_create(parent);
+    if (bar == NULL) {
+        return NULL;
+    }
+
     lv_obj_remove_style_all(bar);
     lv_obj_set_pos(bar, 10, 181);
     lv_obj_set_size(bar, 115, 5);
@@ -133,8 +163,16 @@ static lv_obj_t* create_bar(lv_obj_t* parent)
 static lv_obj_t* create_dots(lv_obj_t* parent)
 {
     lv_obj_t* row = create_box(parent, 50, 225, DOT_STEP * (DOT_COUNT - 1) + DOT_SIZE, DOT_SIZE);
+    if (row == NULL) {
+        return NULL;
+    }
+
     for (size_t i = 0; i < DOT_COUNT; i++) {
         s_dots[i] = create_box(row, DOT_STEP * i, 0, DOT_SIZE, DOT_SIZE);
+        if (s_dots[i] == NULL) {
+            return NULL;
+        }
+
         lv_obj_set_style_radius(s_dots[i], LV_RADIUS_CIRCLE, 0);
         lv_obj_set_style_bg_opa(s_dots[i], LV_OPA_COVER, 0);
     }
@@ -142,48 +180,62 @@ static lv_obj_t* create_dots(lv_obj_t* parent)
     return row;
 }
 
-void ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts)
+esp_err_t ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts)
 {
     lv_obj_set_style_bg_color(screen, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(screen, LV_OPA_COVER, 0);
     lv_obj_set_style_text_color(screen, lv_color_white(), 0);
     lv_obj_remove_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Battery percentage ends just left of the battery icon at x=74.
     s_widgets[UI_W_BATTERY_TEXT] = create_label(screen, fonts->digits_10);
+    ESP_RETURN_ON_FALSE(s_widgets[UI_W_BATTERY_TEXT] != NULL, ESP_ERR_NO_MEM, TAG, "battery text");
     lv_obj_set_pos(s_widgets[UI_W_BATTERY_TEXT], 41, 12);
     lv_obj_set_width(s_widgets[UI_W_BATTERY_TEXT], 30);
     lv_obj_set_style_text_align(s_widgets[UI_W_BATTERY_TEXT], LV_TEXT_ALIGN_RIGHT, 0);
     s_widgets[UI_W_BATTERY] = lv_image_create(screen);
+    ESP_RETURN_ON_FALSE(s_widgets[UI_W_BATTERY] != NULL, ESP_ERR_NO_MEM, TAG, "battery image");
     ui_charge_init(s_widgets[UI_W_BATTERY]);
 
     s_widgets[UI_W_TITLE] = create_label(screen, fonts->text_30);
+    ESP_RETURN_ON_FALSE(s_widgets[UI_W_TITLE] != NULL, ESP_ERR_NO_MEM, TAG, "title");
     s_widgets[UI_W_PLATE] = lv_image_create(screen);
+    ESP_RETURN_ON_FALSE(s_widgets[UI_W_PLATE] != NULL, ESP_ERR_NO_MEM, TAG, "plate");
     s_widgets[UI_W_VALUE] = create_centered_label(screen, fonts->digits_60);
+    ESP_RETURN_ON_FALSE(s_widgets[UI_W_VALUE] != NULL, ESP_ERR_NO_MEM, TAG, "value");
     lv_obj_set_pos(s_widgets[UI_W_VALUE], 0, 72);
 
     s_widgets[UI_W_FACE] = lv_image_create(screen);
+    ESP_RETURN_ON_FALSE(s_widgets[UI_W_FACE] != NULL, ESP_ERR_NO_MEM, TAG, "face");
     ui_blink_init(s_widgets[UI_W_FACE]);
 
     s_widgets[UI_W_CAPTION] = create_centered_label(screen, fonts->text_15);
+    ESP_RETURN_ON_FALSE(s_widgets[UI_W_CAPTION] != NULL, ESP_ERR_NO_MEM, TAG, "caption");
     s_widgets[UI_W_SUN] = lv_image_create(screen);
-    lv_image_set_src(s_widgets[UI_W_SUN], UI_IMG("misc/sun"));
+    ESP_RETURN_ON_FALSE(s_widgets[UI_W_SUN] != NULL, ESP_ERR_NO_MEM, TAG, "sun");
+    lv_image_set_src(s_widgets[UI_W_SUN], UI_IMAGE_SUN);
     lv_obj_set_pos(s_widgets[UI_W_SUN], 40, 60);
     s_widgets[UI_W_BAR] = create_bar(screen);
+    ESP_RETURN_ON_FALSE(s_widgets[UI_W_BAR] != NULL, ESP_ERR_NO_MEM, TAG, "brightness bar");
 
     s_widgets[UI_W_ANSWERS] = create_box(screen, 0, 200, SCREEN_WIDTH, 28);
+    ESP_RETURN_ON_FALSE(s_widgets[UI_W_ANSWERS] != NULL, ESP_ERR_NO_MEM, TAG, "answers");
     s_yes = create_answer(s_widgets[UI_W_ANSWERS], 15, fonts->text_15, "ДА");
+    ESP_RETURN_ON_FALSE(s_yes != NULL, ESP_ERR_NO_MEM, TAG, "yes answer");
     s_no = create_answer(s_widgets[UI_W_ANSWERS], 70, fonts->text_15, "НЕТ");
+    ESP_RETURN_ON_FALSE(s_no != NULL, ESP_ERR_NO_MEM, TAG, "no answer");
     s_widgets[UI_W_DOTS] = create_dots(screen);
+    ESP_RETURN_ON_FALSE(s_widgets[UI_W_DOTS] != NULL, ESP_ERR_NO_MEM, TAG, "page dots");
 
-    // 60x99, centered on the 135x240 screen.
     s_widgets[UI_W_LIGHTNING] = lv_image_create(screen);
-    lv_image_set_src(s_widgets[UI_W_LIGHTNING], UI_IMG("misc/lightning_charge"));
+    ESP_RETURN_ON_FALSE(s_widgets[UI_W_LIGHTNING] != NULL, ESP_ERR_NO_MEM, TAG, "lightning");
+    lv_image_set_src(s_widgets[UI_W_LIGHTNING], UI_IMAGE_LIGHTNING);
     lv_obj_set_pos(s_widgets[UI_W_LIGHTNING], 38, 70);
 
     for (size_t i = 0; i < UI_W_COUNT; i++) {
         lv_obj_add_flag(s_widgets[i], LV_OBJ_FLAG_HIDDEN);
     }
+
+    return ESP_OK;
 }
 
 uint32_t ui_show_battery(const char* text, const char* icon_src, int32_t icon_y)
@@ -200,7 +252,6 @@ uint32_t ui_show_battery(const char* text, const char* icon_src, int32_t icon_y)
     return UI_SHOW(UI_W_BATTERY_TEXT) | UI_SHOW(UI_W_BATTERY);
 }
 
-// Without the percentage the 21 px icon alone is centered.
 uint32_t ui_show_battery_animation(const char* const* frames, size_t count, int32_t icon_y)
 {
     set_pos(s_widgets[UI_W_BATTERY], 57, icon_y);

@@ -1,7 +1,8 @@
+#include "ui_fonts.h"
+
 #include <stdio.h>
 
 #include "esp_log.h"
-#include "ui_internal.h"
 
 #define FONT_PATH_MAX 48
 
@@ -29,4 +30,21 @@ void ui_fonts_load(ui_fonts_t* fonts)
     fonts->text_30 = load_font("sf_sb_30");
     fonts->digits_50 = load_font("sf_sb_50");
     fonts->digits_60 = load_font("sf_sb_60");
+}
+
+static void unload_font(const lv_font_t* font)
+{
+    if (font != NULL && font != LV_FONT_DEFAULT) {
+        lv_binfont_destroy((lv_font_t*)font);
+    }
+}
+
+void ui_fonts_unload(ui_fonts_t* fonts)
+{
+    unload_font(fonts->digits_10);
+    unload_font(fonts->text_15);
+    unload_font(fonts->text_30);
+    unload_font(fonts->digits_50);
+    unload_font(fonts->digits_60);
+    *fonts = (ui_fonts_t){0};
 }

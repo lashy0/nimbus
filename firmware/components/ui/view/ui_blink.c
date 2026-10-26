@@ -1,10 +1,14 @@
-#include "ui_internal.h"
+#include "ui_animation.h"
+
+#include "esp_log.h"
 
 #define CLOSED_MS 140
 #define REOPEN_GAP_MS 160 // Open eyes between the two halves of a double blink.
 #define INTERVAL_MIN_MS 2500
 #define INTERVAL_MAX_MS 6500
 #define DOUBLE_BLINK_PERCENT 20
+
+static const char* TAG = "ui_blink";
 
 static lv_obj_t* s_face;
 static lv_timer_t* s_timer;
@@ -47,7 +51,27 @@ void ui_blink_init(lv_obj_t* face)
 {
     s_face = face;
     s_timer = lv_timer_create(blink_step, INTERVAL_MAX_MS, NULL);
+    if (s_timer == NULL) {
+        ESP_LOGW(TAG, "blink timer unavailable; using a static face");
+
+        return;
+    }
+
     lv_timer_pause(s_timer);
+}
+
+void ui_blink_deinit(void)
+{
+    if (s_timer != NULL) {
+        lv_timer_delete(s_timer);
+        s_timer = NULL;
+    }
+
+    s_face = NULL;
+    s_open_src = NULL;
+    s_closed_src = NULL;
+    s_closed = false;
+    s_second_blink_due = false;
 }
 
 void ui_blink_set(const char* open_src, const char* closed_src)
@@ -62,6 +86,10 @@ void ui_blink_set(const char* open_src, const char* closed_src)
 
     if (open_src != NULL) {
         lv_image_set_src(s_face, open_src);
+    }
+
+    if (s_timer == NULL) {
+        return;
     }
 
     if (open_src == NULL || closed_src == NULL) {

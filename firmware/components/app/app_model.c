@@ -47,19 +47,23 @@ void app_state_model(const app_state_t* state, ui_model_t* model)
     model->brightness_percent = state->brightness_percent;
     model->shutdown_yes_selected = state->shutdown_yes_selected;
 
-    model->external_power = state->power.source == POWER_SOURCE_EXTERNAL;
-    model->battery_valid = state->power.percent_valid;
-    model->battery_percent = state->power.percent;
+    if (state->power.source == POWER_SOURCE_EXTERNAL) {
+        model->battery.state = UI_BATTERY_EXTERNAL_POWER;
+    } else if (state->power.percent_valid) {
+        model->battery.state = UI_BATTERY_LEVEL;
+        model->battery.percent = state->power.percent;
+    }
 
     if (status != APP_SENSOR_WORKING) {
         return;
     }
 
-    model->iaq_calibrating = measurement->phase == SENSING_PHASE_WARMUP;
-    if (!model->iaq_calibrating) {
-        model->iaq = (uint16_t)round_clamped(measurement->iaq, 0, IAQ_MAX);
+    ui_measurements_t* values = &model->measurements;
+    values->iaq.calibrating = measurement->phase == SENSING_PHASE_WARMUP;
+    if (!values->iaq.calibrating) {
+        values->iaq.value = (uint16_t)round_clamped(measurement->iaq, 0, IAQ_MAX);
     }
 
-    model->temperature_c = (int16_t)round_clamped(measurement->temperature_c, TEMPERATURE_MIN_C, TEMPERATURE_MAX_C);
-    model->humidity_percent = (uint8_t)round_clamped(measurement->humidity_percent, 0, HUMIDITY_MAX);
+    values->temperature_c = (int16_t)round_clamped(measurement->temperature_c, TEMPERATURE_MIN_C, TEMPERATURE_MAX_C);
+    values->humidity_percent = (uint8_t)round_clamped(measurement->humidity_percent, 0, HUMIDITY_MAX);
 }
