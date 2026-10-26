@@ -1,3 +1,6 @@
+#include "sensing_internal.h"
+
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -5,7 +8,6 @@
 #include "esp_log.h"
 #include "esp_rom_crc.h"
 #include "esp_timer.h"
-#include "sensing_internal.h"
 
 static const char* TAG = "sensing_bsec";
 
@@ -17,7 +19,6 @@ extern const uint8_t s_config_end[] asm("_binary_bsec_iaq_config_end");
 
 static const uint8_t OUTPUTS[] = {
     BSEC_OUTPUT_IAQ,
-    BSEC_OUTPUT_STATIC_IAQ,
     BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_TEMPERATURE,
     BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_HUMIDITY,
     BSEC_OUTPUT_RAW_PRESSURE,
@@ -132,40 +133,51 @@ fail:
     return ret;
 }
 
-static void store_outputs(const bsec_output_t* outputs, uint8_t count, sensing_snapshot_t* snapshot)
+static esp_err_t store_outputs(
+    const bsec_output_t* outputs,
+    uint8_t count,
+    sensing_outputs_t* result,
+    uint8_t* received)
 {
+    sensing_snapshot_t* snapshot = &result->snapshot;
+
     for (uint8_t i = 0; i < count; i++) {
         const bsec_output_t* output = &outputs[i];
+        ESP_RETURN_ON_FALSE(
+            isfinite(output->signal), ESP_ERR_INVALID_RESPONSE, TAG, "non-finite output %u", output->sensor_id);
+
         switch (output->sensor_id) {
             case BSEC_OUTPUT_IAQ:
+                ESP_RETURN_ON_FALSE(
+                    output->accuracy <= 3, ESP_ERR_INVALID_RESPONSE, TAG, "IAQ accuracy %u", output->accuracy);
                 snapshot->iaq_accuracy = output->accuracy;
-                break;
-            case BSEC_OUTPUT_STATIC_IAQ:
-                snapshot->static_iaq = output->signal;
-                snapshot->iaq_valid = true;
+                snapshot->iaq = output->signal;
+                *received |= SENSING_OUTPUT_IAQ;
                 break;
             case BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_TEMPERATURE:
                 snapshot->temperature_c = output->signal;
-                snapshot->temperature_valid = true;
+                *received |= SENSING_OUTPUT_TEMPERATURE;
                 break;
             case BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_HUMIDITY:
                 snapshot->humidity_percent = output->signal;
-                snapshot->humidity_valid = true;
+                *received |= SENSING_OUTPUT_HUMIDITY;
                 break;
             case BSEC_OUTPUT_RAW_PRESSURE:
                 snapshot->pressure_pa = output->signal;
-                snapshot->pressure_valid = true;
+                *received |= SENSING_OUTPUT_PRESSURE;
                 break;
             case BSEC_OUTPUT_STABILIZATION_STATUS:
-                snapshot->stabilized = output->signal >= 0.5f;
+                result->stabilized = output->signal >= 0.5f;
                 break;
             case BSEC_OUTPUT_RUN_IN_STATUS:
-                snapshot->run_in = output->signal >= 0.5f;
+                result->run_in = output->signal >= 0.5f;
                 break;
             default:
                 break;
         }
     }
+
+    return ESP_OK;
 }
 
 static void add_input(bsec_input_t* inputs, uint8_t* count, uint8_t id, float signal, int64_t time_ns)
@@ -220,9 +232,13 @@ static esp_err_t accept_warning(bsec_library_return_t rc, const char* what)
     return rc < BSEC_OK ? ESP_FAIL : ESP_OK;
 }
 
-esp_err_t sensing_bsec_step(sensing_bsec_t* bsec, sensing_sensor_t* sensor, sensing_snapshot_t* snapshot, bool* updated)
+esp_err_t sensing_bsec_step(
+    sensing_bsec_t* bsec,
+    sensing_sensor_t* sensor,
+    sensing_outputs_t* result,
+    uint8_t* received)
 {
-    *updated = false;
+    *received = 0;
 
     const int64_t now_ns = esp_timer_get_time() * 1000;
     bsec_bme_settings_t settings;
@@ -262,8 +278,5 @@ esp_err_t sensing_bsec_step(sensing_bsec_t* bsec, sensing_sensor_t* sensor, sens
     rc = bsec_do_steps_m(bsec->instance, inputs, input_count, outputs, &output_count);
     ESP_RETURN_ON_ERROR(accept_warning(rc, "do steps"), TAG, "do steps: %d", rc);
 
-    store_outputs(outputs, output_count, snapshot);
-    *updated = output_count > 0;
-
-    return ESP_OK;
+    return store_outputs(outputs, output_count, result, received);
 }

@@ -14,7 +14,6 @@
 #define APP_BRIGHTNESS_DEFAULT 60
 #define APP_SETTINGS_SAVE_DELAY_MS 2000 // After the last change, so holding a button writes once.
 #define APP_DIALOG_TIMEOUT_MS 15000
-#define APP_MEASUREMENT_STALE_MS 10000 // LP outputs arrive every 3 s.
 #define APP_FIRST_MEASUREMENT_MS 10000 // The start screen waits this long for the first output.
 #define APP_POWER_POLL_MS 2000
 #define APP_POWER_POLL_MONITORING_MS 60000
@@ -60,7 +59,6 @@ typedef struct {
     bool shutdown_yes_selected;
     int64_t dialog_deadline_ms; // Auto-cancel of the shutdown question.
     sensing_snapshot_t measurement;
-    bool measurement_stale;                // No new outputs for APP_MEASUREMENT_STALE_MS.
     int64_t first_measurement_deadline_ms; // End of the start screen's wait, or APP_NO_DEADLINE.
     power_status_t power;
     int64_t power_deadline_ms;
@@ -78,7 +76,7 @@ typedef struct {
 // Whether a saved brightness is one the brightness screen can produce.
 bool app_brightness_valid(uint8_t percent);
 
-// Times are monotonic milliseconds, the clock of sensing_snapshot_t.updated_ms.
+// Times are monotonic milliseconds since boot.
 // Functions return a mask of app_effect_t.
 void app_state_init(app_state_t* state, uint8_t brightness_percent);
 uint32_t app_state_activate(app_state_t* state, int64_t now_ms);

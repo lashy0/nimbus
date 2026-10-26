@@ -22,7 +22,7 @@ static bool is_main_screen(ui_screen_t screen)
 // An error ends the wait as well: retries may take far longer than the first output.
 static bool first_measurement_arrived(const sensing_snapshot_t* measurement)
 {
-    return measurement->updated_ms != 0 || measurement->phase == SENSING_PHASE_ERROR;
+    return measurement->phase != SENSING_PHASE_INITIALIZING;
 }
 
 // Working means fresh temperature and humidity; IAQ may still be calibrating.
@@ -35,10 +35,8 @@ static sensor_status_t sensor_status(const app_state_t* state)
     const sensing_snapshot_t* measurement = &state->measurement;
     const bool running = measurement->phase == SENSING_PHASE_WARMUP ||
                          measurement->phase == SENSING_PHASE_CALIBRATING || measurement->phase == SENSING_PHASE_READY;
-    const bool values = measurement->temperature_valid && isfinite(measurement->temperature_c) &&
-                        measurement->humidity_valid && isfinite(measurement->humidity_percent);
 
-    return running && values && !state->measurement_stale ? SENSOR_WORKING : SENSOR_FAULT;
+    return running ? SENSOR_WORKING : SENSOR_FAULT;
 }
 
 // NEXT walks IAQ -> TEMP -> HUM -> IAQ, PREV the other way.
@@ -225,7 +223,6 @@ void app_state_init(app_state_t* state, uint8_t brightness_percent)
     state->brightness_percent = brightness_percent;
     state->settings_deadline_ms = APP_NO_DEADLINE;
     state->dialog_deadline_ms = APP_NO_DEADLINE;
-    state->measurement_stale = true;
     state->first_measurement_deadline_ms = APP_NO_DEADLINE; // Counts from activation.
     state->power.source = POWER_SOURCE_UNKNOWN;
     state->power_deadline_ms = APP_NO_DEADLINE; // Polling starts with activation.
@@ -308,8 +305,6 @@ uint32_t app_state_button(app_state_t* state, const app_button_event_t* event)
 uint32_t app_state_measurement(app_state_t* state, const sensing_snapshot_t* measurement, int64_t now_ms)
 {
     state->measurement = *measurement;
-    state->measurement_stale =
-        measurement->updated_ms == 0 || now_ms - measurement->updated_ms >= APP_MEASUREMENT_STALE_MS;
     if (first_measurement_arrived(measurement)) {
         state->first_measurement_deadline_ms = APP_NO_DEADLINE;
     }
@@ -355,15 +350,6 @@ uint32_t app_state_power(app_state_t* state, const power_status_t* power, int64_
     return effects;
 }
 
-static int64_t stale_deadline(const app_state_t* state)
-{
-    if (state->measurement_stale || state->measurement.updated_ms == 0) {
-        return APP_NO_DEADLINE;
-    }
-
-    return state->measurement.updated_ms + APP_MEASUREMENT_STALE_MS;
-}
-
 // Idle time counts only in ACTIVE with every button released.
 static bool idle_counts(const app_state_t* state)
 {
@@ -395,11 +381,6 @@ uint32_t app_state_tick(app_state_t* state, int64_t now_ms)
     }
 
     uint32_t effects = now_ms >= state->power_deadline_ms ? APP_EFFECT_POLL_POWER : APP_EFFECT_NONE;
-    if (now_ms >= stale_deadline(state)) {
-        state->measurement_stale = true;
-        effects |= APP_EFFECT_MODEL;
-    }
-
     if (now_ms >= state->first_measurement_deadline_ms) {
         state->first_measurement_deadline_ms = APP_NO_DEADLINE;
         effects |= APP_EFFECT_MODEL;
@@ -501,7 +482,7 @@ int64_t app_state_next_deadline(const app_state_t* state)
         return APP_NO_DEADLINE;
     }
 
-    int64_t deadline = stale_deadline(state);
+    int64_t deadline = APP_NO_DEADLINE;
     if (dim_deadline(state) < deadline) {
         deadline = dim_deadline(state);
     }
@@ -582,10 +563,9 @@ void app_state_model(const app_state_t* state, ui_model_t* model)
         return;
     }
 
-    model->iaq_calibrating =
-        measurement->phase == SENSING_PHASE_WARMUP || !measurement->iaq_valid || !isfinite(measurement->static_iaq);
+    model->iaq_calibrating = measurement->phase == SENSING_PHASE_WARMUP;
     if (!model->iaq_calibrating) {
-        model->iaq = (uint16_t)round_clamped(measurement->static_iaq, 0, IAQ_MAX);
+        model->iaq = (uint16_t)round_clamped(measurement->iaq, 0, IAQ_MAX);
     }
 
     model->temperature_c = (int16_t)round_clamped(measurement->temperature_c, TEMPERATURE_MIN_C, TEMPERATURE_MAX_C);

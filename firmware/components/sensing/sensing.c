@@ -26,8 +26,14 @@ static sensing_config_t s_config;
 static TaskHandle_t s_task;
 static SemaphoreHandle_t s_lock;
 static sensing_snapshot_t s_published;
+static int64_t s_published_deadline_ms; // Protected by s_lock with s_published.
 
-static sensing_snapshot_t s_snapshot; // Task-owned working copy.
+static sensing_snapshot_t s_snapshot; // Last complete result, owned by the task.
+static sensing_outputs_t s_outputs;   // Partial BSEC outputs, never exposed to consumers.
+static uint32_t s_measurement_count;
+static uint8_t s_received;
+static int64_t s_batch_started_ms;
+static int64_t s_result_deadline_ms;
 static sensing_sensor_t s_sensor;
 static sensing_bsec_t s_bsec;
 static sensing_checkpoint_t s_checkpoint;
@@ -42,9 +48,10 @@ static const char* phase_name(sensing_phase_t phase)
     return NAMES[phase];
 }
 
-static sensing_phase_t phase_of(const sensing_snapshot_t* snapshot)
+static sensing_phase_t phase_of(const sensing_outputs_t* outputs)
 {
-    if (!snapshot->iaq_valid || !snapshot->stabilized || !snapshot->run_in || snapshot->iaq_accuracy == 0) {
+    const sensing_snapshot_t* snapshot = &outputs->snapshot;
+    if (!outputs->stabilized || !outputs->run_in || snapshot->iaq_accuracy == 0) {
         return SENSING_PHASE_WARMUP;
     }
 
@@ -55,6 +62,7 @@ static void publish(void)
 {
     xSemaphoreTake(s_lock, portMAX_DELAY);
     s_published = s_snapshot;
+    s_published_deadline_ms = s_result_deadline_ms;
     xSemaphoreGive(s_lock);
 
     if (s_config.notify != NULL) {
@@ -70,13 +78,11 @@ static void set_phase(sensing_phase_t phase)
     }
 }
 
-// Values from before a failure are not current measurements.
+// Partial values from before a failure must not enter a recovered measurement.
 static void enter_error(void)
 {
-    s_snapshot.iaq_valid = false;
-    s_snapshot.temperature_valid = false;
-    s_snapshot.humidity_valid = false;
-    s_snapshot.pressure_valid = false;
+    s_outputs = (sensing_outputs_t){0};
+    s_received = 0;
     set_phase(SENSING_PHASE_ERROR);
     publish();
 }
@@ -99,10 +105,18 @@ static void wait_until(int64_t deadline_us)
     }
 }
 
+static void wait_for_next_step(void)
+{
+    // A timeout may wake the task early, but must never call BSEC before next_call.
+    const int64_t next_us = (s_bsec.next_call_ns + 999) / 1000;
+    const int64_t timeout_us = s_result_deadline_ms * 1000;
+    wait_until(next_us < timeout_us ? next_us : timeout_us);
+}
+
 // Saves what BSEC learned, confirms the stop and parks the task for good.
 static void stop_task(void)
 {
-    if (s_bsec.instance != NULL && s_snapshot.generation > 0) {
+    if (s_bsec.instance != NULL && s_measurement_count > 0) {
         sensing_state_save_final(&s_bsec, &s_snapshot, &s_checkpoint, esp_timer_get_time() / 1000);
     }
 
@@ -125,8 +139,9 @@ static esp_err_t ensure_ready(void)
 
     if (s_sensor.device == NULL) {
         ESP_RETURN_ON_ERROR(sensing_sensor_open(s_config.bus, &s_sensor), TAG, "BME680");
-        set_phase(SENSING_PHASE_WARMUP);
-        publish();
+        s_outputs = (sensing_outputs_t){0};
+        s_received = 0;
+        s_result_deadline_ms = esp_timer_get_time() / 1000 + SENSING_RESULT_TIMEOUT_MS;
     }
 
     return ESP_OK;
@@ -134,18 +149,18 @@ static esp_err_t ensure_ready(void)
 
 static void log_outputs(void)
 {
-    if (s_snapshot.generation % LOG_EVERY_OUTPUTS != 1) {
+    if (s_measurement_count % LOG_EVERY_OUTPUTS != 1) {
         return;
     }
 
     ESP_LOGI(
         TAG,
-        "#%lu static IAQ %.1f (accuracy %u, stab %d, run-in %d), %.2f C, %.1f %%RH, %.0f Pa",
-        s_snapshot.generation,
-        s_snapshot.static_iaq,
+        "#%lu IAQ %.1f (accuracy %u, stab %d, run-in %d), %.2f C, %.1f %%RH, %.0f Pa",
+        s_measurement_count,
+        s_snapshot.iaq,
         s_snapshot.iaq_accuracy,
-        s_snapshot.stabilized,
-        s_snapshot.run_in,
+        s_outputs.stabilized,
+        s_outputs.run_in,
         s_snapshot.temperature_c,
         s_snapshot.humidity_percent,
         s_snapshot.pressure_pa);
@@ -161,10 +176,26 @@ static void sensing_task(void* arg)
             stop_task();
         }
 
-        bool updated = false;
+        uint8_t received = 0;
         esp_err_t err = ensure_ready();
+        const int64_t sample_us = esp_timer_get_time();
+        if (err == ESP_OK && sample_us / 1000 >= s_result_deadline_ms) {
+            err = ESP_ERR_TIMEOUT;
+        }
+
+        if (err == ESP_OK && sample_us < (s_bsec.next_call_ns + 999) / 1000) {
+            wait_for_next_step();
+
+            continue;
+        }
+
         if (err == ESP_OK) {
-            err = sensing_bsec_step(&s_bsec, &s_sensor, &s_snapshot, &updated);
+            err = sensing_bsec_step(&s_bsec, &s_sensor, &s_outputs, &received);
+        }
+
+        const int64_t now_ms = esp_timer_get_time() / 1000;
+        if (err == ESP_OK && now_ms >= s_result_deadline_ms) {
+            err = ESP_ERR_TIMEOUT;
         }
 
         if (err != ESP_OK) {
@@ -181,18 +212,34 @@ static void sensing_task(void* arg)
             continue;
         }
 
-        failures = 0;
-        if (updated) {
-            s_snapshot.generation++;
-            s_snapshot.updated_ms = esp_timer_get_time() / 1000;
-            set_phase(phase_of(&s_snapshot));
-            log_outputs();
-            publish();
-            sensing_state_checkpoint(&s_bsec, &s_snapshot, &s_checkpoint, s_snapshot.updated_ms);
+        if (received != 0) {
+            if (s_received == 0) {
+                s_batch_started_ms = sample_us / 1000;
+            }
+
+            s_received |= received;
         }
 
-        // Rounded up to whole microseconds, so BSEC is never called before next_call.
-        wait_until((s_bsec.next_call_ns + 999) / 1000);
+        if ((s_received & SENSING_ENVIRONMENT_OUTPUTS) == SENSING_ENVIRONMENT_OUTPUTS) {
+            failures = 0;
+            const sensing_phase_t phase = s_snapshot.phase;
+            s_snapshot = s_outputs.snapshot;
+            s_measurement_count++;
+            s_snapshot.phase = phase; // Keep the previous phase for transition logging.
+            s_result_deadline_ms = s_batch_started_ms + SENSING_RESULT_TIMEOUT_MS;
+            set_phase(phase_of(&s_outputs));
+            log_outputs();
+            publish();
+            sensing_state_checkpoint(&s_bsec, &s_snapshot, &s_checkpoint, now_ms);
+
+            // Each published set needs new environment outputs. IAQ may be absent
+            // during warmup; an earlier IAQ must not make the next set calibrated.
+            s_received = 0;
+            s_outputs.snapshot.iaq = 0;
+            s_outputs.snapshot.iaq_accuracy = 0;
+        }
+
+        wait_for_next_step();
     }
 }
 
@@ -247,7 +294,7 @@ esp_err_t sensing_stop(uint32_t timeout_ms)
 
 void sensing_get_snapshot(sensing_snapshot_t* out)
 {
-    if (s_lock == NULL) {
+    if (s_task == NULL) {
         *out = (sensing_snapshot_t){.phase = SENSING_PHASE_INITIALIZING};
 
         return;
@@ -255,5 +302,10 @@ void sensing_get_snapshot(sensing_snapshot_t* out)
 
     xSemaphoreTake(s_lock, portMAX_DELAY);
     *out = s_published;
+    if (out->phase != SENSING_PHASE_INITIALIZING && out->phase != SENSING_PHASE_ERROR &&
+        esp_timer_get_time() / 1000 >= s_published_deadline_ms) {
+        out->phase = SENSING_PHASE_ERROR;
+    }
+
     xSemaphoreGive(s_lock);
 }

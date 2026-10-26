@@ -10,7 +10,24 @@
 #include "sensing_types.h"
 #include "storage.h"
 
-#define SENSING_PROFILE_LP 0 // storage_bsec_key_t.profile of the 3 s configuration.
+#define SENSING_PROFILE_LP 0            // storage_bsec_key_t.profile of the 3 s configuration.
+#define SENSING_RESULT_TIMEOUT_MS 10000 // LP results arrive about every 3 s.
+
+// BSEC progress stays private; consumers receive the resulting phase.
+typedef struct {
+    sensing_snapshot_t snapshot;
+    bool stabilized; // BSEC stabilization status reached 1.
+    bool run_in;     // BSEC run-in status reached 1.
+} sensing_outputs_t;
+
+typedef enum {
+    SENSING_OUTPUT_IAQ = 1 << 0,
+    SENSING_OUTPUT_TEMPERATURE = 1 << 1,
+    SENSING_OUTPUT_HUMIDITY = 1 << 2,
+    SENSING_OUTPUT_PRESSURE = 1 << 3,
+} sensing_output_t;
+
+#define SENSING_ENVIRONMENT_OUTPUTS (SENSING_OUTPUT_TEMPERATURE | SENSING_OUTPUT_HUMIDITY | SENSING_OUTPUT_PRESSURE)
 
 typedef struct {
     i2c_master_dev_handle_t device; // NULL while closed.
@@ -77,9 +94,10 @@ void sensing_state_checkpoint(
     int64_t now_ms);
 
 // Lets BSEC control the sensor at its next_call and stores returned outputs in
-// snapshot. *updated tells whether any output arrived.
+// outputs. *received identifies measurement values returned by this call;
+// partial results are collected privately before publishing a complete snapshot.
 esp_err_t sensing_bsec_step(
     sensing_bsec_t* bsec,
     sensing_sensor_t* sensor,
-    sensing_snapshot_t* snapshot,
-    bool* updated);
+    sensing_outputs_t* outputs,
+    uint8_t* received);
