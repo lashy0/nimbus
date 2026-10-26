@@ -1,4 +1,4 @@
-# Dot-source from the project root: . .\activate.ps1
+# Dot-source from the project root: . .\scripts\activate.ps1
 $ErrorActionPreference = 'Stop'
 
 if (-not $env:IDF_TOOLS_PATH) {

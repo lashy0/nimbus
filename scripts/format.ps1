@@ -1,4 +1,4 @@
-# Formats project C sources with .clang-format: .\format.ps1 [-Check]
+# Formats project C sources with .clang-format: .\scripts\format.ps1 [-Check]
 param([switch]$Check)
 $ErrorActionPreference = 'Stop'
 
@@ -11,7 +11,8 @@ if (-not $clangFormat) {
     throw 'clang-format.exe not found; install esp-clang with the ESP-IDF tools.'
 }
 
-$sources = Get-ChildItem -Path (Join-Path $PSScriptRoot 'firmware\main'), (Join-Path $PSScriptRoot 'firmware\components') `
+$projectRoot = Split-Path -Parent $PSScriptRoot
+$sources = Get-ChildItem -Path (Join-Path $projectRoot 'firmware\main'), (Join-Path $projectRoot 'firmware\components') `
     -Recurse -Include '*.c', '*.h' | Select-Object -ExpandProperty FullName
 if ($Check) {
     & $clangFormat --dry-run --Werror $sources
