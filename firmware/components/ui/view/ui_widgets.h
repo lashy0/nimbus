@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+
 #include "ui_fonts.h"
 
 typedef enum {

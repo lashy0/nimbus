@@ -3,10 +3,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "bme68x.h"
-#include "bsec_interface_multi.h"
 #include "driver/i2c_master.h"
 #include "esp_err.h"
+
+#include "bme68x.h"
+#include "bsec_interface_multi.h"
+
 #include "sensing_policy.h"
 #include "sensing_types.h"
 #include "storage.h"

@@ -2,8 +2,9 @@
 
 #include <stdbool.h>
 
-#include "board_buttons.h"
 #include "driver/gpio.h"
+
+#include "board_buttons.h"
 
 #define BOARD_PIN_BACKLIGHT GPIO_NUM_4
 #define BOARD_PIN_ADC_ENABLE GPIO_NUM_14

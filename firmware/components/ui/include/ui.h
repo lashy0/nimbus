@@ -5,6 +5,7 @@
 
 #include "esp_err.h"
 #include "esp_lcd_types.h"
+
 #include "ui_model.h"
 
 #define UI_DRAW_BUFFER_LINES 20 /**< LVGL buffer height in lines; the SPI bus must accept one buffer. */

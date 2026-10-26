@@ -2,7 +2,6 @@
 
 #include <stdatomic.h>
 
-#include "app_state.h"
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_task_wdt.h"
@@ -10,6 +9,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
+
+#include "app_state.h"
 #include "power.h"
 #include "sensing.h"
 #include "storage.h"

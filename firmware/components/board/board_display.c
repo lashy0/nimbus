@@ -1,11 +1,12 @@
 #include "board_display.h"
 
-#include "board_pins.h"
 #include "driver/spi_common.h"
 #include "esp_check.h"
 #include "esp_lcd_io_spi.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_st7789.h"
+
+#include "board_pins.h"
 
 #define LCD_HOST SPI2_HOST
 #define LCD_PIXEL_CLOCK_HZ (40 * 1000 * 1000)

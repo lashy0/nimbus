@@ -42,5 +42,7 @@ BinPackArguments: false
 BinPackParameters: false
 AllowAllParametersOfDeclarationOnNextLine: false
 PenaltyReturnTypeOnItsOwnLine: 1000
-SortIncludes: false
+SortIncludes:
+  Enabled: true
+  IgnoreCase: false
 IncludeBlocks: Preserve

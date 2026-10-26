@@ -2,15 +2,17 @@
 
 #include <stdbool.h>
 
-#include "board_pins.h"
-#include "button_interface.h"
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_pm.h"
 #include "esp_sleep.h"
 #include "esp_timer.h"
-#include "iot_button.h"
 #include "sdkconfig.h"
+
+#include "button_interface.h"
+#include "iot_button.h"
+
+#include "board_pins.h"
 
 #define LONG_PRESS_MS 1500
 // Smallest repeat window: the library ignores long presses after a repeat press.

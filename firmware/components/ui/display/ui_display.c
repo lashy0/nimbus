@@ -7,6 +7,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+
 #include "ui_render.h"
 
 #define PANEL_SLEEP_GAP_US (120 * 1000) // ST7789: between Sleep In and Sleep Out either way.

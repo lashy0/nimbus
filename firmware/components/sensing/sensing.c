@@ -9,6 +9,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
+
 #include "sensing_internal.h"
 
 #define TASK_STACK_BYTES 6144

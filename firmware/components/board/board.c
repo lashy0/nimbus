@@ -1,10 +1,11 @@
 #include "board.h"
 
-#include "board_gpio.h"
-#include "board_pins.h"
 #include "driver/gpio.h"
 #include "driver/rtc_io.h"
 #include "esp_check.h"
+
+#include "board_gpio.h"
+#include "board_pins.h"
 
 static const char* TAG = "board";
 

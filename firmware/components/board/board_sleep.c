@@ -3,8 +3,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "board_gpio.h"
-#include "board_pins.h"
 #include "driver/gpio.h"
 #include "esp_check.h"
 #include "esp_log.h"
@@ -13,6 +11,9 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+
+#include "board_gpio.h"
+#include "board_pins.h"
 
 #define PANEL_RESET_LOW_US 1000 // ST7789 needs at least 10 us.
 #define PANEL_RESET_WAIT_MS 120 // Until the panel accepts Sleep In after reset.

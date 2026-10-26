@@ -1,7 +1,8 @@
 #include "board_i2c.h"
 
-#include "board_pins.h"
 #include "esp_check.h"
+
+#include "board_pins.h"
 
 static const char* TAG = "board_i2c";
 

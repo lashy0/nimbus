@@ -1,3 +1,5 @@
+#include "sensing_internal.h"
+
 #include <string.h>
 
 #include "esp_check.h"
@@ -5,7 +7,6 @@
 #include "esp_rom_sys.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "sensing_internal.h"
 
 #define I2C_SPEED_HZ 100000
 #define PROBE_TIMEOUT_MS 50

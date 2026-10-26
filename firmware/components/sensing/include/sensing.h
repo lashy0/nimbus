@@ -4,6 +4,7 @@
 
 #include "driver/i2c_master.h"
 #include "esp_err.h"
+
 #include "sensing_types.h"
 
 /** Called from the sensing task after publishing a snapshot; must not block. */

@@ -2,12 +2,13 @@
 
 #include <stdlib.h>
 
-#include "board_pins.h"
 #include "esp_adc/adc_cali_scheme.h"
 #include "esp_adc/adc_oneshot.h"
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_rom_sys.h"
+
+#include "board_pins.h"
 
 #define BATTERY_UNIT ADC_UNIT_1
 #define BATTERY_CHANNEL ADC_CHANNEL_6 // GPIO34

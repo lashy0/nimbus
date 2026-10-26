@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "esp_check.h"
+
 #include "ui_animation.h"
 #include "ui_assets.h"
 

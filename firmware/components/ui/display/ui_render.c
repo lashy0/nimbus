@@ -9,7 +9,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
+
 #include "lvgl_private.h"
+
 #include "ui_fonts.h"
 #include "ui_view.h"
 

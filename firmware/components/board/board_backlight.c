@@ -1,11 +1,12 @@
 #include "board_backlight.h"
 
-#include "board_gpio.h"
-#include "board_pins.h"
 #include "driver/ledc.h"
 #include "esp_check.h"
 #include "esp_rom_gpio.h"
 #include "hal/ledc_periph.h"
+
+#include "board_gpio.h"
+#include "board_pins.h"
 
 #define BACKLIGHT_TIMER LEDC_TIMER_0
 #define BACKLIGHT_CHANNEL LEDC_CHANNEL_0

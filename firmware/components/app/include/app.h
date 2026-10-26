@@ -2,8 +2,9 @@
 
 #include <stdint.h>
 
-#include "app_events.h"
 #include "esp_err.h"
+
+#include "app_events.h"
 
 typedef struct {
     uint8_t brightness_percent; /**< Current backlight level set by ui_init(), 5..100%. */
