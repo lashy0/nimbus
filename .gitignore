@@ -1,9 +1,6 @@
 # Local caches and saved build artifacts
 .cache/
 
-# SF Pro Rounded is licensed by Apple and not redistributed; copy locally.
-artwork/fonts/*.otf
-
 # Local asset generator.
 tools/
 
