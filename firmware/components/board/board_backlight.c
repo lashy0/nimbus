@@ -5,7 +5,7 @@
 #include "driver/ledc.h"
 #include "esp_check.h"
 #include "esp_rom_gpio.h"
-#include "soc/ledc_periph.h"
+#include "hal/ledc_periph.h"
 
 #define BACKLIGHT_TIMER LEDC_TIMER_0
 #define BACKLIGHT_CHANNEL LEDC_CHANNEL_0
@@ -62,7 +62,7 @@ esp_err_t board_backlight_reclaim(void* ctx)
     // Only the route back is needed: ledc_channel_config() would reserve GPIO4 again
     // and warn about the reservation it made itself in board_backlight_init(). The
     // stopped channel idles LOW, and a duty update enables its output again.
-    const uint32_t signal = ledc_periph_signal[BACKLIGHT_MODE].sig_out0_idx + BACKLIGHT_CHANNEL;
+    const uint32_t signal = ledc_periph_signal[0].speed_mode[BACKLIGHT_MODE].sig_out_idx[BACKLIGHT_CHANNEL];
     esp_rom_gpio_connect_out_signal(BOARD_PIN_BACKLIGHT, signal, false, false);
 
     return board_backlight_set(ctx, 0);

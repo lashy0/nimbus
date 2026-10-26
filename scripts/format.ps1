@@ -1,13 +1,16 @@
 # Formats project C sources with .clang-format: .\scripts\format.ps1 [-Check]
-param([switch]$Check)
+param(
+    [switch]$Check,
+    [string]$IdfConfigPath
+)
 $ErrorActionPreference = 'Stop'
 
-if (-not $env:IDF_TOOLS_PATH) {
-    throw 'IDF_TOOLS_PATH must point to the ESP-IDF tools installation.'
-}
-$clangFormat = Get-ChildItem (Join-Path $env:IDF_TOOLS_PATH 'tools\esp-clang') -Recurse -Filter 'clang-format.exe' |
-    Select-Object -First 1 -ExpandProperty FullName
-if (-not $clangFormat) {
+. (Join-Path $PSScriptRoot 'activate.ps1') -IdfConfigPath $IdfConfigPath
+
+$clangFormat = Get-Command clang-format.exe -CommandType Application -ErrorAction SilentlyContinue |
+    Select-Object -First 1 -ExpandProperty Source
+$clangRoot = Join-Path $env:IDF_TOOLS_PATH 'esp-clang'
+if (-not $clangFormat -or -not $clangFormat.StartsWith($clangRoot + '\', [StringComparison]::OrdinalIgnoreCase)) {
     throw 'clang-format.exe not found; install esp-clang with the ESP-IDF tools.'
 }
 

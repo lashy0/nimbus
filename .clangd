@@ -2,4 +2,10 @@
 CompileFlags:
   CompilationDatabase: firmware/build
   # GCC-only options from the ESP-IDF build that clang rejects.
-  Remove: [-mlongcalls, -fno-shrink-wrap, -fstrict-volatile-bitfields, -fno-tree-switch-conversion]
+  Remove:
+    - -mlongcalls
+    - -fno-shrink-wrap
+    - -fstrict-volatile-bitfields
+    - -fno-tree-switch-conversion
+    - -fzero-init-padding-bits=*
+    - -fno-malloc-dce
