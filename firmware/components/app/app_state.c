@@ -261,6 +261,10 @@ uint32_t app_state_button(app_state_t* state, const app_button_event_t* event)
 
     // A press at a deadline already belongs to what the deadline starts.
     uint32_t effects = app_state_tick(state, now_ms);
+    if (event->gesture != APP_GESTURE_PRESSED && !(state->held_buttons & bit)) {
+        return effects;
+    }
+
     state->activity_ms = now_ms;
 
     if (event->gesture == APP_GESTURE_PRESSED) {
@@ -486,6 +490,7 @@ uint32_t app_state_cancel_dialog(app_state_t* state)
 uint32_t app_state_input_lost(app_state_t* state)
 {
     state->held_buttons = 0;
+    state->wake_buttons = 0;
 
     return app_state_cancel_dialog(state);
 }

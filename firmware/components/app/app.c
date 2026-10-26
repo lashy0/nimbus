@@ -59,21 +59,35 @@ void app_notify_measurement(void)
     }
 }
 
+static uint32_t handle_input(void)
+{
+    app_button_event_t events[INPUT_QUEUE_LENGTH];
+    size_t count = 0;
+    while (count < INPUT_QUEUE_LENGTH && xQueueReceive(s_input, &events[count], 0) == pdTRUE) {
+        count++;
+    }
+
+    // Validate the whole batch before a gesture can confirm shutdown. Events
+    // arriving after this check belong to the next batch and notify the task.
+    if (atomic_exchange(&s_input_lost, false)) {
+        xQueueReset(s_input);
+        ESP_LOGE(TAG, "button queue overflowed; queued input discarded");
+
+        return app_state_input_lost(&s_state);
+    }
+
+    uint32_t effects = APP_EFFECT_NONE;
+    for (size_t i = 0; i < count; i++) {
+        effects |= app_state_button(&s_state, &events[i]);
+    }
+
+    return effects;
+}
+
 // Buttons act at their own timestamps; everything else at now.
 static uint32_t handle_notifications(uint32_t bits, int64_t now)
 {
-    uint32_t effects = APP_EFFECT_NONE;
-    if (bits & NOTIFY_INPUT) {
-        app_button_event_t event;
-        while (xQueueReceive(s_input, &event, 0) == pdTRUE) {
-            effects |= app_state_button(&s_state, &event);
-        }
-
-        if (atomic_exchange(&s_input_lost, false)) {
-            ESP_LOGE(TAG, "button queue overflowed; input lost");
-            effects |= app_state_input_lost(&s_state);
-        }
-    }
+    uint32_t effects = bits & NOTIFY_INPUT ? handle_input() : APP_EFFECT_NONE;
 
     // Notifications coalesce; only the latest snapshot matters.
     if (bits & NOTIFY_MEASUREMENT) {
