@@ -201,19 +201,36 @@ esp_err_t sensing_start(const sensing_config_t* config)
     ESP_RETURN_ON_FALSE(config != NULL && config->bus != NULL, ESP_ERR_INVALID_ARG, TAG, "config");
     ESP_RETURN_ON_FALSE(s_task == NULL, ESP_ERR_INVALID_STATE, TAG, "already started");
 
-    s_config = *config;
     s_lock = xSemaphoreCreateMutex();
     ESP_RETURN_ON_FALSE(s_lock != NULL, ESP_ERR_NO_MEM, TAG, "lock");
-    s_stopped = xSemaphoreCreateBinary();
-    ESP_RETURN_ON_FALSE(s_stopped != NULL, ESP_ERR_NO_MEM, TAG, "stop semaphore");
 
-    ESP_RETURN_ON_FALSE(
+    esp_err_t ret = ESP_OK;
+    s_stopped = xSemaphoreCreateBinary();
+    ESP_GOTO_ON_FALSE(s_stopped != NULL, ESP_ERR_NO_MEM, fail, TAG, "stop semaphore");
+
+    s_config = *config;
+    atomic_store(&s_stop_requested, false);
+    ESP_GOTO_ON_FALSE(
         xTaskCreate(sensing_task, "sensing", TASK_STACK_BYTES, NULL, TASK_PRIORITY, &s_task) == pdPASS,
         ESP_ERR_NO_MEM,
+        fail,
         TAG,
         "task");
 
     return ESP_OK;
+
+fail:
+    s_task = NULL;
+    if (s_stopped != NULL) {
+        vSemaphoreDelete(s_stopped);
+        s_stopped = NULL;
+    }
+
+    vSemaphoreDelete(s_lock);
+    s_lock = NULL;
+    s_config = (sensing_config_t){0};
+
+    return ret;
 }
 
 esp_err_t sensing_stop(uint32_t timeout_ms)

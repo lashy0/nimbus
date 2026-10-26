@@ -39,17 +39,44 @@ esp_err_t board_battery_init(void)
         .atten = BATTERY_ATTEN,
         .bitwidth = ADC_BITWIDTH_12,
     };
-    ESP_RETURN_ON_ERROR(adc_cali_create_scheme_line_fitting(&calibration_config, &s_calibration), TAG, "calibration");
+    adc_cali_handle_t calibration = NULL;
+    adc_oneshot_unit_handle_t unit = NULL;
+    esp_err_t ret = ESP_OK;
+
+    ESP_GOTO_ON_ERROR(adc_cali_create_scheme_line_fitting(&calibration_config, &calibration), fail, TAG, "calibration");
 
     const adc_oneshot_unit_init_cfg_t unit_config = {.unit_id = BATTERY_UNIT};
-    ESP_RETURN_ON_ERROR(adc_oneshot_new_unit(&unit_config, &s_unit), TAG, "ADC1");
+    ESP_GOTO_ON_ERROR(adc_oneshot_new_unit(&unit_config, &unit), fail, TAG, "ADC1");
 
     const adc_oneshot_chan_cfg_t channel_config = {
         .atten = BATTERY_ATTEN,
         .bitwidth = ADC_BITWIDTH_12,
     };
 
-    return adc_oneshot_config_channel(s_unit, BATTERY_CHANNEL, &channel_config);
+    ESP_GOTO_ON_ERROR(adc_oneshot_config_channel(unit, BATTERY_CHANNEL, &channel_config), fail, TAG, "channel");
+
+    // Readers see a unit only after its channel and calibration are both ready.
+    s_calibration = calibration;
+    s_unit = unit;
+
+    return ESP_OK;
+
+fail:
+    if (unit != NULL) {
+        const esp_err_t err = adc_oneshot_del_unit(unit);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "ADC cleanup failed: %s", esp_err_to_name(err));
+        }
+    }
+
+    if (calibration != NULL) {
+        const esp_err_t err = adc_cali_delete_scheme_line_fitting(calibration);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "calibration cleanup failed: %s", esp_err_to_name(err));
+        }
+    }
+
+    return ret;
 }
 
 static int compare_int(const void* a, const void* b)

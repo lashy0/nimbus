@@ -316,11 +316,15 @@ esp_err_t app_start(const app_config_t* config)
     s_input = xQueueCreate(INPUT_QUEUE_LENGTH, sizeof(app_button_event_t));
     ESP_RETURN_ON_FALSE(s_input != NULL, ESP_ERR_NO_MEM, TAG, "input queue");
 
-    ESP_RETURN_ON_FALSE(
-        xTaskCreate(app_task, "app", TASK_STACK_BYTES, NULL, TASK_PRIORITY, &s_task) == pdPASS,
-        ESP_ERR_NO_MEM,
-        TAG,
-        "task");
+    atomic_store(&s_input_lost, false);
+    if (xTaskCreate(app_task, "app", TASK_STACK_BYTES, NULL, TASK_PRIORITY, &s_task) != pdPASS) {
+        s_task = NULL;
+        vQueueDelete(s_input);
+        s_input = NULL;
+        ESP_LOGE(TAG, "task creation failed");
+
+        return ESP_ERR_NO_MEM;
+    }
 
     return ESP_OK;
 }
