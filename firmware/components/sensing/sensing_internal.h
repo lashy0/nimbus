@@ -7,18 +7,12 @@
 #include "bsec_interface_multi.h"
 #include "driver/i2c_master.h"
 #include "esp_err.h"
+#include "sensing_policy.h"
 #include "sensing_types.h"
 #include "storage.h"
 
 #define SENSING_PROFILE_LP 0            // storage_bsec_key_t.profile of the 3 s configuration.
 #define SENSING_RESULT_TIMEOUT_MS 10000 // LP results arrive about every 3 s.
-
-// BSEC progress stays private; consumers receive the resulting phase.
-typedef struct {
-    sensing_snapshot_t snapshot;
-    bool stabilized; // BSEC stabilization status reached 1.
-    bool run_in;     // BSEC run-in status reached 1.
-} sensing_outputs_t;
 
 typedef enum {
     SENSING_OUTPUT_IAQ = 1 << 0,
@@ -45,11 +39,7 @@ typedef struct {
 // What is in storage, so the save policy can skip repeated milestones and
 // unchanged states.
 typedef struct {
-    bool saved_calibrated; // A state with IAQ accuracy >= 1 is saved.
-    bool saved_high;       // A state with IAQ accuracy 3 is saved.
-    int64_t saved_ms;      // When storage last matched BSEC; INT64_MIN before that.
-    int64_t attempt_ms;    // Last automatic save attempt; INT64_MIN before the first.
-    bool record_unread;    // Storage could not be read at boot; its record may be good.
+    sensing_save_policy_t policy;
     uint8_t state[BSEC_MAX_STATE_BLOB_SIZE];
     size_t length; // 0 while nothing is saved.
 } sensing_checkpoint_t;

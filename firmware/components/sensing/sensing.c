@@ -18,10 +18,6 @@
 
 static const char* TAG = "sensing";
 
-static const uint32_t BACKOFF_MS[] = {1000, 2000, 5000, 10000, 30000};
-
-#define BACKOFF_COUNT (sizeof(BACKOFF_MS) / sizeof(BACKOFF_MS[0]))
-
 static sensing_config_t s_config;
 static TaskHandle_t s_task;
 static SemaphoreHandle_t s_lock;
@@ -46,16 +42,6 @@ static const char* phase_name(sensing_phase_t phase)
     static const char* const NAMES[] = {"initializing", "error", "warmup", "calibrating", "ready"};
 
     return NAMES[phase];
-}
-
-static sensing_phase_t phase_of(const sensing_outputs_t* outputs)
-{
-    const sensing_snapshot_t* snapshot = &outputs->snapshot;
-    if (!outputs->stabilized || !outputs->run_in || snapshot->iaq_accuracy == 0) {
-        return SENSING_PHASE_WARMUP;
-    }
-
-    return snapshot->iaq_accuracy == 1 ? SENSING_PHASE_CALIBRATING : SENSING_PHASE_READY;
 }
 
 static void publish(void)
@@ -199,10 +185,7 @@ static void sensing_task(void* arg)
         }
 
         if (err != ESP_OK) {
-            const uint32_t backoff_ms = BACKOFF_MS[failures];
-            if (failures < BACKOFF_COUNT - 1) {
-                failures++;
-            }
+            const uint32_t backoff_ms = sensing_policy_retry_delay(&failures);
 
             ESP_LOGE(TAG, "%s; retry in %lu ms", esp_err_to_name(err), backoff_ms);
             sensing_sensor_close(&s_sensor);
@@ -227,7 +210,7 @@ static void sensing_task(void* arg)
             s_measurement_count++;
             s_snapshot.phase = phase; // Keep the previous phase for transition logging.
             s_result_deadline_ms = s_batch_started_ms + SENSING_RESULT_TIMEOUT_MS;
-            set_phase(phase_of(&s_outputs));
+            set_phase(sensing_policy_phase(&s_outputs));
             log_outputs();
             publish();
             sensing_state_checkpoint(&s_bsec, &s_snapshot, &s_checkpoint, now_ms);
