@@ -1,20 +1,10 @@
 #include "app_state.h"
 
-#include <math.h>
 #include <string.h>
 
-#define IAQ_MAX 500
-#define TEMPERATURE_MIN_C -40 // BME680 operating range.
-#define TEMPERATURE_MAX_C 85
-#define HUMIDITY_MAX 100
+#include "app_internal.h"
 
-typedef enum {
-    SENSOR_WAITING, // No output since boot yet; the start screen stays.
-    SENSOR_FAULT,   // One error page replaces the measurement pages.
-    SENSOR_WORKING,
-} sensor_status_t;
-
-static bool is_main_screen(ui_screen_t screen)
+bool app_is_main_screen(ui_screen_t screen)
 {
     return screen == UI_SCREEN_IAQ || screen == UI_SCREEN_TEMP || screen == UI_SCREEN_HUM;
 }
@@ -26,17 +16,17 @@ static bool first_measurement_arrived(const sensing_snapshot_t* measurement)
 }
 
 // Working means fresh temperature and humidity; IAQ may still be calibrating.
-static sensor_status_t sensor_status(const app_state_t* state)
+app_sensor_status_t app_sensor_status(const app_state_t* state)
 {
     if (state->first_measurement_deadline_ms != APP_NO_DEADLINE) {
-        return SENSOR_WAITING;
+        return APP_SENSOR_WAITING;
     }
 
     const sensing_snapshot_t* measurement = &state->measurement;
     const bool running = measurement->phase == SENSING_PHASE_WARMUP ||
                          measurement->phase == SENSING_PHASE_CALIBRATING || measurement->phase == SENSING_PHASE_READY;
 
-    return running ? SENSOR_WORKING : SENSOR_FAULT;
+    return running ? APP_SENSOR_WORKING : APP_SENSOR_FAULT;
 }
 
 // NEXT walks IAQ -> TEMP -> HUM -> IAQ, PREV the other way.
@@ -72,7 +62,7 @@ static uint32_t open_shutdown_question(app_state_t* state, int64_t now_ms)
     return APP_EFFECT_MODEL;
 }
 
-static uint32_t save_settings(app_state_t* state)
+uint32_t app_save_settings(app_state_t* state)
 {
     if (state->settings_deadline_ms == APP_NO_DEADLINE) {
         return APP_EFFECT_NONE;
@@ -84,13 +74,13 @@ static uint32_t save_settings(app_state_t* state)
 }
 
 // The pending settings are saved first; input stays ignored from here on.
-static uint32_t begin_shutdown(app_state_t* state, app_shutdown_reason_t reason)
+uint32_t app_begin_shutdown(app_state_t* state, app_shutdown_reason_t reason)
 {
     state->mode = APP_MODE_SHUTTING_DOWN;
     state->shutdown_reason = reason;
     state->dialog_deadline_ms = APP_NO_DEADLINE;
 
-    return save_settings(state) | APP_EFFECT_SHUTDOWN;
+    return app_save_settings(state) | APP_EFFECT_SHUTDOWN;
 }
 
 static uint32_t change_brightness(app_state_t* state, int delta, int64_t now_ms)
@@ -112,39 +102,6 @@ static uint32_t change_brightness(app_state_t* state, int delta, int64_t now_ms)
     return APP_EFFECT_MODEL | APP_EFFECT_DISPLAY;
 }
 
-// A request that failed before is sent again even when it is the same.
-static uint32_t request_display(app_state_t* state, ui_display_state_t display)
-{
-    if (state->display == display && state->display_failures == 0) {
-        return APP_EFFECT_NONE;
-    }
-
-    state->display = display;
-    state->display_failures = 0;
-    state->display_retry_ms = APP_NO_DEADLINE;
-
-    return APP_EFFECT_DISPLAY;
-}
-
-// Monitoring starts with the main screen: open dialogs close and a pending
-// brightness is saved, so a wake shows the page the user left.
-static uint32_t turn_display_off(app_state_t* state)
-{
-    state->screen = state->main_screen;
-    state->dialog_deadline_ms = APP_NO_DEADLINE;
-    state->notice_deadline_ms = APP_NO_DEADLINE;
-
-    return APP_EFFECT_MODEL | save_settings(state) | request_display(state, UI_DISPLAY_OFF);
-}
-
-// The battery reading may be a minute old after monitoring.
-static uint32_t wake(app_state_t* state)
-{
-    state->mode = APP_MODE_ACTIVE;
-
-    return request_display(state, UI_DISPLAY_ON) | APP_EFFECT_MODEL | APP_EFFECT_POLL_POWER;
-}
-
 static uint32_t on_short(app_state_t* state, app_button_t button, int64_t now_ms)
 {
     switch (state->screen) {
@@ -152,7 +109,7 @@ static uint32_t on_short(app_state_t* state, app_button_t button, int64_t now_ms
         case UI_SCREEN_TEMP:
         case UI_SCREEN_HUM:
             // The start screen and the error page stand for all three pages.
-            if (sensor_status(state) != SENSOR_WORKING) {
+            if (app_sensor_status(state) != APP_SENSOR_WORKING) {
                 return APP_EFFECT_NONE;
             }
 
@@ -168,7 +125,7 @@ static uint32_t on_short(app_state_t* state, app_button_t button, int64_t now_ms
         case UI_SCREEN_SHUTDOWN:
             // A press on the highlighted answer chooses it; otherwise it moves the highlight.
             if (button == APP_BUTTON_PREV && state->shutdown_yes_selected) {
-                return close_dialog(state) | begin_shutdown(state, APP_SHUTDOWN_USER);
+                return close_dialog(state) | app_begin_shutdown(state, APP_SHUTDOWN_USER);
             }
 
             if (button == APP_BUTTON_NEXT && !state->shutdown_yes_selected) {
@@ -189,7 +146,7 @@ static uint32_t on_short(app_state_t* state, app_button_t button, int64_t now_ms
 
 static uint32_t on_long(app_state_t* state, app_button_t button, int64_t now_ms)
 {
-    if (is_main_screen(state->screen)) {
+    if (app_is_main_screen(state->screen)) {
         if (button == APP_BUTTON_PREV) {
             return open_shutdown_question(state, now_ms);
         }
@@ -203,7 +160,7 @@ static uint32_t on_long(app_state_t* state, app_button_t button, int64_t now_ms)
     if (state->screen == UI_SCREEN_BRIGHTNESS && button == APP_BUTTON_NEXT) {
         state->screen = state->main_screen;
 
-        return APP_EFFECT_MODEL | save_settings(state);
+        return APP_EFFECT_MODEL | app_save_settings(state);
     }
 
     return APP_EFFECT_NONE;
@@ -254,45 +211,13 @@ uint32_t app_state_button(app_state_t* state, const app_button_event_t* event)
     }
 
     const int64_t now_ms = event->timestamp_ms;
-    const uint8_t bit = 1u << event->button;
 
     // A press at a deadline already belongs to what the deadline starts.
     uint32_t effects = app_state_tick(state, now_ms);
-    if (event->gesture != APP_GESTURE_PRESSED && !(state->held_buttons & bit)) {
+    bool consumed;
+    effects |= app_display_button(state, event, &consumed);
+    if (consumed) {
         return effects;
-    }
-
-    state->activity_ms = now_ms;
-
-    if (event->gesture == APP_GESTURE_PRESSED) {
-        state->held_buttons |= bit;
-
-        // The press that wakes a dark display does nothing else until its release.
-        if (state->display == UI_DISPLAY_OFF) {
-            state->wake_buttons |= bit;
-
-            return effects | wake(state);
-        }
-
-        return effects | request_display(state, UI_DISPLAY_ON);
-    }
-
-    if (event->gesture == APP_GESTURE_RELEASED) {
-        state->held_buttons &= ~bit;
-        state->wake_buttons &= ~bit;
-
-        return effects;
-    }
-
-    if ((state->wake_buttons & bit) || state->display == UI_DISPLAY_OFF) {
-        return effects;
-    }
-
-    // A gesture over the USB notice only closes it: the page under it is hidden.
-    if (state->notice_deadline_ms != APP_NO_DEADLINE) {
-        state->notice_deadline_ms = APP_NO_DEADLINE;
-
-        return effects | APP_EFFECT_MODEL;
     }
 
     if (event->gesture == APP_GESTURE_SHORT) {
@@ -302,27 +227,20 @@ uint32_t app_state_button(app_state_t* state, const app_button_event_t* event)
     return effects | on_long(state, event->button, now_ms);
 }
 
-uint32_t app_state_measurement(app_state_t* state, const sensing_snapshot_t* measurement, int64_t now_ms)
+uint32_t app_state_measurement(app_state_t* state, const sensing_snapshot_t* measurement)
 {
     state->measurement = *measurement;
+
     if (first_measurement_arrived(measurement)) {
         state->first_measurement_deadline_ms = APP_NO_DEADLINE;
     }
 
-    // Reading the battery now saves a wake-up of its own a few seconds later.
-    uint32_t effects = APP_EFFECT_MODEL;
-    if (state->mode == APP_MODE_MONITORING && now_ms - state->power_polled_ms >= APP_POWER_POLL_EARLY_MS) {
-        effects |= APP_EFFECT_POLL_POWER;
-    }
-
-    return effects;
+    return APP_EFFECT_MODEL;
 }
 
 uint32_t app_state_power(app_state_t* state, const power_status_t* power, int64_t now_ms)
 {
-    const bool monitoring = state->mode == APP_MODE_MONITORING;
-    state->power_polled_ms = now_ms;
-    state->power_deadline_ms = now_ms + (monitoring ? APP_POWER_POLL_MONITORING_MS : APP_POWER_POLL_MS);
+    state->power_deadline_ms = now_ms + APP_POWER_POLL_MS;
     if (state->mode == APP_MODE_SHUTTING_DOWN) {
         return APP_EFFECT_NONE;
     }
@@ -330,48 +248,86 @@ uint32_t app_state_power(app_state_t* state, const power_status_t* power, int64_
     const power_status_t* shown = &state->power;
     const bool changed = power->source != shown->source || power->percent_valid != shown->percent_valid ||
                          power->percent != shown->percent;
+    uint32_t effects = changed ? APP_EFFECT_MODEL : APP_EFFECT_NONE;
 
-    // Only a plug-in is announced, not USB found at boot, and only on a lit display;
-    // the shutdown question stays in front of it.
-    if (shown->source == POWER_SOURCE_BATTERY && power->source == POWER_SOURCE_EXTERNAL &&
-        state->mode == APP_MODE_ACTIVE && state->display != UI_DISPLAY_OFF && state->screen != UI_SCREEN_SHUTDOWN) {
-        state->notice_deadline_ms = now_ms + APP_USB_NOTICE_MS;
-    } else if (power->source != POWER_SOURCE_EXTERNAL) {
-        state->notice_deadline_ms = APP_NO_DEADLINE;
-    }
-
+    effects |= app_display_power(state, power, now_ms);
     state->power = *power;
 
-    uint32_t effects = changed ? APP_EFFECT_MODEL : APP_EFFECT_NONE;
     if (power->critical) {
-        effects |= app_state_cancel_dialog(state) | begin_shutdown(state, APP_SHUTDOWN_CRITICAL);
+        effects |= app_state_cancel_dialog(state) | app_begin_shutdown(state, APP_SHUTDOWN_CRITICAL);
     }
 
     return effects;
 }
 
-// Idle time counts only in ACTIVE with every button released.
-static bool idle_counts(const app_state_t* state)
-{
-    return state->mode == APP_MODE_ACTIVE && state->held_buttons == 0;
-}
+// The order also defines timeout handling when several deadlines coincide.
+typedef enum {
+    APP_TIMER_POWER,
+    APP_TIMER_FIRST_MEASUREMENT,
+    APP_TIMER_DIALOG,
+    APP_TIMER_SETTINGS,
+    APP_TIMER_USB_NOTICE,
+    APP_TIMER_DIM,
+    APP_TIMER_OFF,
+    APP_TIMER_DISPLAY_RETRY,
+    APP_TIMER_COUNT,
+} app_timer_t;
 
-static int64_t dim_deadline(const app_state_t* state)
+// Both timeout handling and task scheduling use the same enabled deadlines.
+static int64_t timer_deadline(const app_state_t* state, app_timer_t timer)
 {
-    if (!idle_counts(state) || state->display != UI_DISPLAY_ON) {
-        return APP_NO_DEADLINE;
+    switch (timer) {
+        case APP_TIMER_POWER:
+            return state->power_deadline_ms;
+        case APP_TIMER_FIRST_MEASUREMENT:
+            return state->first_measurement_deadline_ms;
+        case APP_TIMER_DIALOG:
+            return state->screen == UI_SCREEN_SHUTDOWN ? state->dialog_deadline_ms : APP_NO_DEADLINE;
+        case APP_TIMER_SETTINGS:
+            return state->settings_deadline_ms;
+        case APP_TIMER_USB_NOTICE:
+            return state->notice_deadline_ms;
+        case APP_TIMER_DIM:
+            return app_display_idle_deadline(state, UI_DISPLAY_DIM);
+        case APP_TIMER_OFF:
+            return app_display_idle_deadline(state, UI_DISPLAY_OFF);
+        case APP_TIMER_DISPLAY_RETRY:
+            return state->display_retry_ms;
+        case APP_TIMER_COUNT:
+            break;
     }
 
-    return state->activity_ms + APP_DIM_AFTER_MS;
+    return APP_NO_DEADLINE;
 }
 
-static int64_t off_deadline(const app_state_t* state)
+static uint32_t timer_expired(app_state_t* state, app_timer_t timer)
 {
-    if (!idle_counts(state) || state->display == UI_DISPLAY_OFF) {
-        return APP_NO_DEADLINE;
+    switch (timer) {
+        case APP_TIMER_POWER:
+            return APP_EFFECT_POLL_POWER;
+        case APP_TIMER_FIRST_MEASUREMENT:
+            state->first_measurement_deadline_ms = APP_NO_DEADLINE;
+
+            return APP_EFFECT_MODEL;
+        case APP_TIMER_DIALOG:
+            return close_dialog(state);
+        case APP_TIMER_SETTINGS:
+            return app_save_settings(state);
+        case APP_TIMER_USB_NOTICE:
+            return app_display_close_usb_notice(state);
+        case APP_TIMER_DIM:
+            return app_display_request(state, UI_DISPLAY_DIM);
+        case APP_TIMER_OFF:
+            return app_display_off(state);
+        case APP_TIMER_DISPLAY_RETRY:
+            state->display_retry_ms = APP_NO_DEADLINE;
+
+            return APP_EFFECT_DISPLAY;
+        case APP_TIMER_COUNT:
+            break;
     }
 
-    return state->activity_ms + APP_OFF_AFTER_MS;
+    return APP_EFFECT_NONE;
 }
 
 uint32_t app_state_tick(app_state_t* state, int64_t now_ms)
@@ -380,83 +336,15 @@ uint32_t app_state_tick(app_state_t* state, int64_t now_ms)
         return APP_EFFECT_NONE;
     }
 
-    uint32_t effects = now_ms >= state->power_deadline_ms ? APP_EFFECT_POLL_POWER : APP_EFFECT_NONE;
-    if (now_ms >= state->first_measurement_deadline_ms) {
-        state->first_measurement_deadline_ms = APP_NO_DEADLINE;
-        effects |= APP_EFFECT_MODEL;
-    }
-
-    if (state->screen == UI_SCREEN_SHUTDOWN && now_ms >= state->dialog_deadline_ms) {
-        effects |= close_dialog(state);
-    }
-
-    if (now_ms >= state->settings_deadline_ms) {
-        effects |= save_settings(state);
-    }
-
-    if (now_ms >= state->notice_deadline_ms) {
-        state->notice_deadline_ms = APP_NO_DEADLINE;
-        effects |= APP_EFFECT_MODEL;
-    }
-
-    if (now_ms >= dim_deadline(state)) {
-        effects |= request_display(state, UI_DISPLAY_DIM);
-    }
-
-    if (now_ms >= off_deadline(state)) {
-        effects |= turn_display_off(state);
-    }
-
-    if (now_ms >= state->display_retry_ms) {
-        state->display_retry_ms = APP_NO_DEADLINE;
-        effects |= APP_EFFECT_DISPLAY;
+    uint32_t effects = APP_EFFECT_NONE;
+    for (app_timer_t timer = 0; timer < APP_TIMER_COUNT; timer++) {
+        // Earlier timeouts can cancel or replace later deadlines in this pass.
+        if (now_ms >= timer_deadline(state, timer)) {
+            effects |= timer_expired(state, timer);
+        }
     }
 
     return effects;
-}
-
-uint8_t app_state_backlight(const app_state_t* state)
-{
-    switch (state->display) {
-        case UI_DISPLAY_ON:
-            return state->brightness_percent;
-        case UI_DISPLAY_DIM:
-            return state->brightness_percent < APP_DIM_BRIGHTNESS_MAX ? state->brightness_percent
-                                                                      : APP_DIM_BRIGHTNESS_MAX;
-        case UI_DISPLAY_OFF:
-            break;
-    }
-
-    return 0;
-}
-
-uint32_t app_state_display_result(app_state_t* state, bool reached, int64_t now_ms)
-{
-    if (reached) {
-        state->display_failures = 0;
-        state->display_retry_ms = APP_NO_DEADLINE;
-        if (state->display == UI_DISPLAY_OFF && state->mode == APP_MODE_ACTIVE) {
-            state->mode = APP_MODE_MONITORING;
-        }
-
-        return APP_EFFECT_NONE;
-    }
-
-    state->display_failures++;
-    if (state->display_failures <= APP_DISPLAY_RETRIES) {
-        state->display_retry_ms = now_ms + APP_DISPLAY_RETRY_MS;
-
-        return APP_EFFECT_NONE;
-    }
-
-    // A display that cannot go dark keeps the chip out of light sleep for good;
-    // a failed ON waits for the next button event instead.
-    state->display_retry_ms = APP_NO_DEADLINE;
-    if (state->display == UI_DISPLAY_OFF && state->mode == APP_MODE_ACTIVE) {
-        return begin_shutdown(state, APP_SHUTDOWN_FAULT);
-    }
-
-    return APP_EFFECT_NONE;
 }
 
 uint32_t app_state_cancel_dialog(app_state_t* state)
@@ -483,91 +371,12 @@ int64_t app_state_next_deadline(const app_state_t* state)
     }
 
     int64_t deadline = APP_NO_DEADLINE;
-    if (dim_deadline(state) < deadline) {
-        deadline = dim_deadline(state);
-    }
-
-    if (off_deadline(state) < deadline) {
-        deadline = off_deadline(state);
-    }
-
-    if (state->display_retry_ms < deadline) {
-        deadline = state->display_retry_ms;
-    }
-
-    if (state->power_deadline_ms < deadline) {
-        deadline = state->power_deadline_ms;
-    }
-
-    if (state->settings_deadline_ms < deadline) {
-        deadline = state->settings_deadline_ms;
-    }
-
-    if (state->notice_deadline_ms < deadline) {
-        deadline = state->notice_deadline_ms;
-    }
-
-    if (state->first_measurement_deadline_ms < deadline) {
-        deadline = state->first_measurement_deadline_ms;
-    }
-
-    if (state->screen == UI_SCREEN_SHUTDOWN && state->dialog_deadline_ms < deadline) {
-        deadline = state->dialog_deadline_ms;
+    for (app_timer_t timer = 0; timer < APP_TIMER_COUNT; timer++) {
+        const int64_t candidate = timer_deadline(state, timer);
+        if (candidate < deadline) {
+            deadline = candidate;
+        }
     }
 
     return deadline;
-}
-
-static long round_clamped(float value, long min, long max)
-{
-    const long rounded = lroundf(value);
-    if (rounded < min) {
-        return min;
-    }
-
-    return rounded > max ? max : rounded;
-}
-
-static ui_screen_t shown_screen(const app_state_t* state)
-{
-    if (!is_main_screen(state->screen)) {
-        return state->screen;
-    }
-
-    switch (sensor_status(state)) {
-        case SENSOR_WAITING:
-            return UI_SCREEN_START;
-        case SENSOR_FAULT:
-            return UI_SCREEN_SENSOR_ERROR;
-        case SENSOR_WORKING:
-            break;
-    }
-
-    return state->screen;
-}
-
-void app_state_model(const app_state_t* state, ui_model_t* model)
-{
-    const sensing_snapshot_t* measurement = &state->measurement;
-    memset(model, 0, sizeof(*model));
-
-    model->screen = shown_screen(state);
-    model->usb_notice = state->notice_deadline_ms != APP_NO_DEADLINE;
-    model->external_power = state->power.source == POWER_SOURCE_EXTERNAL;
-    model->battery_valid = state->power.percent_valid;
-    model->battery_percent = state->power.percent;
-    model->brightness_percent = state->brightness_percent;
-    model->shutdown_yes_selected = state->shutdown_yes_selected;
-
-    if (sensor_status(state) != SENSOR_WORKING) {
-        return;
-    }
-
-    model->iaq_calibrating = measurement->phase == SENSING_PHASE_WARMUP;
-    if (!model->iaq_calibrating) {
-        model->iaq = (uint16_t)round_clamped(measurement->iaq, 0, IAQ_MAX);
-    }
-
-    model->temperature_c = (int16_t)round_clamped(measurement->temperature_c, TEMPERATURE_MIN_C, TEMPERATURE_MAX_C);
-    model->humidity_percent = (uint8_t)round_clamped(measurement->humidity_percent, 0, HUMIDITY_MAX);
 }

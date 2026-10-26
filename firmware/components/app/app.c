@@ -93,7 +93,7 @@ static uint32_t handle_notifications(uint32_t bits, int64_t now)
     if (bits & NOTIFY_MEASUREMENT) {
         sensing_snapshot_t measurement;
         sensing_get_snapshot(&measurement);
-        effects |= app_state_measurement(&s_state, &measurement, now);
+        effects |= app_state_measurement(&s_state, &measurement);
     }
 
     return effects | app_state_tick(&s_state, now);
