@@ -4,3 +4,9 @@
 [submodule "firmware/third_party/bme68x"]
 	path = firmware/third_party/bme68x
 	url = https://github.com/boschsensortec/BME68x_SensorAPI.git
+[submodule "simulator/lvgl"]
+	path = simulator/lvgl
+	url = https://github.com/lvgl/lvgl.git
+[submodule "simulator/FreeRTOS"]
+	path = simulator/FreeRTOS
+	url = https://github.com/FreeRTOS/FreeRTOS-Kernel.git

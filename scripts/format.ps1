@@ -15,8 +15,10 @@ if (-not $clangFormat -or -not $clangFormat.StartsWith($clangRoot + '\', [String
 }
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$sources = Get-ChildItem -Path (Join-Path $projectRoot 'firmware\main'), (Join-Path $projectRoot 'firmware\components') `
-    -Recurse -Include '*.c', '*.h' | Select-Object -ExpandProperty FullName
+$sources = Get-ChildItem -Path (Join-Path $projectRoot 'firmware\main'), (Join-Path $projectRoot 'firmware\components'), (Join-Path $projectRoot 'simulator\main\src'), (Join-Path $projectRoot 'simulator\config') `
+    -Recurse -Include '*.c', '*.h', '*.cpp' |
+    Where-Object { $_.Name -ne 'mouse_cursor_icon.c' } |
+    Select-Object -ExpandProperty FullName
 if ($Check) {
     & $clangFormat --dry-run --Werror $sources
 } else {
