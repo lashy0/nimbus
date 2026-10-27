@@ -295,7 +295,7 @@ lv_result_t ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts)
 
     lv_image_set_src(s_widgets[UI_W_LIGHTNING], UI_IMAGE_LIGHTNING);
     lv_obj_set_pos(s_widgets[UI_W_LIGHTNING], 38, 70);
-    ui_lightning_init(s_widgets[UI_W_LIGHTNING]);
+    ui_pulse_init();
 
     for (size_t i = 0; i < UI_W_COUNT; i++) {
         lv_obj_add_flag(s_widgets[i], LV_OBJ_FLAG_HIDDEN);
@@ -400,7 +400,7 @@ uint32_t ui_show_face_image(const char* open_src, const char* closed_src, int32_
     return UI_SHOW(UI_W_FACE);
 }
 
-void ui_widgets_set_visible(uint32_t visible)
+void ui_widgets_set_visible(uint32_t visible, bool starting)
 {
     // Hidden images must not keep reading frames from flash.
     if ((visible & UI_SHOW(UI_W_FACE)) == 0) {
@@ -411,7 +411,14 @@ void ui_widgets_set_visible(uint32_t visible)
         ui_charge_set(NULL, 0);
     }
 
-    ui_lightning_set((visible & UI_SHOW(UI_W_LIGHTNING)) != 0);
+    lv_obj_t* pulse = NULL;
+    if ((visible & UI_SHOW(UI_W_LIGHTNING)) != 0) {
+        pulse = s_widgets[UI_W_LIGHTNING];
+    } else if (starting && (visible & UI_SHOW(UI_W_FACE)) != 0) {
+        pulse = s_widgets[UI_W_FACE];
+    }
+
+    ui_pulse_set(pulse);
 
     for (size_t i = 0; i < UI_W_COUNT; i++) {
         set_visible(s_widgets[i], (visible & UI_SHOW(i)) != 0);

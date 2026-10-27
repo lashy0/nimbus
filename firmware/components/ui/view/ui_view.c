@@ -52,7 +52,7 @@ void ui_view_deinit(void)
 {
     ui_blink_deinit();
     ui_charge_deinit();
-    ui_lightning_deinit();
+    ui_pulse_deinit();
     s_fonts = NULL;
 }
 
@@ -219,5 +219,5 @@ void ui_view_apply(const ui_model_t* model)
         visible = ui_show_lightning();
     }
 
-    ui_widgets_set_visible(visible);
+    ui_widgets_set_visible(visible, model->screen == UI_SCREEN_START);
 }

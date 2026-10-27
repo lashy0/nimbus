@@ -54,5 +54,6 @@ uint32_t ui_show_face_image(const char* open_src, const char* closed_src, int32_
 
 /**
  * Shows the selected widgets under exclusive LVGL access and pauses hidden animations.
+ * Pulses the visible USB lightning, otherwise the visible face when starting is true.
  */
-void ui_widgets_set_visible(uint32_t visible);
+void ui_widgets_set_visible(uint32_t visible, bool starting);

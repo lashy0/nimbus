@@ -8,7 +8,7 @@ idf_component_register(
         "view/ui_charge.c"
         "view/ui_faces.c"
         "view/ui_fonts.c"
-        "view/ui_lightning.c"
+        "view/ui_pulse.c"
         "view/ui_view.c"
         "view/ui_widgets.c"
     INCLUDE_DIRS "include"
