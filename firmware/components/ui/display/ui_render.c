@@ -1,5 +1,7 @@
 #include "ui_render.h"
 
+#include <stdatomic.h>
+
 #include "esp_check.h"
 #include "esp_heap_caps.h"
 #include "esp_lcd_panel_io.h"
@@ -10,8 +12,6 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 
-#include "lvgl_private.h"
-
 #include "ui_fonts.h"
 #include "ui_view.h"
 
@@ -19,6 +19,8 @@
 #define APPLY_LOCK_TIMEOUT_MS 100
 #define FRAME_TIMEOUT_MS 1000
 #define LAST_FLUSH_TIMEOUT_US (100 * 1000) // One draw buffer takes about 1 ms at 40 MHz.
+
+_Static_assert(ATOMIC_BOOL_LOCK_FREE == 2, "SPI completion tracking requires lock-free atomics");
 
 static const char* TAG = "ui_render";
 
@@ -30,6 +32,7 @@ static SemaphoreHandle_t s_frame_done; // Given by the rendering task after a re
 static bool s_frame_requested;         // Under the renderer lock.
 static bool s_quiesced;                // Lock held by s_quiesce_owner; tick and timers stopped.
 static TaskHandle_t s_quiesce_owner;
+static atomic_bool s_flushing;
 
 bool ui_render_owned_by_caller(void)
 {
@@ -49,22 +52,30 @@ static void log_memory(const char* stage)
         heap_caps_get_largest_free_block(MALLOC_CAP_DMA));
 }
 
-// LVGL 9 has no public getter for a flush in progress; the flag is in its
-// private display struct.
-static bool flush_pending(void)
+// LVGL emits this before calling the port's flush callback, under its lock.
+static void on_flush_start(lv_event_t* event)
 {
-    return s_disp->flushing != 0;
+    atomic_store_explicit(&s_flushing, true, memory_order_release);
 }
 
-// A refresh ends while the last SPI transfer may still be in flight; the port
-// clears the flag from the transfer-done interrupt, which takes no lock, so the
-// wait also works while this task keeps the display quiesced.
+// Extends the port's completion callback with our own transfer state. SPI calls
+// this from its ISR only after the last chunk of a color transfer has completed.
+static bool on_color_trans_done(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t* event, void* context)
+{
+    lv_display_flush_ready(context);
+    atomic_store_explicit(&s_flushing, false, memory_order_release);
+
+    return false;
+}
+
+// A refresh can end before its last SPI transfer. The completion ISR clears our
+// flag without taking the LVGL lock, including while the renderer is quiesced.
 static esp_err_t wait_flush_done(int64_t timeout_us)
 {
     const int64_t deadline = esp_timer_get_time() + timeout_us;
     while (esp_timer_get_time() < deadline) {
         ESP_RETURN_ON_FALSE(lvgl_port_lock(LOCK_TIMEOUT_MS), ESP_ERR_TIMEOUT, TAG, "LVGL lock");
-        const bool pending = flush_pending();
+        const bool pending = atomic_load_explicit(&s_flushing, memory_order_acquire);
         lvgl_port_unlock();
 
         if (!pending) {
@@ -150,16 +161,33 @@ esp_err_t ui_render_init(const ui_config_t* config)
                 .swap_bytes = true, // The ST7789 takes RGB565 big-endian over SPI.
             },
     };
+    // Keep the task out until both callbacks are attached. add_disp() takes the
+    // same recursive lock internally, so no untracked transfer can start here.
+    ESP_RETURN_ON_FALSE(lvgl_port_lock(LOCK_TIMEOUT_MS), ESP_ERR_TIMEOUT, TAG, "LVGL lock");
     s_disp = lvgl_port_add_disp(&display_config);
-    ESP_RETURN_ON_FALSE(s_disp != NULL, ESP_ERR_NO_MEM, TAG, "LVGL display");
+    if (s_disp == NULL) {
+        lvgl_port_unlock();
+
+        return ESP_ERR_NO_MEM;
+    }
+
+    const esp_lcd_panel_io_callbacks_t callbacks = {.on_color_trans_done = on_color_trans_done};
+    esp_err_t err = esp_lcd_panel_io_register_event_callbacks(s_panel_io, &callbacks, s_disp);
+    if (err != ESP_OK) {
+        // Completion is no longer observable by us: retain resources on cleanup.
+        atomic_store_explicit(&s_flushing, true, memory_order_release);
+        lvgl_port_unlock();
+
+        return err;
+    }
+
+    lv_display_add_event_cb(s_disp, on_flush_start, LV_EVENT_FLUSH_START, NULL);
     log_memory("draw buffers");
 
     const ui_model_t start = {.screen = UI_SCREEN_START};
-    ESP_RETURN_ON_FALSE(lvgl_port_lock(LOCK_TIMEOUT_MS), ESP_ERR_TIMEOUT, TAG, "LVGL lock");
     lv_display_add_event_cb(s_disp, on_refresh_ready, LV_EVENT_REFR_READY, NULL);
     ui_fonts_load(&s_fonts);
-    const esp_err_t err =
-        ui_view_create(lv_display_get_screen_active(s_disp), &s_fonts) == LV_RESULT_OK ? ESP_OK : ESP_ERR_NO_MEM;
+    err = ui_view_create(lv_display_get_screen_active(s_disp), &s_fonts) == LV_RESULT_OK ? ESP_OK : ESP_ERR_NO_MEM;
     if (err == ESP_OK) {
         ui_view_apply(&start);
     }
