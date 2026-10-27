@@ -158,7 +158,8 @@ esp_err_t ui_render_init(const ui_config_t* config)
     ESP_RETURN_ON_FALSE(lvgl_port_lock(LOCK_TIMEOUT_MS), ESP_ERR_TIMEOUT, TAG, "LVGL lock");
     lv_display_add_event_cb(s_disp, on_refresh_ready, LV_EVENT_REFR_READY, NULL);
     ui_fonts_load(&s_fonts);
-    const esp_err_t err = ui_view_create(lv_display_get_screen_active(s_disp), &s_fonts);
+    const esp_err_t err =
+        ui_view_create(lv_display_get_screen_active(s_disp), &s_fonts) == LV_RESULT_OK ? ESP_OK : ESP_ERR_NO_MEM;
     if (err == ESP_OK) {
         ui_view_apply(&start);
     }

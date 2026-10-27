@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef UI_ASSET_ROOT
+#    define UI_ASSET_ROOT "S:/spiffs"
+#endif
+
 // Shared image paths live for the entire boot and are borrowed by widgets.
 extern const char UI_IMAGE_BATTERY_LOW[];
 extern const char UI_IMAGE_BATTERY_MID[];

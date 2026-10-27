@@ -2,8 +2,6 @@
 
 #include <string.h>
 
-#include "esp_check.h"
-
 #include "ui_animation.h"
 #include "ui_assets.h"
 
@@ -15,8 +13,6 @@
 #define DOT_COUNT 3
 #define DOT_SIZE 5
 #define DOT_STEP 15
-
-static const char* TAG = "ui_widgets";
 
 static lv_obj_t* s_widgets[UI_W_COUNT];
 static lv_obj_t* s_yes;
@@ -181,7 +177,7 @@ static lv_obj_t* create_dots(lv_obj_t* parent)
     return row;
 }
 
-esp_err_t ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts)
+lv_result_t ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts)
 {
     lv_obj_set_style_bg_color(screen, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(screen, LV_OPA_COVER, 0);
@@ -189,46 +185,114 @@ esp_err_t ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts)
     lv_obj_remove_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
 
     s_widgets[UI_W_BATTERY_TEXT] = create_label(screen, fonts->digits_10);
-    ESP_RETURN_ON_FALSE(s_widgets[UI_W_BATTERY_TEXT] != NULL, ESP_ERR_NO_MEM, TAG, "battery text");
+    if (s_widgets[UI_W_BATTERY_TEXT] == NULL) {
+        LV_LOG_ERROR("Could not create battery text");
+
+        return LV_RESULT_INVALID;
+    }
+
     lv_obj_set_pos(s_widgets[UI_W_BATTERY_TEXT], 41, 12);
     lv_obj_set_width(s_widgets[UI_W_BATTERY_TEXT], 30);
     lv_obj_set_style_text_align(s_widgets[UI_W_BATTERY_TEXT], LV_TEXT_ALIGN_RIGHT, 0);
     s_widgets[UI_W_BATTERY] = lv_image_create(screen);
-    ESP_RETURN_ON_FALSE(s_widgets[UI_W_BATTERY] != NULL, ESP_ERR_NO_MEM, TAG, "battery image");
+    if (s_widgets[UI_W_BATTERY] == NULL) {
+        LV_LOG_ERROR("Could not create battery image");
+
+        return LV_RESULT_INVALID;
+    }
+
     ui_charge_init(s_widgets[UI_W_BATTERY]);
 
     s_widgets[UI_W_TITLE] = create_label(screen, fonts->text_30);
-    ESP_RETURN_ON_FALSE(s_widgets[UI_W_TITLE] != NULL, ESP_ERR_NO_MEM, TAG, "title");
+    if (s_widgets[UI_W_TITLE] == NULL) {
+        LV_LOG_ERROR("Could not create title");
+
+        return LV_RESULT_INVALID;
+    }
+
     s_widgets[UI_W_PLATE] = lv_image_create(screen);
-    ESP_RETURN_ON_FALSE(s_widgets[UI_W_PLATE] != NULL, ESP_ERR_NO_MEM, TAG, "plate");
+    if (s_widgets[UI_W_PLATE] == NULL) {
+        LV_LOG_ERROR("Could not create plate");
+
+        return LV_RESULT_INVALID;
+    }
+
     s_widgets[UI_W_VALUE] = create_centered_label(screen, fonts->digits_60);
-    ESP_RETURN_ON_FALSE(s_widgets[UI_W_VALUE] != NULL, ESP_ERR_NO_MEM, TAG, "value");
+    if (s_widgets[UI_W_VALUE] == NULL) {
+        LV_LOG_ERROR("Could not create value");
+
+        return LV_RESULT_INVALID;
+    }
+
     lv_obj_set_pos(s_widgets[UI_W_VALUE], 0, 72);
 
     s_widgets[UI_W_FACE] = lv_image_create(screen);
-    ESP_RETURN_ON_FALSE(s_widgets[UI_W_FACE] != NULL, ESP_ERR_NO_MEM, TAG, "face");
+    if (s_widgets[UI_W_FACE] == NULL) {
+        LV_LOG_ERROR("Could not create face");
+
+        return LV_RESULT_INVALID;
+    }
+
     ui_blink_init(s_widgets[UI_W_FACE]);
 
     s_widgets[UI_W_CAPTION] = create_centered_label(screen, fonts->text_15);
-    ESP_RETURN_ON_FALSE(s_widgets[UI_W_CAPTION] != NULL, ESP_ERR_NO_MEM, TAG, "caption");
+    if (s_widgets[UI_W_CAPTION] == NULL) {
+        LV_LOG_ERROR("Could not create caption");
+
+        return LV_RESULT_INVALID;
+    }
+
     s_widgets[UI_W_SUN] = lv_image_create(screen);
-    ESP_RETURN_ON_FALSE(s_widgets[UI_W_SUN] != NULL, ESP_ERR_NO_MEM, TAG, "sun");
+    if (s_widgets[UI_W_SUN] == NULL) {
+        LV_LOG_ERROR("Could not create sun");
+
+        return LV_RESULT_INVALID;
+    }
+
     lv_image_set_src(s_widgets[UI_W_SUN], UI_IMAGE_SUN);
     lv_obj_set_pos(s_widgets[UI_W_SUN], 40, 60);
     s_widgets[UI_W_BAR] = create_bar(screen);
-    ESP_RETURN_ON_FALSE(s_widgets[UI_W_BAR] != NULL, ESP_ERR_NO_MEM, TAG, "brightness bar");
+    if (s_widgets[UI_W_BAR] == NULL) {
+        LV_LOG_ERROR("Could not create brightness bar");
+
+        return LV_RESULT_INVALID;
+    }
 
     s_widgets[UI_W_ANSWERS] = create_box(screen, 0, 200, SCREEN_WIDTH, 28);
-    ESP_RETURN_ON_FALSE(s_widgets[UI_W_ANSWERS] != NULL, ESP_ERR_NO_MEM, TAG, "answers");
+    if (s_widgets[UI_W_ANSWERS] == NULL) {
+        LV_LOG_ERROR("Could not create answers");
+
+        return LV_RESULT_INVALID;
+    }
+
     s_yes = create_answer(s_widgets[UI_W_ANSWERS], 15, fonts->text_15, "ДА");
-    ESP_RETURN_ON_FALSE(s_yes != NULL, ESP_ERR_NO_MEM, TAG, "yes answer");
+    if (s_yes == NULL) {
+        LV_LOG_ERROR("Could not create yes answer");
+
+        return LV_RESULT_INVALID;
+    }
+
     s_no = create_answer(s_widgets[UI_W_ANSWERS], 70, fonts->text_15, "НЕТ");
-    ESP_RETURN_ON_FALSE(s_no != NULL, ESP_ERR_NO_MEM, TAG, "no answer");
+    if (s_no == NULL) {
+        LV_LOG_ERROR("Could not create no answer");
+
+        return LV_RESULT_INVALID;
+    }
+
     s_widgets[UI_W_DOTS] = create_dots(screen);
-    ESP_RETURN_ON_FALSE(s_widgets[UI_W_DOTS] != NULL, ESP_ERR_NO_MEM, TAG, "page dots");
+    if (s_widgets[UI_W_DOTS] == NULL) {
+        LV_LOG_ERROR("Could not create page dots");
+
+        return LV_RESULT_INVALID;
+    }
 
     s_widgets[UI_W_LIGHTNING] = lv_image_create(screen);
-    ESP_RETURN_ON_FALSE(s_widgets[UI_W_LIGHTNING] != NULL, ESP_ERR_NO_MEM, TAG, "lightning");
+    if (s_widgets[UI_W_LIGHTNING] == NULL) {
+        LV_LOG_ERROR("Could not create lightning");
+
+        return LV_RESULT_INVALID;
+    }
+
     lv_image_set_src(s_widgets[UI_W_LIGHTNING], UI_IMAGE_LIGHTNING);
     lv_obj_set_pos(s_widgets[UI_W_LIGHTNING], 38, 70);
     ui_lightning_init(s_widgets[UI_W_LIGHTNING]);
@@ -237,7 +301,7 @@ esp_err_t ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts)
         lv_obj_add_flag(s_widgets[i], LV_OBJ_FLAG_HIDDEN);
     }
 
-    return ESP_OK;
+    return LV_RESULT_OK;
 }
 
 uint32_t ui_show_battery(const char* text, const char* icon_src, int32_t icon_y)

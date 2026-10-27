@@ -1,11 +1,7 @@
 #include "ui_animation.h"
 
-#include "esp_log.h"
-
 #define FRAME_MS 40
 #define PULSE_MS 1600
-
-static const char* TAG = "ui_lightning";
 
 static lv_obj_t* s_lightning;
 static lv_timer_t* s_timer;
@@ -26,7 +22,7 @@ void ui_lightning_init(lv_obj_t* lightning)
     s_lightning = lightning;
     s_timer = lv_timer_create(lightning_step, FRAME_MS, NULL);
     if (s_timer == NULL) {
-        ESP_LOGW(TAG, "lightning animation timer unavailable; using a static image");
+        LV_LOG_WARN("lightning animation timer unavailable; using a static image");
 
         return;
     }

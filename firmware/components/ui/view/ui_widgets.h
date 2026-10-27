@@ -6,8 +6,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "esp_err.h"
-
 #include "ui_fonts.h"
 
 typedef enum {
@@ -28,8 +26,13 @@ typedef enum {
 
 #define UI_SHOW(widget) (1u << (widget))
 
-// Creates every widget hidden.
-esp_err_t ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts);
+/**
+ * Creates every widget hidden under exclusive LVGL access, borrowing fonts.
+ * @retval LV_RESULT_OK All widgets were created.
+ * @retval LV_RESULT_INVALID Allocation failed; partially created widgets remain owned
+ * by screen. Stop animations with ui_view_deinit() before deleting screen.
+ */
+lv_result_t ui_widgets_create(lv_obj_t* screen, const ui_fonts_t* fonts);
 
 // Each ui_show_* fills its widget and returns its UI_SHOW() bit; only changed
 // properties are touched.
@@ -49,5 +52,7 @@ uint32_t ui_show_dots(size_t active);
 // open_src and closed_src as for ui_blink_set().
 uint32_t ui_show_face_image(const char* open_src, const char* closed_src, int32_t x, int32_t y);
 
-// Shows the widgets whose bits are set and hides the rest.
+/**
+ * Shows the selected widgets under exclusive LVGL access and pauses hidden animations.
+ */
 void ui_widgets_set_visible(uint32_t visible);

@@ -1,6 +1,6 @@
 #include "ui_assets.h"
 
-#define IMAGE(path) "S:/spiffs/img/" path ".bin"
+#define IMAGE(path) UI_ASSET_ROOT "/img/" path ".bin"
 
 const char UI_IMAGE_BATTERY_LOW[] = IMAGE("batt/1_not_charging");
 const char UI_IMAGE_BATTERY_MID[] = IMAGE("batt/2_not_charging");

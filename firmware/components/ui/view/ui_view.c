@@ -2,8 +2,6 @@
 
 #include <stdio.h>
 
-#include "esp_check.h"
-
 #include "ui_animation.h"
 #include "ui_assets.h"
 #include "ui_faces.h"
@@ -41,15 +39,13 @@ static const iaq_level_t IAQ_LEVELS[] = {
 #define BATTERY_LEVEL_COUNT (sizeof(BATTERY_LEVELS) / sizeof(BATTERY_LEVELS[0]))
 #define IAQ_LEVEL_COUNT (sizeof(IAQ_LEVELS) / sizeof(IAQ_LEVELS[0]))
 
-static const char* TAG = "ui_view";
 static const ui_fonts_t* s_fonts;
 
-esp_err_t ui_view_create(lv_obj_t* screen, const ui_fonts_t* fonts)
+lv_result_t ui_view_create(lv_obj_t* screen, const ui_fonts_t* fonts)
 {
     s_fonts = fonts;
-    ESP_RETURN_ON_ERROR(ui_widgets_create(screen, fonts), TAG, "widgets");
 
-    return ESP_OK;
+    return ui_widgets_create(screen, fonts);
 }
 
 void ui_view_deinit(void)

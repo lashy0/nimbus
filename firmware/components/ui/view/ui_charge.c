@@ -1,10 +1,6 @@
 #include "ui_animation.h"
 
-#include "esp_log.h"
-
 #define STEP_MS 500
-
-static const char* TAG = "ui_charge";
 
 static lv_obj_t* s_battery;
 static lv_timer_t* s_timer;
@@ -23,7 +19,7 @@ void ui_charge_init(lv_obj_t* battery)
     s_battery = battery;
     s_timer = lv_timer_create(charge_step, STEP_MS, NULL);
     if (s_timer == NULL) {
-        ESP_LOGW(TAG, "battery animation timer unavailable; using the first frame");
+        LV_LOG_WARN("battery animation timer unavailable; using the first frame");
 
         return;
     }

@@ -2,20 +2,18 @@
 
 #include <stdio.h>
 
-#include "esp_log.h"
+#include "ui_assets.h"
 
 #define FONT_PATH_MAX 48
-
-static const char* TAG = "ui_fonts";
 
 static const lv_font_t* load_font(const char* name)
 {
     char path[FONT_PATH_MAX];
-    snprintf(path, sizeof(path), "S:/spiffs/fonts/%s.fnt", name);
+    snprintf(path, sizeof(path), UI_ASSET_ROOT "/fonts/%s.fnt", name);
 
     lv_font_t* font = lv_binfont_create(path);
     if (font == NULL) {
-        ESP_LOGE(TAG, "font %s not loaded; using the built-in font", path);
+        LV_LOG_ERROR("font %s not loaded; using the built-in font", path);
 
         return LV_FONT_DEFAULT;
     }
