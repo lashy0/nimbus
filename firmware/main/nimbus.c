@@ -1,9 +1,6 @@
-#include <sys/param.h>
-
 #include "esp_app_desc.h"
 #include "esp_check.h"
 #include "esp_idf_version.h"
-#include "esp_lcd_panel_ops.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -12,48 +9,16 @@
 #include "board.h"
 #include "display.h"
 #include "sensing.h"
+#include "ui.h"
 
 #define SENSING_CORE 0
+#define UI_CORE 1
 
 #define LOG_PERIOD_MS 3000
 
-#define TEST_STRIP_LINES 24
-#define TEST_FRAME_PX 2
-// The panel reads RGB565 high byte first.
-#define RGB565_BE(color) ((uint16_t)(((color) >> 8) | ((color) << 8)))
-
 static const char* TAG = "nimbus";
 
-// Constant once filled, so queued transfers may share them.
-static uint16_t s_test_fill[DISPLAY_WIDTH * TEST_STRIP_LINES];
-static uint16_t s_test_frame[DISPLAY_HEIGHT * TEST_FRAME_PX];
-
-// Temporary check of colors, inversion and gap: red screen, white frame at the edges.
-static esp_err_t draw_test_frame(esp_lcd_panel_handle_t panel)
-{
-    for (size_t i = 0; i < sizeof(s_test_fill) / sizeof(s_test_fill[0]); i++) {
-        s_test_fill[i] = RGB565_BE(0xF800);
-    }
-    for (size_t i = 0; i < sizeof(s_test_frame) / sizeof(s_test_frame[0]); i++) {
-        s_test_frame[i] = RGB565_BE(0xFFFF);
-    }
-
-    for (int y = 0; y < DISPLAY_HEIGHT; y += TEST_STRIP_LINES) {
-        const int y_end = MIN(y + TEST_STRIP_LINES, DISPLAY_HEIGHT);
-        ESP_RETURN_ON_ERROR(esp_lcd_panel_draw_bitmap(panel, 0, y, DISPLAY_WIDTH, y_end, s_test_fill), TAG, "fill");
-    }
-
-    const int w = DISPLAY_WIDTH;
-    const int h = DISPLAY_HEIGHT;
-    const int px = TEST_FRAME_PX;
-    ESP_RETURN_ON_ERROR(esp_lcd_panel_draw_bitmap(panel, 0, 0, w, px, s_test_frame), TAG, "top");
-    ESP_RETURN_ON_ERROR(esp_lcd_panel_draw_bitmap(panel, 0, h - px, w, h, s_test_frame), TAG, "bottom");
-    ESP_RETURN_ON_ERROR(esp_lcd_panel_draw_bitmap(panel, 0, 0, px, h, s_test_frame), TAG, "left");
-
-    return esp_lcd_panel_draw_bitmap(panel, w - px, 0, w, h, s_test_frame);
-}
-
-static esp_err_t start_display(void)
+static esp_err_t start_ui(void)
 {
     ESP_RETURN_ON_ERROR(board_create_spi_bus(), TAG, "SPI bus");
 
@@ -65,11 +30,9 @@ static esp_err_t start_display(void)
         .backlight = BOARD_PIN_LCD_BACKLIGHT,
     };
     display_t display;
-    ESP_RETURN_ON_ERROR(display_open(&config, &display), TAG, "open");
-    ESP_RETURN_ON_ERROR(draw_test_frame(display.panel), TAG, "test frame");
-    ESP_RETURN_ON_ERROR(esp_lcd_panel_disp_on_off(display.panel, true), TAG, "output on");
+    ESP_RETURN_ON_ERROR(display_open(&config, &display), TAG, "display");
 
-    return display_set_brightness(100);
+    return ui_start(&display, UI_CORE);
 }
 
 static esp_err_t init_nvs(void)
@@ -121,9 +84,9 @@ void app_main(void)
     }
 
     // Not fatal: sensing still runs and logs.
-    err = start_display();
+    err = start_ui();
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "display: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "UI: %s", esp_err_to_name(err));
     }
 
     i2c_master_bus_handle_t bus;
