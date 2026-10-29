@@ -7,7 +7,7 @@
 #include "bme68x_defs.h"
 #include "bsec_interface.h"
 
-// Heat of our board; to be measured against a reference thermometer.
+// How much the board heats the sensor, °C. Not measured yet.
 #define TEMPERATURE_OFFSET_C 0.0f
 
 static const char* TAG = "sensing_bsec";
@@ -27,19 +27,18 @@ static const uint8_t OUTPUTS[] = {
 
 static uint8_t s_work[BSEC_MAX_WORKBUFFER_SIZE];
 
-esp_err_t sensing_bsec_set_config(const uint8_t* config, uint32_t size)
+esp_err_t sensing_bsec_init(void)
 {
-    const bsec_library_return_t rc = bsec_set_configuration(config, size, s_work, sizeof(s_work));
+    bsec_library_return_t rc = bsec_init();
+    ESP_RETURN_ON_FALSE(rc == BSEC_OK, ESP_FAIL, TAG, "init: %d", rc);
+
+    rc = bsec_set_configuration(CONFIG, sizeof(CONFIG), s_work, sizeof(s_work));
     ESP_RETURN_ON_FALSE(rc == BSEC_OK, ESP_FAIL, TAG, "set configuration: %d", rc);
 
-    return ESP_OK;
-}
-
-esp_err_t sensing_bsec_get_config(uint8_t config[BSEC_MAX_PROPERTY_BLOB_SIZE], uint32_t* size)
-{
-    const bsec_library_return_t rc =
-        bsec_get_configuration(0, config, BSEC_MAX_PROPERTY_BLOB_SIZE, s_work, sizeof(s_work), size);
-    ESP_RETURN_ON_FALSE(rc == BSEC_OK, ESP_FAIL, TAG, "get configuration: %d", rc);
+    bsec_version_t version;
+    if (bsec_get_version(&version) == BSEC_OK) {
+        ESP_LOGI(TAG, "BSEC %u.%u.%u.%u", version.major, version.minor, version.major_bugfix, version.minor_bugfix);
+    }
 
     return ESP_OK;
 }
@@ -60,8 +59,8 @@ esp_err_t sensing_bsec_get_state(uint8_t state[BSEC_MAX_STATE_BLOB_SIZE], uint32
     return ESP_OK;
 }
 
-// A warning here means the subscription does not match the configuration.
-static esp_err_t subscribe(void)
+// Warnings count as errors: they mean the outputs do not match the configuration.
+esp_err_t sensing_bsec_subscribe(void)
 {
     bsec_sensor_configuration_t requested[OUTPUT_COUNT];
     for (size_t i = 0; i < OUTPUT_COUNT; i++) {
@@ -72,21 +71,6 @@ static esp_err_t subscribe(void)
     uint8_t required_count = BSEC_MAX_PHYSICAL_SENSOR;
     const bsec_library_return_t rc = bsec_update_subscription(requested, OUTPUT_COUNT, required, &required_count);
     ESP_RETURN_ON_FALSE(rc == BSEC_OK, ESP_FAIL, TAG, "update subscription: %d", rc);
-
-    return ESP_OK;
-}
-
-esp_err_t sensing_bsec_init(void)
-{
-    const bsec_library_return_t rc = bsec_init();
-    ESP_RETURN_ON_FALSE(rc == BSEC_OK, ESP_FAIL, TAG, "init: %d", rc);
-    ESP_RETURN_ON_ERROR(sensing_bsec_set_config(CONFIG, sizeof(CONFIG)), TAG, "configuration");
-    ESP_RETURN_ON_ERROR(subscribe(), TAG, "subscription");
-
-    bsec_version_t version;
-    if (bsec_get_version(&version) == BSEC_OK) {
-        ESP_LOGI(TAG, "BSEC %u.%u.%u.%u", version.major, version.minor, version.major_bugfix, version.minor_bugfix);
-    }
 
     return ESP_OK;
 }

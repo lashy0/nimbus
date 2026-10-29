@@ -7,14 +7,16 @@
 
 /**
  * @file
- * Air measurements: owns the BME680 and BSEC, measures on the BSEC schedule in
- * its own task and keeps the latest result as a snapshot.
+ * Air measurements. Owns the BME680 and BSEC, measures in its own task and
+ * keeps the latest result as a snapshot. Calibration is kept in NVS across restarts.
  */
 
 /**
- * Opens the sensor, starts BSEC and the sensing task.
+ * Opens the sensor, restores the saved calibration and starts the sensing task.
  *
  * Call once, from a task. The bus is borrowed and must outlive sensing.
+ * Initialize NVS first; without it sensing still runs, but calibrates from
+ * scratch on every start.
  *
  * @param bus Initialized I2C master bus.
  * @retval ESP_OK The task is running; the first snapshot follows the first measurement.

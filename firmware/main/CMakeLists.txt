@@ -1,5 +1,5 @@
 idf_component_register(
     SRCS "nimbus.c"
     INCLUDE_DIRS "."
-    PRIV_REQUIRES esp_app_format esp_driver_i2c log sensing
+    PRIV_REQUIRES esp_app_format esp_driver_i2c log nvs_flash sensing
 )

@@ -4,6 +4,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "nvs_flash.h"
 
 #include "sensing.h"
 
@@ -27,6 +28,22 @@ static esp_err_t create_i2c_bus(i2c_master_bus_handle_t* out)
     };
 
     return i2c_new_master_bus(&config, out);
+}
+
+static esp_err_t init_nvs(void)
+{
+    esp_err_t err = nvs_flash_init();
+
+    // Full, or written by a newer NVS version: erase and start over.
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_LOGW(TAG, "NVS: %s, erasing", esp_err_to_name(err));
+        err = nvs_flash_erase();
+        if (err == ESP_OK) {
+            err = nvs_flash_init();
+        }
+    }
+
+    return err;
 }
 
 static void log_snapshot(const sensing_snapshot_t* snapshot)
@@ -55,8 +72,14 @@ void app_main(void)
 {
     ESP_LOGI(TAG, "Nimbus %s, ESP-IDF %s", esp_app_get_description()->version, esp_get_idf_version());
 
+    // Not fatal: components run without saved data.
+    esp_err_t err = init_nvs();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "NVS: %s", esp_err_to_name(err));
+    }
+
     i2c_master_bus_handle_t bus;
-    esp_err_t err = create_i2c_bus(&bus);
+    err = create_i2c_bus(&bus);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "I2C bus: %s", esp_err_to_name(err));
 
