@@ -12,6 +12,8 @@ CompileFlags:
 
 Diagnostics:
   Includes:
-    # FreeRTOS requires this header before task.h, queue.h and semphr.h.
     IgnoreHeader:
+      # FreeRTOS requires this header before task.h, queue.h and semphr.h.
       - 'freertos/FreeRTOS\.h'
+      # LVGL's umbrella header; the symbols are declared in its src/ headers.
+      - 'lvgl\.h'
