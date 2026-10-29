@@ -12,17 +12,19 @@
  */
 
 /**
- * Starts LVGL on the display, draws the first frame, then turns output and
- * the backlight on.
+ * Starts LVGL on the display. The LVGL task draws the first frame, then turns
+ * output and the backlight on; a failure there is only logged.
  *
  * Call once, from a task. The display handles are owned by LVGL from now on.
+ * Mount the assets partition at /assets first; without it the screens show
+ * no images or custom fonts.
  *
  * @param display Open display with nothing drawn on it.
  * @param core Core for the LVGL task, or tskNO_AFFINITY.
- * @retval ESP_OK The first frame is on the screen.
+ * @retval ESP_OK LVGL runs; the first frame follows shortly.
  * @retval ESP_ERR_INVALID_ARG The chip has no such core.
  * @retval ESP_ERR_INVALID_STATE The UI has already started.
- * @retval ESP_ERR_NO_MEM LVGL buffers or the task could not be allocated.
- * @retval ESP_FAIL The LVGL task or a panel command failed.
+ * @retval ESP_ERR_NO_MEM LVGL buffers could not be allocated.
+ * @retval ESP_FAIL The LVGL task could not be created.
  */
 esp_err_t ui_start(const display_t* display, BaseType_t core);

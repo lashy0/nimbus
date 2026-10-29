@@ -2,8 +2,11 @@
 
 #include "esp_check.h"
 #include "esp_lcd_panel_ops.h"
+#include "esp_log.h"
 #include "esp_lvgl_port.h"
 #include "lvgl.h"
+
+#include "ui_view.h"
 
 #define BUFFER_LINES 24
 #define BRIGHTNESS_PERCENT 100
@@ -11,30 +14,22 @@
 static const char* TAG = "ui";
 
 static lv_display_t* s_display;
+static esp_lcd_panel_handle_t s_panel;
 
-static void build_screen(lv_display_t* display)
+// Runs in the LVGL task once the first frame is drawn. The panel sends the
+// command only after the pending pixel data.
+static void on_first_frame(lv_event_t* event)
 {
-    lv_obj_t* screen = lv_display_get_screen_active(display);
-    lv_obj_set_style_bg_color(screen, lv_color_black(), 0);
+    lv_display_remove_event_cb_with_user_data(s_display, on_first_frame, NULL);
 
-    lv_obj_t* label = lv_label_create(screen);
-    lv_obj_set_style_text_color(label, lv_color_white(), 0);
-    lv_label_set_text(label, "Nimbus");
-    lv_obj_center(label);
-}
+    esp_err_t err = esp_lcd_panel_disp_on_off(s_panel, true);
+    if (err == ESP_OK) {
+        err = display_set_brightness(BRIGHTNESS_PERCENT);
+    }
 
-// Under the LVGL lock: the port task flushes through the same panel IO.
-static esp_err_t show_first_frame(esp_lcd_panel_handle_t panel)
-{
-    lvgl_port_lock(0);
-
-    build_screen(s_display);
-    lv_refr_now(s_display);
-    const esp_err_t err = esp_lcd_panel_disp_on_off(panel, true);
-
-    lvgl_port_unlock();
-
-    return err;
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "screen on: %s", esp_err_to_name(err));
+    }
 }
 
 esp_err_t ui_start(const display_t* display, BaseType_t core)
@@ -57,20 +52,21 @@ esp_err_t ui_start(const display_t* display, BaseType_t core)
         .flags.swap_bytes = true, // The panel reads RGB565 high byte first.
     };
 
-    esp_err_t ret = ESP_OK;
     s_display = lvgl_port_add_disp(&display_config);
-    ESP_GOTO_ON_FALSE(s_display != NULL, ESP_ERR_NO_MEM, fail, TAG, "LVGL display");
-    ESP_GOTO_ON_ERROR(show_first_frame(display->panel), fail, TAG, "first frame");
-    ESP_GOTO_ON_ERROR(display_set_brightness(BRIGHTNESS_PERCENT), fail, TAG, "backlight");
+    if (s_display == NULL) {
+        lvgl_port_deinit();
+        ESP_LOGE(TAG, "LVGL display");
+
+        return ESP_ERR_NO_MEM;
+    }
+
+    s_panel = display->panel;
+
+    // Drawing happens in the LVGL task, on its own stack.
+    lvgl_port_lock(0);
+    ui_view_create(lv_display_get_screen_active(s_display));
+    lv_display_add_event_cb(s_display, on_first_frame, LV_EVENT_REFR_READY, NULL);
+    lvgl_port_unlock();
 
     return ESP_OK;
-
-fail:
-    if (s_display != NULL) {
-        lvgl_port_remove_disp(s_display);
-        s_display = NULL;
-    }
-    lvgl_port_deinit();
-
-    return ret;
 }
