@@ -2,6 +2,7 @@
 #include "esp_check.h"
 #include "esp_idf_version.h"
 #include "esp_log.h"
+#include "esp_spiffs.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
@@ -15,6 +16,11 @@
 #define UI_CORE 1
 
 #define LOG_PERIOD_MS 3000
+
+// LVGL reads it through CONFIG_LV_FS_STDIO_PATH.
+#define ASSETS_PARTITION "assets"
+#define ASSETS_PATH "/assets"
+#define ASSETS_MAX_FILES 4
 
 static const char* TAG = "nimbus";
 
@@ -51,6 +57,18 @@ static esp_err_t init_nvs(void)
     return err;
 }
 
+static esp_err_t mount_assets(void)
+{
+    const esp_vfs_spiffs_conf_t config = {
+        .base_path = ASSETS_PATH,
+        .partition_label = ASSETS_PARTITION,
+        .max_files = ASSETS_MAX_FILES,
+        .format_if_mount_failed = false,
+    };
+
+    return esp_vfs_spiffs_register(&config);
+}
+
 static void log_snapshot(const sensing_snapshot_t* snapshot)
 {
     switch (snapshot->status) {
@@ -81,6 +99,12 @@ void app_main(void)
     esp_err_t err = init_nvs();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "NVS: %s", esp_err_to_name(err));
+    }
+
+    // Not fatal: the UI runs without images.
+    err = mount_assets();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "assets: %s", esp_err_to_name(err));
     }
 
     // Not fatal: sensing still runs and logs.
