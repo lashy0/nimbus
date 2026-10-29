@@ -33,8 +33,8 @@ static BME68X_INTF_RET_TYPE bus_read(uint8_t reg, uint8_t* data, uint32_t length
     return err == ESP_OK ? BME68X_INTF_RET_SUCCESS : -1;
 }
 
-// bme68x_set_regs() passes the first register here and the rest of its
-// interleaved buffer as data, so register and data fit in one such buffer.
+// Register and data go in one transfer. bme68x_set_regs() writes less than
+// BME68X_LEN_INTERLEAVE_BUFF bytes, so the buffer fits them.
 static BME68X_INTF_RET_TYPE bus_write(uint8_t reg, const uint8_t* data, uint32_t length, void* intf_ptr)
 {
     uint8_t buffer[BME68X_LEN_INTERLEAVE_BUFF];
@@ -51,8 +51,8 @@ static BME68X_INTF_RET_TYPE bus_write(uint8_t reg, const uint8_t* data, uint32_t
     return err == ESP_OK ? BME68X_INTF_RET_SUCCESS : -1;
 }
 
-// usleep() yields to other tasks for long waits and, unlike a bare vTaskDelay(),
-// never returns early: the measurement wait must not end before the sensor does.
+// usleep(), unlike vTaskDelay(), never returns early: the wait must not end
+// before the measurement does.
 static void delay_us(uint32_t period_us, void* intf_ptr)
 {
     usleep(period_us);
