@@ -1,2 +1,5 @@
-# Editor settings (machine-specific tool paths)
+# Editor settings
 .zed/
+
+# SF Pro Rounded; get it from developer.apple.com/fonts
+artwork/fonts/*.otf
