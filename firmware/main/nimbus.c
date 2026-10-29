@@ -11,6 +11,8 @@
 #define PIN_I2C_SDA GPIO_NUM_21
 #define PIN_I2C_SCL GPIO_NUM_22
 
+#define SENSING_CORE 0
+
 #define LOG_PERIOD_MS 3000
 
 static const char* TAG = "nimbus";
@@ -86,7 +88,7 @@ void app_main(void)
         return;
     }
 
-    err = sensing_start(bus);
+    err = sensing_start(bus, SENSING_CORE);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "sensing: %s", esp_err_to_name(err));
 

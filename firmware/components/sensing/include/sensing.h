@@ -2,6 +2,7 @@
 
 #include "driver/i2c_types.h"
 #include "esp_err.h"
+#include "freertos/FreeRTOS.h"
 
 #include "sensing_types.h"
 
@@ -19,13 +20,15 @@
  * scratch on every start.
  *
  * @param bus Initialized I2C master bus.
+ * @param core Core for the sensing task, or tskNO_AFFINITY.
  * @retval ESP_OK The task is running; the first snapshot follows the first measurement.
+ * @retval ESP_ERR_INVALID_ARG The chip has no such core.
  * @retval ESP_ERR_INVALID_STATE Sensing has already started.
  * @retval ESP_ERR_NOT_FOUND No BME680 answered on the bus.
  * @retval ESP_ERR_NO_MEM The sensor handle or the task could not be allocated.
  * @retval ESP_FAIL The sensor or BSEC failed to initialize.
  */
-esp_err_t sensing_start(i2c_master_bus_handle_t bus);
+esp_err_t sensing_start(i2c_master_bus_handle_t bus, BaseType_t core);
 
 /**
  * Copies the latest snapshot without triggering a measurement.

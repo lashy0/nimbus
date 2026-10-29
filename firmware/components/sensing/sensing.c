@@ -118,8 +118,10 @@ static void sensing_task(void* arg)
     }
 }
 
-esp_err_t sensing_start(i2c_master_bus_handle_t bus)
+esp_err_t sensing_start(i2c_master_bus_handle_t bus, BaseType_t core)
 {
+    ESP_RETURN_ON_FALSE(
+        core == tskNO_AFFINITY || (core >= 0 && core < portNUM_PROCESSORS), ESP_ERR_INVALID_ARG, TAG, "core");
     ESP_RETURN_ON_FALSE(s_task == NULL, ESP_ERR_INVALID_STATE, TAG, "already started");
     ESP_RETURN_ON_ERROR(bme680_open(bus, &s_sensor), TAG, "open BME680");
 
@@ -128,7 +130,8 @@ esp_err_t sensing_start(i2c_master_bus_handle_t bus)
     restore_state();
     ESP_GOTO_ON_ERROR(sensing_bsec_subscribe(), fail, TAG, "BSEC subscription");
     ESP_GOTO_ON_FALSE(
-        xTaskCreate(sensing_task, "sensing", TASK_STACK_BYTES, NULL, TASK_PRIORITY, &s_task) == pdPASS,
+        xTaskCreatePinnedToCore(sensing_task, "sensing", TASK_STACK_BYTES, NULL, TASK_PRIORITY, &s_task, core) ==
+            pdPASS,
         ESP_ERR_NO_MEM,
         fail,
         TAG,
