@@ -1,0 +1,22 @@
+# Only differences from LLVM defaults (clang-format 21 from ESP-IDF).
+---
+Language: Cpp
+BasedOnStyle: LLVM
+
+IndentWidth: 4
+IndentCaseLabels: true
+ColumnLimit: 120
+ReflowComments: Never
+
+BreakBeforeBraces: Linux
+AllowShortFunctionsOnASingleLine: Empty
+SeparateDefinitionBlocks: Always
+
+PointerAlignment: Left
+
+# Long calls and declarations: break after "(" and put one argument per line.
+AlignAfterOpenBracket: AlwaysBreak
+BinPackArguments: false
+BinPackParameters: OnePerLine
+AllowAllParametersOfDeclarationOnNextLine: false
+PenaltyReturnTypeOnItsOwnLine: 1000

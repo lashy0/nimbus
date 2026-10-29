@@ -1,0 +1,17 @@
+# clangd only: the firmware is built by ESP-IDF with xtensa GCC, preset dev.
+CompileFlags:
+  CompilationDatabase: firmware/build/dev
+  # GCC-only options from the ESP-IDF build that clang rejects.
+  Remove:
+    - -mlongcalls
+    - -fno-shrink-wrap
+    - -fstrict-volatile-bitfields
+    - -fno-tree-switch-conversion
+    - -fzero-init-padding-bits=*
+    - -fno-malloc-dce
+
+Diagnostics:
+  Includes:
+    # FreeRTOS requires this header before task.h, queue.h and semphr.h.
+    IgnoreHeader:
+      - 'freertos/FreeRTOS\.h'
