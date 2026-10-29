@@ -123,17 +123,24 @@ esp_err_t bme680_configure(bme680_handle_t dev, const bme680_config_t* config)
     // A failed write may leave the sensor with only part of the new settings.
     dev->wait_us = 0;
 
-    // Oversampling from Bosch's forced-mode example. The IIR filter is off: at one
-    // reading every few seconds it would only delay changes in temperature and pressure.
+    ESP_RETURN_ON_FALSE(
+        config->temperature_os <= BME68X_OS_16X && config->pressure_os <= BME68X_OS_16X &&
+            config->humidity_os <= BME68X_OS_16X,
+        ESP_ERR_INVALID_ARG,
+        TAG,
+        "oversampling");
+
+    // The IIR filter is off: at one reading every few seconds it would only
+    // delay changes in temperature and pressure.
     struct bme68x_conf conf = {
-        .os_temp = BME68X_OS_2X,
-        .os_pres = BME68X_OS_1X,
-        .os_hum = BME68X_OS_16X,
+        .os_temp = config->temperature_os,
+        .os_pres = config->pressure_os,
+        .os_hum = config->humidity_os,
         .filter = BME68X_FILTER_OFF,
         .odr = BME68X_ODR_NONE,
     };
     struct bme68x_heatr_conf heater = {
-        .enable = BME68X_ENABLE,
+        .enable = config->gas_enabled ? BME68X_ENABLE : BME68X_DISABLE,
         .heatr_temp = config->heater_temp_c,
         .heatr_dur = config->heater_ms,
     };
@@ -141,7 +148,8 @@ esp_err_t bme680_configure(bme680_handle_t dev, const bme680_config_t* config)
     ESP_RETURN_ON_FALSE(bme68x_set_heatr_conf(BME68X_FORCED_MODE, &heater, bme) == BME68X_OK, ESP_FAIL, TAG, "heater");
 
     // The heater runs after the temperature, pressure and humidity conversion.
-    dev->wait_us = bme68x_get_meas_dur(BME68X_FORCED_MODE, &conf, bme) + (uint32_t)config->heater_ms * 1000;
+    const uint32_t heater_us = config->gas_enabled ? (uint32_t)config->heater_ms * 1000 : 0;
+    dev->wait_us = bme68x_get_meas_dur(BME68X_FORCED_MODE, &conf, bme) + heater_us;
 
     return ESP_OK;
 }
@@ -166,13 +174,12 @@ esp_err_t bme680_measure(bme680_handle_t dev, bme680_sample_t* out)
 
     ESP_RETURN_ON_FALSE(rc == BME68X_OK, ESP_FAIL, TAG, "get data: %d", rc);
 
-    const uint8_t gas_ready = BME68X_GASM_VALID_MSK | BME68X_HEAT_STAB_MSK;
     *out = (bme680_sample_t){
         .temperature_c = data.temperature,
         .humidity_percent = data.humidity,
         .pressure_pa = data.pressure,
         .gas_ohm = data.gas_resistance,
-        .gas_valid = (data.status & gas_ready) == gas_ready,
+        .gas_valid = (data.status & BME68X_GASM_VALID_MSK) != 0,
     };
 
     return ESP_OK;

@@ -5,12 +5,12 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#include "bme680.h"
+#include "sensing.h"
 
 #define PIN_I2C_SDA GPIO_NUM_21
 #define PIN_I2C_SCL GPIO_NUM_22
 
-#define MEASURE_PERIOD_MS 3000
+#define LOG_PERIOD_MS 3000
 
 static const char* TAG = "nimbus";
 
@@ -29,6 +29,28 @@ static esp_err_t create_i2c_bus(i2c_master_bus_handle_t* out)
     return i2c_new_master_bus(&config, out);
 }
 
+static void log_snapshot(const sensing_snapshot_t* snapshot)
+{
+    switch (snapshot->status) {
+        case SENSING_STATUS_NO_DATA:
+            ESP_LOGI(TAG, "no data yet");
+            break;
+        case SENSING_STATUS_OK:
+            ESP_LOGI(
+                TAG,
+                "T %.2f °C, RH %.2f %%, P %.1f hPa, IAQ %.0f (accuracy %u)",
+                snapshot->temperature_c,
+                snapshot->humidity_percent,
+                snapshot->pressure_hpa,
+                snapshot->iaq,
+                snapshot->iaq_accuracy);
+            break;
+        case SENSING_STATUS_ERROR:
+            ESP_LOGW(TAG, "sensing error");
+            break;
+    }
+}
+
 void app_main(void)
 {
     ESP_LOGI(TAG, "Nimbus %s, ESP-IDF %s", esp_app_get_description()->version, esp_get_idf_version());
@@ -41,41 +63,18 @@ void app_main(void)
         return;
     }
 
-    bme680_handle_t sensor;
-    err = bme680_open(bus, &sensor);
+    err = sensing_start(bus);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "BME680: %s", esp_err_to_name(err));
-
-        return;
-    }
-
-    const bme680_config_t config = {
-        .heater_temp_c = 320,
-        .heater_ms = 150,
-    };
-    err = bme680_configure(sensor, &config);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "BME680 configure: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "sensing: %s", esp_err_to_name(err));
 
         return;
     }
 
     for (;;) {
-        bme680_sample_t sample;
-        err = bme680_measure(sensor, &sample);
-        if (err == ESP_OK) {
-            ESP_LOGI(
-                TAG,
-                "T %.2f °C, RH %.2f %%, P %.0f Pa, gas %.0f Ohm%s",
-                sample.temperature_c,
-                sample.humidity_percent,
-                sample.pressure_pa,
-                sample.gas_ohm,
-                sample.gas_valid ? "" : " (invalid)");
-        } else {
-            ESP_LOGW(TAG, "measure: %s", esp_err_to_name(err));
-        }
+        sensing_snapshot_t snapshot;
+        sensing_get_snapshot(&snapshot);
+        log_snapshot(&snapshot);
 
-        vTaskDelay(pdMS_TO_TICKS(MEASURE_PERIOD_MS));
+        vTaskDelay(pdMS_TO_TICKS(LOG_PERIOD_MS));
     }
 }

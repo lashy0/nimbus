@@ -14,10 +14,18 @@
 
 typedef struct bme680* bme680_handle_t;
 
-/** Gas heater settings for one measurement. */
+/**
+ * Settings for the next measurements.
+ *
+ * Oversampling uses the BME68x codes 0..5: skip the reading, x1, x2, x4, x8, x16.
+ */
 typedef struct {
-    uint16_t heater_temp_c; /**< Target heater temperature, 200..400 °C. */
-    uint16_t heater_ms;     /**< Time at the target temperature, 1..4032 ms. */
+    uint8_t temperature_os;
+    uint8_t pressure_os;
+    uint8_t humidity_os;
+    bool gas_enabled;       /**< Heats the plate and measures gas resistance. */
+    uint16_t heater_temp_c; /**< Target heater temperature, 200..400 °C; used with gas_enabled. */
+    uint16_t heater_ms;     /**< Time at the target temperature, 1..4032 ms; used with gas_enabled. */
 } bme680_config_t;
 
 /** Compensated result of one measurement. */
@@ -26,7 +34,7 @@ typedef struct {
     float humidity_percent; /**< 0..100 */
     float pressure_pa;
     float gas_ohm;  /**< Usable only with gas_valid. */
-    bool gas_valid; /**< The heater reached its temperature and the gas reading is valid. */
+    bool gas_valid; /**< Gas was enabled and the sensor marked the gas reading valid. */
 } bme680_sample_t;
 
 /**
@@ -49,6 +57,7 @@ esp_err_t bme680_open(i2c_master_bus_handle_t bus, bme680_handle_t* out);
  * A failure leaves the handle unconfigured until a later call succeeds.
  *
  * @retval ESP_OK The sensor accepted the settings.
+ * @retval ESP_ERR_INVALID_ARG An oversampling value is out of range.
  * @retval ESP_FAIL A setting was rejected or a bus transfer failed.
  */
 esp_err_t bme680_configure(bme680_handle_t dev, const bme680_config_t* config);
