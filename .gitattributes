@@ -1,0 +1,2 @@
+# LF in the repository and the working copy, regardless of core.autocrlf.
+* text=auto eol=lf
