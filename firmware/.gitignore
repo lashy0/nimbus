@@ -1,0 +1,15 @@
+# Generated build output
+build/
+
+# ESP-IDF Component Manager
+managed_components/
+
+# Local ESP-IDF configuration
+sdkconfig
+sdkconfig.old
+
+# Machine-specific CMake presets
+CMakeUserPresets.json
+
+# Editor index (clangd)
+.cache/

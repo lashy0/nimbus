@@ -1,0 +1,29 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "dev",
+      "displayName": "Nimbus development",
+      "description": "Debug-friendly optimization and debug logging",
+      "generator": "Ninja",
+      "binaryDir": "build/dev",
+      "cacheVariables": {
+        "IDF_TARGET": "esp32",
+        "SDKCONFIG": "./build/dev/sdkconfig",
+        "SDKCONFIG_DEFAULTS": "sdkconfig.defaults;sdkconfig.defaults.dev"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Nimbus release",
+      "description": "Size optimization and warning/error logging",
+      "generator": "Ninja",
+      "binaryDir": "build/release",
+      "cacheVariables": {
+        "IDF_TARGET": "esp32",
+        "SDKCONFIG": "./build/release/sdkconfig",
+        "SDKCONFIG_DEFAULTS": "sdkconfig.defaults;sdkconfig.defaults.release"
+      }
+    }
+  ]
+}
