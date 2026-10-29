@@ -1,3 +1,6 @@
 [submodule "firmware/3rdparty/bme68x"]
 	path = firmware/3rdparty/bme68x
 	url = https://github.com/boschsensortec/BME68x_SensorAPI.git
+[submodule "firmware/3rdparty/bsec2"]
+	path = firmware/3rdparty/bsec2
+	url = https://github.com/boschsensortec/Bosch-BSEC2-Library.git
