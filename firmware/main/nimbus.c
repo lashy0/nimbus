@@ -10,10 +10,12 @@
 #include "board.h"
 #include "buttons.h"
 #include "display.h"
+#include "power.h"
 #include "sensing.h"
 #include "ui.h"
 
 #define SENSING_CORE 0
+#define POWER_CORE 0
 #define UI_CORE 1
 
 #define LOG_PERIOD_MS 3000
@@ -24,6 +26,16 @@
 #define ASSETS_MAX_FILES 4
 
 static const char* TAG = "nimbus";
+
+static esp_err_t start_power(void)
+{
+    const power_config_t config = {
+        .battery = BOARD_PIN_BATTERY,
+        .adc_enable = BOARD_PIN_ADC_ENABLE,
+    };
+
+    return power_start(&config, POWER_CORE);
+}
 
 static esp_err_t start_buttons(void)
 {
@@ -116,6 +128,12 @@ void app_main(void)
     err = mount_assets();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "assets: %s", esp_err_to_name(err));
+    }
+
+    // Not fatal: the UI shows the battery as unknown.
+    err = start_power();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "power: %s", esp_err_to_name(err));
     }
 
     // Not fatal: the pages just do not switch.
