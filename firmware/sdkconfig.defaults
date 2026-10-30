@@ -17,7 +17,7 @@ CONFIG_LV_USE_LOG=y
 CONFIG_LV_LOG_PRINTF=y
 CONFIG_LV_BUILD_EXAMPLES=n
 CONFIG_LV_BUILD_DEMOS=n
-# Files from the assets partition as S:img/..., S:fonts/...
+# Files from the assets partition as S:img/...
 CONFIG_LV_USE_FS_STDIO=y
 CONFIG_LV_FS_STDIO_LETTER=83
 CONFIG_LV_FS_STDIO_PATH="/assets/"

@@ -17,7 +17,7 @@
  *
  * Call once, from a task. The display handles are owned by LVGL from now on.
  * Mount the assets partition at /assets first; without it the screens show
- * no images or custom fonts.
+ * no images.
  *
  * @param display Open display with nothing drawn on it.
  * @param core Core for the LVGL task, or tskNO_AFFINITY.
