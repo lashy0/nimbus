@@ -10,10 +10,14 @@
  * Turns battery readings into a status. No I/O.
  */
 
+#define POWER_ESTIMATE_SEED_READINGS 5 // About 2.5 s.
+
 typedef struct {
     power_status_t status;
-    int32_t filtered_mv_x256; // 0 while the filter is not running.
-    uint8_t low_readings;     // In a row, below the critical voltage.
+    int32_t filtered_mv_x256;                       // 0 while the filter is not running.
+    uint16_t seed_mv[POWER_ESTIMATE_SEED_READINGS]; // Sorted.
+    uint8_t seed_count;                             // Readings collected to start the filter.
+    uint8_t low_readings;                           // In a row, below the critical voltage.
 } power_estimate_t;
 
 void power_estimate_init(power_estimate_t* estimate);

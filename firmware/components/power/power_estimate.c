@@ -57,23 +57,44 @@ static void restart_filter(power_estimate_t* estimate)
 {
     estimate->status.percent_valid = false;
     estimate->filtered_mv_x256 = 0;
+    estimate->seed_count = 0;
+}
+
+// Returns the upper median of the readings so far.
+static uint32_t add_seed(power_estimate_t* estimate, uint32_t battery_mv)
+{
+    uint8_t i = estimate->seed_count++;
+    for (; i > 0 && estimate->seed_mv[i - 1] > battery_mv; i--) {
+        estimate->seed_mv[i] = estimate->seed_mv[i - 1];
+    }
+    estimate->seed_mv[i] = (uint16_t)battery_mv;
+
+    return estimate->seed_mv[estimate->seed_count / 2];
 }
 
 static void update_percent(power_estimate_t* estimate, uint32_t battery_mv)
 {
+    power_status_t* status = &estimate->status;
+
+    // A single reading can catch the sag right after USB is unplugged;
+    // the filter would then climb from it for a minute.
     if (estimate->filtered_mv_x256 == 0) {
-        estimate->filtered_mv_x256 = (int32_t)battery_mv << 8;
-    } else {
-        estimate->filtered_mv_x256 += (((int32_t)battery_mv << 8) - estimate->filtered_mv_x256) >> FILTER_SHIFT;
+        const uint32_t median_mv = add_seed(estimate, battery_mv);
+        if (estimate->seed_count == POWER_ESTIMATE_SEED_READINGS) {
+            estimate->filtered_mv_x256 = (int32_t)median_mv << 8;
+        }
+        status->percent = percent_of(median_mv);
+        status->percent_valid = true;
+
+        return;
     }
 
-    power_status_t* status = &estimate->status;
+    estimate->filtered_mv_x256 += (((int32_t)battery_mv << 8) - estimate->filtered_mv_x256) >> FILTER_SHIFT;
+
     const uint8_t percent = percent_of((uint32_t)(estimate->filtered_mv_x256 >> 8));
-    if (!status->percent_valid || percent < status->percent || percent >= status->percent + PERCENT_RISE_MIN) {
+    if (percent < status->percent || percent >= status->percent + PERCENT_RISE_MIN) {
         status->percent = percent;
     }
-
-    status->percent_valid = true;
 }
 
 void power_estimate_update(power_estimate_t* estimate, bool ok, uint32_t battery_mv)
