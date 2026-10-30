@@ -28,10 +28,9 @@ CONFIG_LV_FS_STDIO_PATH="/assets/"
 # SPIFFS: asset paths are longer than the default 32 characters
 CONFIG_SPIFFS_OBJ_NAME_LEN=64
 
-# Light sleep while nothing holds a lock
+# Light sleep
 CONFIG_PM_ENABLE=y
 CONFIG_FREERTOS_USE_TICKLESS_IDLE=y
-# The button wake interrupt runs while the flash cache is off.
 CONFIG_GPIO_CTRL_FUNC_IN_IRAM=y
 
 # Buttons: 50 ms debounce
