@@ -25,14 +25,19 @@ void ui_view_create(uint8_t brightness);
 /** Shows a new snapshot. */
 void ui_view_update(const sensing_snapshot_t* snapshot);
 
-/** Updates the battery indicator. */
+/**
+ * Updates the battery indicator. A change from battery to USB shows a notice
+ * for 3 s, unless the power-off question is open.
+ */
 void ui_view_update_power(const power_status_t* status);
 
-/** Handles a button press. */
+/** Handles a button press. A press over the USB notice only closes it. */
 void ui_view_press(const buttons_event_t* event);
 
 /** Leaves the brightness page and the power-off question; a confirmed power-off stays. */
 void ui_view_close_dialogs(void);
+
+bool ui_view_usb_notice_shown(void);
 
 /** Backlight percent chosen on the brightness page. */
 uint8_t ui_view_brightness(void);

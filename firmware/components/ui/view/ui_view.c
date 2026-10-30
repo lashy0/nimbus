@@ -9,6 +9,7 @@
 #define BRIGHTNESS_DEFAULT 40
 
 #define DIALOG_TIMEOUT_MS 15000 // Without presses.
+#define NOTICE_MS 3000
 
 typedef struct {
     lv_obj_t* (*create)(void);
@@ -35,6 +36,7 @@ static lv_obj_t* s_start;
 static lv_obj_t* s_error;
 static lv_obj_t* s_brightness_page;
 static lv_obj_t* s_power_off_page;
+static lv_obj_t* s_usb_page;
 static lv_obj_t* s_pages[PAGE_COUNT];
 static size_t s_selected;
 static sensing_snapshot_t s_snapshot; // NO_DATA until the first update.
@@ -42,6 +44,9 @@ static view_mode_t s_mode;
 static uint8_t s_brightness;
 static bool s_yes_selected;
 static lv_timer_t* s_dialog_timer;
+static bool s_notice;
+static lv_timer_t* s_notice_timer;
+static power_source_t s_source = POWER_SOURCE_UNKNOWN; // Last known.
 
 static bool brightness_valid(uint8_t percent)
 {
@@ -52,12 +57,18 @@ static void show(lv_obj_t* page)
 {
     if (lv_screen_active() != page) {
         lv_screen_load(page);
-        ui_battery_set_visible(page != s_start);
+        ui_battery_set_visible(page != s_start && page != s_usb_page);
     }
 }
 
 static void refresh(void)
 {
+    if (s_notice) {
+        show(s_usb_page);
+
+        return;
+    }
+
     switch (s_mode) {
         case MODE_BRIGHTNESS:
             ui_page_brightness_update(s_brightness);
@@ -107,6 +118,18 @@ static void on_dialog_timeout(lv_timer_t* timer)
     refresh();
 }
 
+static void close_notice(void)
+{
+    lv_timer_pause(s_notice_timer);
+    s_notice = false;
+}
+
+static void on_notice_timeout(lv_timer_t* timer)
+{
+    close_notice();
+    refresh();
+}
+
 void ui_view_create(uint8_t brightness)
 {
     s_brightness = brightness_valid(brightness) ? brightness : BRIGHTNESS_DEFAULT;
@@ -115,12 +138,15 @@ void ui_view_create(uint8_t brightness)
     s_error = ui_page_error_create();
     s_brightness_page = ui_page_brightness_create();
     s_power_off_page = ui_page_power_off_create();
+    s_usb_page = ui_page_usb_create();
     for (size_t i = 0; i < PAGE_COUNT; i++) {
         s_pages[i] = PAGES[i].create();
     }
 
     s_dialog_timer = lv_timer_create(on_dialog_timeout, DIALOG_TIMEOUT_MS, NULL);
     lv_timer_pause(s_dialog_timer);
+    s_notice_timer = lv_timer_create(on_notice_timeout, NOTICE_MS, NULL);
+    lv_timer_pause(s_notice_timer);
 
     ui_battery_create();
     ui_battery_set_visible(false);
@@ -196,6 +222,13 @@ static void press_measurement(const buttons_event_t* event)
 
 void ui_view_press(const buttons_event_t* event)
 {
+    if (s_notice) {
+        close_notice();
+        refresh();
+
+        return;
+    }
+
     switch (s_mode) {
         case MODE_MEASUREMENT:
             press_measurement(event);
@@ -216,6 +249,30 @@ void ui_view_press(const buttons_event_t* event)
 void ui_view_update_power(const power_status_t* status)
 {
     ui_battery_update(status);
+
+    if (status->source == POWER_SOURCE_UNKNOWN) {
+        return;
+    }
+
+    // USB found at boot is not a plug-in.
+    const bool plugged = s_source == POWER_SOURCE_BATTERY && status->source == POWER_SOURCE_EXTERNAL;
+    s_source = status->source;
+
+    const bool question = s_mode == MODE_POWER_OFF_QUESTION || s_mode == MODE_POWER_OFF_CONFIRMED;
+    if (plugged && !question) {
+        s_notice = true;
+        lv_timer_reset(s_notice_timer);
+        lv_timer_resume(s_notice_timer);
+        refresh();
+    } else if (s_notice && status->source != POWER_SOURCE_EXTERNAL) {
+        close_notice();
+        refresh();
+    }
+}
+
+bool ui_view_usb_notice_shown(void)
+{
+    return s_notice;
 }
 
 void ui_view_close_dialogs(void)

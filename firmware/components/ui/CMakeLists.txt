@@ -17,6 +17,7 @@ idf_component_register(
         "view/page/ui_page_power_off.c"
         "view/page/ui_page_start.c"
         "view/page/ui_page_temp.c"
+        "view/page/ui_page_usb.c"
     INCLUDE_DIRS "include"
     PRIV_INCLUDE_DIRS "view" "view/font" "view/page"
     REQUIRES display

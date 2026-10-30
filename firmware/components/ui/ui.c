@@ -36,6 +36,7 @@ static uint8_t s_brightness; // On the backlight; changed only in the LVGL task.
 static lv_timer_t* s_save_timer;
 static screen_t s_screen; // Changed only in the LVGL task.
 static lv_timer_t* s_idle_timer;
+static screen_t s_after_notice = SCREEN_ON; // Screen the USB notice lit; SCREEN_ON when none.
 static bool s_stopped;
 static atomic_bool s_power_off_requested;
 
@@ -75,14 +76,6 @@ static void on_sensing(lv_timer_t* timer)
     sensing_snapshot_t snapshot;
     sensing_get_snapshot(&snapshot);
     ui_view_update(&snapshot);
-}
-
-// Runs in the LVGL task.
-static void on_power(lv_timer_t* timer)
-{
-    power_status_t status;
-    power_get_status(&status);
-    ui_view_update_power(&status);
 }
 
 // Runs in the LVGL task.
@@ -153,12 +146,33 @@ static void restart_idle(void)
     lv_timer_resume(s_idle_timer);
 }
 
+// Runs in the LVGL task. The USB notice lights a dim or dark screen, which
+// goes back once the notice closes unless a button is pressed meanwhile.
+static void on_power(lv_timer_t* timer)
+{
+    power_status_t status;
+    power_get_status(&status);
+
+    const bool was_shown = ui_view_usb_notice_shown();
+    ui_view_update_power(&status);
+    const bool shown = ui_view_usb_notice_shown();
+
+    if (shown && !was_shown && s_screen != SCREEN_ON) {
+        s_after_notice = s_screen;
+        set_screen(SCREEN_ON);
+    } else if (!shown && s_after_notice != SCREEN_ON) {
+        set_screen(s_after_notice);
+        s_after_notice = SCREEN_ON;
+    }
+}
+
 // Runs in the LVGL task.
 static void on_buttons(lv_timer_t* timer)
 {
     buttons_event_t event;
     while (buttons_receive(&event)) {
         restart_idle();
+        s_after_notice = SCREEN_ON;
 
         // A press on a dim or dark screen only brings it back.
         if (s_screen == SCREEN_ON) {

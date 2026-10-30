@@ -30,6 +30,9 @@ lv_obj_t* ui_page_error_create(void);
 lv_obj_t* ui_page_brightness_create(void);
 void ui_page_brightness_update(uint8_t percent);
 
+/** Shown for a moment after USB is plugged in. */
+lv_obj_t* ui_page_usb_create(void);
+
 lv_obj_t* ui_page_power_off_create(void);
 void ui_page_power_off_update(bool yes_selected);
 

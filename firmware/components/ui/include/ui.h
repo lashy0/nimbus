@@ -14,7 +14,8 @@
  * power may start before or after the UI, the buttons before it.
  *
  * Without presses the screen dims after 30 s and goes dark after 60 s; the
- * next press only brings it back.
+ * next press only brings it back. Plugging in USB shows a notice for 3 s and
+ * lights the screen for it.
  */
 
 /**
