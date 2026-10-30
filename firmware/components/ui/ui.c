@@ -13,49 +13,31 @@
 #include "buttons.h"
 #include "power.h"
 #include "sensing.h"
+#include "ui_app.h"
 #include "ui_pause.h"
+#include "ui_port.h"
 #include "ui_settings.h"
 #include "ui_view.h"
 
 #define SENSING_PERIOD_MS 1000
 #define POWER_PERIOD_MS 250
 #define BUTTONS_PERIOD_MS 20
-#define SAVE_DELAY_MS 2000 // After the last change.
-#define DIM_AFTER_MS 30000 // Without presses.
-#define OFF_AFTER_MS 60000
-#define DIM_PERCENT_MAX 10
-
-typedef enum {
-    SCREEN_ON,
-    SCREEN_DIM,
-    SCREEN_OFF, // Backlight and panel output off; LVGL pauses.
-} screen_t;
 
 static const char* TAG = "ui";
 
 static lv_display_t* s_display;
 static esp_lcd_panel_handle_t s_panel;
-static uint8_t s_brightness; // On the backlight; changed only in the LVGL task.
-static lv_timer_t* s_save_timer;
-static screen_t s_screen; // Changed only in the LVGL task.
-static lv_timer_t* s_idle_timer;
-static esp_pm_lock_handle_t s_pm_lock;      // Held while the screen is lit: the backlight PWM stops in light sleep.
-static screen_t s_after_notice = SCREEN_ON; // Screen the USB notice lit; SCREEN_ON when none.
+static uint8_t s_backlight;            // Percent on the backlight; 0 while dark.
+static esp_pm_lock_handle_t s_pm_lock; // Held while the screen is lit: the backlight PWM stops in light sleep.
 static bool s_stopped;
 static atomic_bool s_power_off_requested;
 
-static uint8_t backlight_percent(void)
+static void hold_awake(bool awake)
 {
-    switch (s_screen) {
-        case SCREEN_ON:
-            return s_brightness;
-        case SCREEN_DIM:
-            return s_brightness < DIM_PERCENT_MAX ? s_brightness : DIM_PERCENT_MAX;
-        case SCREEN_OFF:
-            break;
+    const esp_err_t err = awake ? esp_pm_lock_acquire(s_pm_lock) : esp_pm_lock_release(s_pm_lock);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "PM lock: %s", esp_err_to_name(err));
     }
-
-    return 0;
 }
 
 // Runs in the LVGL task once a frame is drawn. The panel sends the command
@@ -63,17 +45,51 @@ static uint8_t backlight_percent(void)
 static void on_frame_drawn(lv_event_t* event)
 {
     lv_display_remove_event_cb_with_user_data(s_display, on_frame_drawn, NULL);
-    if (s_screen == SCREEN_OFF) {
+    if (s_backlight == 0) {
         return;
     }
 
     esp_err_t err = esp_lcd_panel_disp_on_off(s_panel, true);
     if (err == ESP_OK) {
-        err = display_set_brightness(backlight_percent());
+        err = display_set_brightness(s_backlight);
     }
 
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "screen on: %s", esp_err_to_name(err));
+    }
+}
+
+void ui_port_set_backlight(uint8_t percent)
+{
+    const bool was_dark = s_backlight == 0;
+    s_backlight = percent;
+
+    esp_err_t err = ESP_OK;
+    if (percent == 0) {
+        err = display_set_brightness(0);
+        if (err == ESP_OK) {
+            err = esp_lcd_panel_disp_on_off(s_panel, false);
+        }
+        hold_awake(false);
+    } else if (was_dark) {
+        // The panel keeps its last frame with the output off, so a new one is drawn first.
+        hold_awake(true);
+        lv_obj_invalidate(lv_screen_active());
+        lv_display_add_event_cb(s_display, on_frame_drawn, LV_EVENT_REFR_READY, NULL);
+    } else {
+        err = display_set_brightness(percent);
+    }
+
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "backlight: %s", esp_err_to_name(err));
+    }
+}
+
+void ui_port_save_brightness(uint8_t percent)
+{
+    const esp_err_t err = ui_settings_save_brightness(percent);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "brightness not saved: %s", esp_err_to_name(err));
     }
 }
 
@@ -86,110 +102,13 @@ static void on_sensing(lv_timer_t* timer)
 }
 
 // Runs in the LVGL task.
-static void on_save(lv_timer_t* timer)
-{
-    lv_timer_pause(timer);
-
-    esp_err_t err = ui_settings_save_brightness(s_brightness);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "brightness not saved: %s", esp_err_to_name(err));
-    }
-}
-
-static void save_pending(void)
-{
-    if (!lv_timer_get_paused(s_save_timer)) {
-        on_save(s_save_timer);
-    }
-}
-
-static void hold_awake(bool awake)
-{
-    const esp_err_t err = awake ? esp_pm_lock_acquire(s_pm_lock) : esp_pm_lock_release(s_pm_lock);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "PM lock: %s", esp_err_to_name(err));
-    }
-}
-
-// The panel keeps its last frame with the output off, so a new one is drawn first.
-static void light_after_new_frame(void)
-{
-    lv_obj_invalidate(lv_screen_active());
-    lv_display_add_event_cb(s_display, on_frame_drawn, LV_EVENT_REFR_READY, NULL);
-}
-
-static void set_screen(screen_t screen)
-{
-    const screen_t previous = s_screen;
-    if (screen == previous) {
-        return;
-    }
-
-    s_screen = screen;
-    esp_err_t err = ESP_OK;
-    if (screen == SCREEN_OFF) {
-        err = display_set_brightness(0);
-        if (err == ESP_OK) {
-            err = esp_lcd_panel_disp_on_off(s_panel, false);
-        }
-        ui_view_close_dialogs();
-        save_pending();
-        hold_awake(false);
-    } else if (previous == SCREEN_OFF) {
-        hold_awake(true);
-        light_after_new_frame();
-    } else {
-        err = display_set_brightness(backlight_percent());
-    }
-
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "screen: %s", esp_err_to_name(err));
-    }
-}
-
-// Runs in the LVGL task.
-static void on_idle(lv_timer_t* timer)
-{
-    if (s_screen == SCREEN_ON) {
-        set_screen(SCREEN_DIM);
-        lv_timer_set_period(timer, OFF_AFTER_MS - DIM_AFTER_MS);
-    } else {
-        set_screen(SCREEN_OFF);
-        lv_timer_pause(timer);
-    }
-}
-
-static void restart_idle(void)
-{
-    lv_timer_set_period(s_idle_timer, DIM_AFTER_MS);
-    lv_timer_reset(s_idle_timer);
-    lv_timer_resume(s_idle_timer);
-}
-
-// Runs in the LVGL task.
-static void on_notice_closed(void)
-{
-    if (s_after_notice != SCREEN_ON) {
-        set_screen(s_after_notice);
-        s_after_notice = SCREEN_ON;
-    }
-}
-
-// Runs in the LVGL task. The USB notice lights a dim or dark screen, which
-// goes back once the notice closes unless a button is pressed meanwhile.
 static void on_power(lv_timer_t* timer)
 {
     power_status_t status;
     power_get_status(&status);
+    ui_app_update_power(&status);
 
-    const bool was_shown = ui_view_usb_notice_shown();
-    ui_view_update_power(&status);
-    if (ui_view_usb_notice_shown() && !was_shown && s_screen != SCREEN_ON) {
-        s_after_notice = s_screen;
-        set_screen(SCREEN_ON);
-    }
-
-    if (s_screen == SCREEN_OFF) {
+    if (s_backlight == 0) {
         ui_pause_request();
     }
 }
@@ -199,34 +118,12 @@ static void on_buttons(lv_timer_t* timer)
 {
     buttons_event_t event;
     while (buttons_receive(&event)) {
-        restart_idle();
-        s_after_notice = SCREEN_ON;
-
-        // A press on a dim or dark screen only brings it back.
-        if (s_screen == SCREEN_ON) {
-            ui_view_press(&event);
-        } else {
-            set_screen(SCREEN_ON);
-        }
+        ui_app_press(&event);
     }
 
     if (ui_view_power_off_confirmed()) {
         atomic_store(&s_power_off_requested, true);
     }
-
-    const uint8_t brightness = ui_view_brightness();
-    if (brightness == s_brightness) {
-        return;
-    }
-
-    s_brightness = brightness;
-    esp_err_t err = display_set_brightness(backlight_percent());
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "brightness: %s", esp_err_to_name(err));
-    }
-
-    lv_timer_reset(s_save_timer);
-    lv_timer_resume(s_save_timer);
 }
 
 static uint8_t load_brightness(void)
@@ -244,7 +141,6 @@ esp_err_t ui_start(const display_t* display, BaseType_t core)
 {
     ESP_RETURN_ON_FALSE(s_display == NULL, ESP_ERR_INVALID_STATE, TAG, "already started");
     ESP_RETURN_ON_ERROR(esp_pm_lock_create(ESP_PM_NO_LIGHT_SLEEP, 0, "ui", &s_pm_lock), TAG, "PM lock");
-    ESP_RETURN_ON_ERROR(esp_pm_lock_acquire(s_pm_lock), TAG, "PM lock");
 
     lvgl_port_cfg_t port_config = ESP_LVGL_PORT_INIT_CONFIG();
     port_config.task_affinity = core == tskNO_AFFINITY ? -1 : core;
@@ -277,15 +173,10 @@ esp_err_t ui_start(const display_t* display, BaseType_t core)
     // Drawing happens in the LVGL task, on its own stack.
     lvgl_port_lock(0);
     lv_rand_set_seed(esp_random());
-    ui_view_create(saved_brightness, on_notice_closed);
-    s_brightness = ui_view_brightness();
+    ui_app_create(saved_brightness);
     lv_timer_create(on_sensing, SENSING_PERIOD_MS, NULL);
     lv_timer_create(on_power, POWER_PERIOD_MS, NULL);
     lv_timer_create(on_buttons, BUTTONS_PERIOD_MS, NULL);
-    s_save_timer = lv_timer_create(on_save, SAVE_DELAY_MS, NULL);
-    lv_timer_pause(s_save_timer);
-    s_idle_timer = lv_timer_create(on_idle, DIM_AFTER_MS, NULL);
-    lv_display_add_event_cb(s_display, on_frame_drawn, LV_EVENT_REFR_READY, NULL);
     lvgl_port_unlock();
 
     return ESP_OK;
@@ -305,7 +196,7 @@ esp_err_t ui_stop(void)
     lvgl_port_stop();
     s_stopped = true;
 
-    save_pending();
+    ui_app_save_pending();
 
     esp_err_t err = display_set_brightness(0);
     if (err == ESP_OK) {

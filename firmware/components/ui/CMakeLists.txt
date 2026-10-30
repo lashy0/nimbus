@@ -6,6 +6,7 @@ idf_component_register(
         "view/anim/ui_anim.c"
         "view/anim/ui_blink.c"
         "view/anim/ui_pulse.c"
+        "view/ui_app.c"
         "view/ui_battery.c"
         "view/ui_view.c"
         "view/ui_widgets.c"
