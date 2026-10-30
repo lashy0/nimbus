@@ -8,10 +8,8 @@
 /**
  * @file
  * Screen content. LVGL runs in the esp_lvgl_port task; only that task
- * touches LVGL after start. The pages show the latest sensing snapshot,
- * read once a second; sensing may start before or after the UI. Button
- * presses switch the pages and set the backlight brightness, which is kept
- * in NVS; start the buttons first.
+ * touches LVGL after start. Reads sensing and the buttons; sensing may start
+ * before or after the UI, the buttons before it.
  */
 
 /**

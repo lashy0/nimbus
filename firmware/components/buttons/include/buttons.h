@@ -9,8 +9,7 @@
 
 /**
  * @file
- * The two buttons below the display. Debounces them in the esp_timer task
- * and queues short and long presses for one reader.
+ * The two buttons below the display.
  */
 
 /** Pins are active low. A pin without an internal pull-up needs one on the board. */

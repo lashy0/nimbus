@@ -118,7 +118,7 @@ void app_main(void)
         ESP_LOGE(TAG, "assets: %s", esp_err_to_name(err));
     }
 
-    // Not fatal: the pages just do not switch. Before the UI, which reads the presses.
+    // Not fatal: the pages just do not switch.
     err = start_buttons();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "buttons: %s", esp_err_to_name(err));

@@ -41,7 +41,6 @@ lv_obj_t* ui_page_iaq_create(void)
     s_caption = ui_centered_label_create(screen, &ui_font_semibold_15, "Калибровка\nсенсора", 174);
     ui_dots_create(screen, 0);
 
-    // Sources and positions depend on the value.
     s_plate = lv_image_create(screen);
     lv_obj_set_pos(s_plate, 67, 34);
     s_face = lv_image_create(screen);
@@ -86,7 +85,7 @@ static void show_value(int iaq)
 
 void ui_page_iaq_update(const sensing_snapshot_t* snapshot)
 {
-    // Accuracy 0: BSEC is still stabilizing, its IAQ means nothing yet.
+    // Accuracy 0: BSEC is still stabilizing.
     int shown = SHOWN_CALIBRATING;
     if (snapshot->iaq_accuracy > 0) {
         shown = ui_page_round(snapshot->iaq, 0, IAQ_MAX);

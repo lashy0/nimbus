@@ -106,10 +106,8 @@ static void press_brightness(const buttons_event_t* event)
     }
 }
 
-// The start and error pages stand in for the measurement pages.
 static void press_measurement(const buttons_event_t* event)
 {
-    // Long PREV is left for the power-off question.
     if (event->press == BUTTONS_PRESS_LONG) {
         if (event->id == BUTTONS_NEXT) {
             s_brightness_open = true;

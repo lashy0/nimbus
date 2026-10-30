@@ -12,7 +12,6 @@
 
 #define LONG_PRESS_MS 1500
 #define HOLD_STEP_MS CONFIG_BUTTON_LONG_PRESS_HOLD_SERIAL_TIME_MS
-// A press this soon after a release is a repeat, and a repeat never becomes long.
 #define REPEAT_WINDOW_MS 50
 #define QUEUE_LENGTH 8
 #define BUTTON_COUNT 2
@@ -33,7 +32,6 @@ static void on_press_down(void* handle, void* arg)
     s_long_sent[(intptr_t)arg] = false;
 }
 
-// The first hold step comes LONG_PRESS_MS after the press.
 static void on_hold(void* handle, void* arg)
 {
     const buttons_id_t id = (buttons_id_t)(intptr_t)arg;
@@ -66,7 +64,7 @@ static esp_err_t create_button(gpio_num_t pin, buttons_id_t id)
     button_handle_t button;
     ESP_RETURN_ON_ERROR(iot_button_new_gpio_device(&config, &gpio_config, &button), TAG, "GPIO %d", pin);
 
-    // Not LONG_PRESS_START: button 4.2.3 reads past its callback array after the last one runs.
+    // Not LONG_PRESS_START: it reads past its callback array.
     void* arg = (void*)(intptr_t)id;
     ESP_RETURN_ON_ERROR(iot_button_register_cb(button, BUTTON_PRESS_DOWN, NULL, on_press_down, arg), TAG, "down");
     ESP_RETURN_ON_ERROR(iot_button_register_cb(button, BUTTON_LONG_PRESS_HOLD, NULL, on_hold, arg), TAG, "hold");

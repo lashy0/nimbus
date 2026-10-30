@@ -8,9 +8,7 @@
 
 /**
  * @file
- * Pages of the UI. Each page builds its own LVGL screen once; pages with
- * changing content also have an update function that redraws only when the
- * shown value changes.
+ * Pages of the UI, one LVGL screen each.
  */
 
 /** Shown until the first measurement. */

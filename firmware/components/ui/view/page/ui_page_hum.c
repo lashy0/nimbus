@@ -21,7 +21,6 @@ lv_obj_t* ui_page_hum_create(void)
     s_value = ui_centered_label_create(screen, &ui_font_semibold_60, "", 72);
     ui_dots_create(screen, 2);
 
-    // Sources depend on the value.
     s_plate = lv_image_create(screen);
     lv_obj_set_pos(s_plate, 73, 34);
     s_face = lv_image_create(screen);

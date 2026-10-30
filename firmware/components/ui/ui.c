@@ -13,7 +13,7 @@
 
 #define UPDATE_PERIOD_MS 1000
 #define BUTTONS_PERIOD_MS 20
-#define SAVE_DELAY_MS 2000 // After the last change, so several presses write once.
+#define SAVE_DELAY_MS 2000 // After the last change.
 
 static const char* TAG = "ui";
 
@@ -46,7 +46,7 @@ static void on_update(lv_timer_t* timer)
     ui_view_update(&snapshot);
 }
 
-// Runs in the LVGL task, which waits for the flash write.
+// Runs in the LVGL task.
 static void on_save(lv_timer_t* timer)
 {
     lv_timer_pause(timer);
@@ -102,7 +102,6 @@ esp_err_t ui_start(const display_t* display, BaseType_t core)
     const lvgl_port_display_cfg_t display_config = {
         .io_handle = display->io,
         .panel_handle = display->panel,
-        // A whole frame is drawn before it is sent, so a page never appears in stripes.
         .buffer_size = DISPLAY_WIDTH * DISPLAY_HEIGHT,
         .double_buffer = false,
         .hres = DISPLAY_WIDTH,
