@@ -23,7 +23,17 @@ idf_component_register(
         "view/page/ui_page_temp.c"
         "view/page/ui_page_usb.c"
     INCLUDE_DIRS "include"
-    PRIV_INCLUDE_DIRS "view" "view/anim" "view/font" "view/page"
+    PRIV_INCLUDE_DIRS
+        "view"
+        "view/anim"
+        "view/font"
+        "view/page"
     REQUIRES display
-    PRIV_REQUIRES buttons esp_lcd esp_pm nvs_flash power sensing
+    PRIV_REQUIRES
+        buttons
+        esp_lcd
+        esp_pm
+        nvs_flash
+        power
+        sensing
 )

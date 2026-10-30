@@ -7,7 +7,9 @@ if(NOT EXISTS ${bme68x_dir}/bme68x.c)
 endif()
 
 idf_component_register(
-    SRCS "bme680.c" "${bme68x_dir}/bme68x.c"
+    SRCS
+        "bme680.c"
+        "${bme68x_dir}/bme68x.c"
     INCLUDE_DIRS "include"
     PRIV_INCLUDE_DIRS "${bme68x_dir}"
     REQUIRES esp_driver_i2c

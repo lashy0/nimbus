@@ -9,11 +9,21 @@ if(NOT EXISTS ${bsec_library})
 endif()
 
 idf_component_register(
-    SRCS "sensing.c" "sensing_bsec.c" "sensing_state.c"
+    SRCS
+        "sensing.c"
+        "sensing_bsec.c"
+        "sensing_state.c"
     INCLUDE_DIRS "include"
-    PRIV_INCLUDE_DIRS "${bsec_dir}/inc" "${bsec_dir}/config" "${bme68x_dir}"
+    PRIV_INCLUDE_DIRS
+        "${bsec_dir}/inc"
+        "${bsec_dir}/config"
+        "${bme68x_dir}"
     REQUIRES esp_driver_i2c
-    PRIV_REQUIRES bme680 esp_timer log nvs_flash
+    PRIV_REQUIRES
+        bme680
+        esp_timer
+        log
+        nvs_flash
 )
 
 add_prebuilt_library(algobsec ${bsec_library})
