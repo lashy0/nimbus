@@ -88,7 +88,7 @@ static void refresh(void)
     }
 }
 
-static void close_question(void)
+static void close_dialog(void)
 {
     lv_timer_pause(s_question_timer);
     s_mode = MODE_MEASUREMENT;
@@ -96,7 +96,7 @@ static void close_question(void)
 
 static void on_question_timeout(lv_timer_t* timer)
 {
-    close_question();
+    close_dialog();
     refresh();
 }
 
@@ -162,7 +162,7 @@ static void press_question(const buttons_event_t* event)
         lv_timer_pause(s_question_timer);
         s_mode = MODE_POWER_OFF_CONFIRMED;
     } else {
-        close_question();
+        close_dialog();
     }
 }
 
@@ -209,6 +209,16 @@ void ui_view_press(const buttons_event_t* event)
 void ui_view_update_power(const power_status_t* status)
 {
     ui_battery_update(status);
+}
+
+void ui_view_close_dialogs(void)
+{
+    if (s_mode == MODE_POWER_OFF_CONFIRMED) {
+        return;
+    }
+
+    close_dialog();
+    refresh();
 }
 
 uint8_t ui_view_brightness(void)

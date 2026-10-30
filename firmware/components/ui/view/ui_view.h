@@ -31,6 +31,9 @@ void ui_view_update_power(const power_status_t* status);
 /** Handles a button press. */
 void ui_view_press(const buttons_event_t* event);
 
+/** Leaves the brightness page and the power-off question; a confirmed power-off stays. */
+void ui_view_close_dialogs(void);
+
 /** Backlight percent chosen on the brightness page. */
 uint8_t ui_view_brightness(void);
 
