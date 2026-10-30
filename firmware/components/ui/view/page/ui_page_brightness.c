@@ -31,7 +31,7 @@ lv_obj_t* ui_page_brightness_create(void)
 {
     lv_obj_t* screen = ui_screen_create();
     ui_image_create(screen, UI_IMAGE("misc/sun"), 40, 60);
-    s_caption = ui_centered_label_create(screen, &ui_font_semibold_15, "", 125);
+    s_caption = ui_centered_label_create(screen, ui_font_semibold_15, "", 125);
     s_bar = create_bar(screen);
 
     return screen;

@@ -21,7 +21,7 @@ static lv_obj_t* create_answer(lv_obj_t* parent, const char* text, int32_t x)
     lv_obj_set_style_radius(answer, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_bg_color(answer, lv_color_hex(COLOR_ACCENT), 0);
 
-    lv_obj_t* label = ui_label_create(answer, &ui_font_semibold_15, text, 0, 0);
+    lv_obj_t* label = ui_label_create(answer, ui_font_semibold_15, text, 0, 0);
     lv_obj_center(label);
 
     return answer;
@@ -31,7 +31,7 @@ lv_obj_t* ui_page_power_off_create(void)
 {
     lv_obj_t* screen = ui_screen_create();
     ui_image_create(screen, UI_IMAGE("face/cat_huh"), 32, 45);
-    ui_centered_label_create(screen, &ui_font_semibold_15, "Выключить\nустройство?", 140);
+    ui_centered_label_create(screen, ui_font_semibold_15, "Выключить\nустройство?", 140);
     s_yes = create_answer(screen, "ДА", 15);
     s_no = create_answer(screen, "НЕТ", 70);
 

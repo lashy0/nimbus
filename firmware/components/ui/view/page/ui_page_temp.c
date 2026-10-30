@@ -19,8 +19,8 @@ static int s_shown = INT_MIN; // Rounded temperature on screen.
 lv_obj_t* ui_page_temp_create(void)
 {
     lv_obj_t* screen = ui_screen_create();
-    ui_label_create(screen, &ui_font_semibold_30, "Temp", 17, 34);
-    s_value = ui_centered_label_create(screen, &ui_font_semibold_60, "", 72);
+    ui_label_create(screen, ui_font_semibold_30, "Temp", 17, 42);
+    s_value = ui_centered_label_create(screen, ui_font_semibold_60, "", 72);
     ui_dots_create(screen, 1);
 
     s_plate = lv_image_create(screen);

@@ -18,8 +18,8 @@ static int s_shown = INT_MIN; // Rounded humidity on screen.
 lv_obj_t* ui_page_hum_create(void)
 {
     lv_obj_t* screen = ui_screen_create();
-    ui_label_create(screen, &ui_font_semibold_30, "Hum", 4, 34);
-    s_value = ui_centered_label_create(screen, &ui_font_semibold_60, "", 72);
+    ui_label_create(screen, ui_font_semibold_30, "Hum", 4, 42);
+    s_value = ui_centered_label_create(screen, ui_font_semibold_60, "", 72);
     ui_dots_create(screen, 2);
 
     s_plate = lv_image_create(screen);
@@ -42,7 +42,7 @@ void ui_page_hum_update(const sensing_snapshot_t* snapshot)
     lv_label_set_text_fmt(s_value, "%d%%", percent);
 
     // "100%" does not fit the screen width at 60 px.
-    const lv_font_t* font = percent >= 100 ? &ui_font_semibold_50 : &ui_font_semibold_60;
+    const lv_font_t* font = percent >= 100 ? ui_font_semibold_50 : ui_font_semibold_60;
     lv_obj_set_style_text_font(s_value, font, 0);
 
     if (percent < DRY_BELOW) {

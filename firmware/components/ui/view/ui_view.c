@@ -1,6 +1,7 @@
 #include "ui_view.h"
 
 #include "ui_battery.h"
+#include "ui_font.h"
 #include "ui_page.h"
 
 #define BRIGHTNESS_MIN 5
@@ -135,6 +136,7 @@ static void on_notice_timeout(lv_timer_t* timer)
 void ui_view_create(uint8_t brightness, void (*on_notice_closed)(void))
 {
     s_on_notice_closed = on_notice_closed;
+    ui_font_load();
     s_brightness = brightness_valid(brightness) ? brightness : BRIGHTNESS_DEFAULT;
 
     s_start = ui_page_start_create();

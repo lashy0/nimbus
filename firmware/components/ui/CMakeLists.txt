@@ -8,13 +8,9 @@ idf_component_register(
         "view/anim/ui_pulse.c"
         "view/ui_app.c"
         "view/ui_battery.c"
+        "view/ui_font.c"
         "view/ui_view.c"
         "view/ui_widgets.c"
-        "view/font/ui_font_bold_10.c"
-        "view/font/ui_font_semibold_15.c"
-        "view/font/ui_font_semibold_30.c"
-        "view/font/ui_font_semibold_50.c"
-        "view/font/ui_font_semibold_60.c"
         "view/page/ui_page_brightness.c"
         "view/page/ui_page_error.c"
         "view/page/ui_page_hum.c"
@@ -27,7 +23,6 @@ idf_component_register(
     PRIV_INCLUDE_DIRS
         "view"
         "view/anim"
-        "view/font"
         "view/page"
     REQUIRES display
     PRIV_REQUIRES

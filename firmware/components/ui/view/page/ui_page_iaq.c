@@ -39,9 +39,9 @@ static int s_shown = SHOWN_NOTHING;
 lv_obj_t* ui_page_iaq_create(void)
 {
     lv_obj_t* screen = ui_screen_create();
-    s_title = ui_label_create(screen, &ui_font_semibold_30, "IAQ", 0, 33);
-    s_value = ui_centered_label_create(screen, &ui_font_semibold_60, "", 72);
-    s_caption = ui_centered_label_create(screen, &ui_font_semibold_15, "Калибровка\nсенсора", 174);
+    s_title = ui_label_create(screen, ui_font_semibold_30, "IAQ", 0, 41);
+    s_value = ui_centered_label_create(screen, ui_font_semibold_60, "", 72);
+    s_caption = ui_centered_label_create(screen, ui_font_semibold_15, "Калибровка\nсенсора", 174);
     ui_dots_create(screen, 0);
 
     s_plate = lv_image_create(screen);

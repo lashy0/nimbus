@@ -54,7 +54,7 @@ void ui_battery_create(void)
     lv_obj_set_size(s_box, lv_pct(100), 30);
     lv_obj_set_style_text_color(s_box, lv_color_white(), 0);
 
-    s_text = ui_label_create(s_box, &ui_font_bold_10, "-- %", 41, 12);
+    s_text = ui_label_create(s_box, ui_font_bold_10, "-- %", 41, 12);
     lv_obj_set_width(s_text, 30);
     lv_obj_set_style_text_align(s_text, LV_TEXT_ALIGN_RIGHT, 0);
 
