@@ -19,8 +19,9 @@
  * Builds every page and shows the start page in place of the display's default screen.
  *
  * @param brightness Saved backlight percent; one the view cannot set, such as 0, gives its default.
+ * @param on_notice_closed Called as the USB notice closes, before the page under it is shown.
  */
-void ui_view_create(uint8_t brightness);
+void ui_view_create(uint8_t brightness, void (*on_notice_closed)(void));
 
 /** Shows a new snapshot. */
 void ui_view_update(const sensing_snapshot_t* snapshot);

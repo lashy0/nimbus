@@ -47,6 +47,7 @@ static lv_timer_t* s_dialog_timer;
 static bool s_notice;
 static lv_timer_t* s_notice_timer;
 static power_source_t s_source = POWER_SOURCE_UNKNOWN; // Last known.
+static void (*s_on_notice_closed)(void);
 
 static bool brightness_valid(uint8_t percent)
 {
@@ -122,6 +123,7 @@ static void close_notice(void)
 {
     lv_timer_pause(s_notice_timer);
     s_notice = false;
+    s_on_notice_closed();
 }
 
 static void on_notice_timeout(lv_timer_t* timer)
@@ -130,8 +132,9 @@ static void on_notice_timeout(lv_timer_t* timer)
     refresh();
 }
 
-void ui_view_create(uint8_t brightness)
+void ui_view_create(uint8_t brightness, void (*on_notice_closed)(void))
 {
+    s_on_notice_closed = on_notice_closed;
     s_brightness = brightness_valid(brightness) ? brightness : BRIGHTNESS_DEFAULT;
 
     s_start = ui_page_start_create();

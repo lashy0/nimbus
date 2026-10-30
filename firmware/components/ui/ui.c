@@ -58,11 +58,14 @@ static uint8_t backlight_percent(void)
     return 0;
 }
 
-// Runs in the LVGL task once the first frame is drawn. The panel sends the
-// command only after the pending pixel data.
-static void on_first_frame(lv_event_t* event)
+// Runs in the LVGL task once a frame is drawn. The panel sends the command
+// only after the pending pixel data.
+static void on_frame_drawn(lv_event_t* event)
 {
-    lv_display_remove_event_cb_with_user_data(s_display, on_first_frame, NULL);
+    lv_display_remove_event_cb_with_user_data(s_display, on_frame_drawn, NULL);
+    if (s_screen == SCREEN_OFF) {
+        return;
+    }
 
     esp_err_t err = esp_lcd_panel_disp_on_off(s_panel, true);
     if (err == ESP_OK) {
@@ -108,7 +111,13 @@ static void hold_awake(bool awake)
     }
 }
 
-// The panel keeps its last frame with the output off, so it can come back at once.
+// The panel keeps its last frame with the output off, so a new one is drawn first.
+static void light_after_new_frame(void)
+{
+    lv_obj_invalidate(lv_screen_active());
+    lv_display_add_event_cb(s_display, on_frame_drawn, LV_EVENT_REFR_READY, NULL);
+}
+
 static void set_screen(screen_t screen)
 {
     const screen_t previous = s_screen;
@@ -119,21 +128,18 @@ static void set_screen(screen_t screen)
     s_screen = screen;
     esp_err_t err = ESP_OK;
     if (screen == SCREEN_OFF) {
-        ui_view_close_dialogs();
-        save_pending();
         err = display_set_brightness(0);
         if (err == ESP_OK) {
             err = esp_lcd_panel_disp_on_off(s_panel, false);
         }
+        ui_view_close_dialogs();
+        save_pending();
         hold_awake(false);
+    } else if (previous == SCREEN_OFF) {
+        hold_awake(true);
+        light_after_new_frame();
     } else {
-        if (previous == SCREEN_OFF) {
-            hold_awake(true);
-            err = esp_lcd_panel_disp_on_off(s_panel, true);
-        }
-        if (err == ESP_OK) {
-            err = display_set_brightness(backlight_percent());
-        }
+        err = display_set_brightness(backlight_percent());
     }
 
     if (err != ESP_OK) {
@@ -160,6 +166,15 @@ static void restart_idle(void)
     lv_timer_resume(s_idle_timer);
 }
 
+// Runs in the LVGL task.
+static void on_notice_closed(void)
+{
+    if (s_after_notice != SCREEN_ON) {
+        set_screen(s_after_notice);
+        s_after_notice = SCREEN_ON;
+    }
+}
+
 // Runs in the LVGL task. The USB notice lights a dim or dark screen, which
 // goes back once the notice closes unless a button is pressed meanwhile.
 static void on_power(lv_timer_t* timer)
@@ -169,14 +184,9 @@ static void on_power(lv_timer_t* timer)
 
     const bool was_shown = ui_view_usb_notice_shown();
     ui_view_update_power(&status);
-    const bool shown = ui_view_usb_notice_shown();
-
-    if (shown && !was_shown && s_screen != SCREEN_ON) {
+    if (ui_view_usb_notice_shown() && !was_shown && s_screen != SCREEN_ON) {
         s_after_notice = s_screen;
         set_screen(SCREEN_ON);
-    } else if (!shown && s_after_notice != SCREEN_ON) {
-        set_screen(s_after_notice);
-        s_after_notice = SCREEN_ON;
     }
 
     if (s_screen == SCREEN_OFF) {
@@ -267,7 +277,7 @@ esp_err_t ui_start(const display_t* display, BaseType_t core)
     // Drawing happens in the LVGL task, on its own stack.
     lvgl_port_lock(0);
     lv_rand_set_seed(esp_random());
-    ui_view_create(saved_brightness);
+    ui_view_create(saved_brightness, on_notice_closed);
     s_brightness = ui_view_brightness();
     lv_timer_create(on_sensing, SENSING_PERIOD_MS, NULL);
     lv_timer_create(on_power, POWER_PERIOD_MS, NULL);
@@ -275,7 +285,7 @@ esp_err_t ui_start(const display_t* display, BaseType_t core)
     s_save_timer = lv_timer_create(on_save, SAVE_DELAY_MS, NULL);
     lv_timer_pause(s_save_timer);
     s_idle_timer = lv_timer_create(on_idle, DIM_AFTER_MS, NULL);
-    lv_display_add_event_cb(s_display, on_first_frame, LV_EVENT_REFR_READY, NULL);
+    lv_display_add_event_cb(s_display, on_frame_drawn, LV_EVENT_REFR_READY, NULL);
     lvgl_port_unlock();
 
     return ESP_OK;
