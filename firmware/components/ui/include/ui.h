@@ -9,7 +9,8 @@
  * @file
  * Screen content. LVGL runs in the esp_lvgl_port task; only that task
  * touches LVGL after start. The pages show the latest sensing snapshot,
- * read once a second; sensing may start before or after the UI.
+ * read once a second; sensing may start before or after the UI. Button
+ * presses switch the pages; start the buttons first.
  */
 
 /**

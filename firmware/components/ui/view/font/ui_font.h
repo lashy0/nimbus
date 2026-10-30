@@ -10,4 +10,5 @@
 
 LV_FONT_DECLARE(ui_font_semibold_15); /**< Latin and Cyrillic text. */
 LV_FONT_DECLARE(ui_font_semibold_30); /**< Latin letters for titles. */
+LV_FONT_DECLARE(ui_font_semibold_50); /**< Digits and percent, for values too wide at 60. */
 LV_FONT_DECLARE(ui_font_semibold_60); /**< Digits, minus, percent and degree. */

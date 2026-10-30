@@ -1,5 +1,3 @@
-#include <math.h>
-
 #include "ui_assets.h"
 #include "ui_font.h"
 #include "ui_page.h"
@@ -91,7 +89,7 @@ void ui_page_iaq_update(const sensing_snapshot_t* snapshot)
     // Accuracy 0: BSEC is still stabilizing, its IAQ means nothing yet.
     int shown = SHOWN_CALIBRATING;
     if (snapshot->iaq_accuracy > 0) {
-        shown = (int)lroundf(fminf(fmaxf(snapshot->iaq, 0), IAQ_MAX));
+        shown = ui_page_round(snapshot->iaq, 0, IAQ_MAX);
     }
 
     if (shown == s_shown) {

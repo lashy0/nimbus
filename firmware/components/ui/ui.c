@@ -6,12 +6,14 @@
 #include "esp_lvgl_port.h"
 #include "lvgl.h"
 
+#include "buttons.h"
 #include "sensing.h"
 #include "ui_view.h"
 
 #define BUFFER_LINES 24
 #define BRIGHTNESS_PERCENT 100
 #define UPDATE_PERIOD_MS 1000
+#define BUTTONS_PERIOD_MS 20
 
 static const char* TAG = "ui";
 
@@ -40,6 +42,15 @@ static void on_update(lv_timer_t* timer)
     sensing_snapshot_t snapshot;
     sensing_get_snapshot(&snapshot);
     ui_view_update(&snapshot);
+}
+
+// Runs in the LVGL task.
+static void on_buttons(lv_timer_t* timer)
+{
+    buttons_event_t event;
+    while (buttons_receive(&event)) {
+        ui_view_press(&event);
+    }
 }
 
 esp_err_t ui_start(const display_t* display, BaseType_t core)
@@ -76,6 +87,7 @@ esp_err_t ui_start(const display_t* display, BaseType_t core)
     lvgl_port_lock(0);
     ui_view_create();
     lv_timer_create(on_update, UPDATE_PERIOD_MS, NULL);
+    lv_timer_create(on_buttons, BUTTONS_PERIOD_MS, NULL);
     lv_display_add_event_cb(s_display, on_first_frame, LV_EVENT_REFR_READY, NULL);
     lvgl_port_unlock();
 
