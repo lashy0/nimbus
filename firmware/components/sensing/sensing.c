@@ -1,11 +1,12 @@
 #include "sensing.h"
 
-#include <unistd.h>
+#include <stdatomic.h>
 
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 
 #include "bme680.h"
@@ -17,11 +18,15 @@
 #define RETRY_DELAY_NS (3000LL * 1000 * 1000)
 #define STATE_SAVE_PERIOD_NS (60LL * 60 * 1000 * 1000 * 1000)
 #define IAQ_ACCURACY_HIGH 3
+#define STOP_TIMEOUT_MS 2000
 
 static const char* TAG = "sensing";
 
 static bme680_handle_t s_sensor;
 static TaskHandle_t s_task;
+static atomic_bool s_stop_requested;
+static StaticSemaphore_t s_stopped_buffer;
+static SemaphoreHandle_t s_stopped; // Given by the task once it has stopped.
 
 // Used by the sensing task only.
 static int64_t s_state_saved_ns;
@@ -82,12 +87,21 @@ static void restore_state(void)
     }
 }
 
-// Rounded up, so the task does not wake before next_call.
-static void wait_until(int64_t time_ns)
+// Waits until time_ns, never less. Returns false if a stop is requested first.
+static bool wait_until(int64_t time_ns)
 {
-    const int64_t wait_us = (time_ns + 999) / 1000 - esp_timer_get_time();
-    if (wait_us > 0) {
-        usleep(wait_us);
+    for (;;) {
+        if (atomic_load(&s_stop_requested)) {
+            return false;
+        }
+
+        const int64_t wait_us = (time_ns + 999) / 1000 - esp_timer_get_time();
+        if (wait_us <= 0) {
+            return true;
+        }
+
+        // One tick more: a wait of n ticks may end right after the next tick boundary.
+        ulTaskNotifyTake(pdTRUE, (TickType_t)((wait_us * configTICK_RATE_HZ + 999999) / 1000000) + 1);
     }
 }
 
@@ -114,8 +128,18 @@ static void sensing_task(void* arg)
             next_call_ns = now_ns + RETRY_DELAY_NS;
         }
 
-        wait_until(next_call_ns);
+        if (!wait_until(next_call_ns)) {
+            break;
+        }
     }
+
+    const esp_err_t err = sensing_state_save();
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "BSEC state not saved: %s", esp_err_to_name(err));
+    }
+
+    xSemaphoreGive(s_stopped);
+    vTaskDelete(NULL);
 }
 
 esp_err_t sensing_start(i2c_master_bus_handle_t bus, BaseType_t core)
@@ -124,6 +148,7 @@ esp_err_t sensing_start(i2c_master_bus_handle_t bus, BaseType_t core)
         core == tskNO_AFFINITY || (core >= 0 && core < portNUM_PROCESSORS), ESP_ERR_INVALID_ARG, TAG, "core");
     ESP_RETURN_ON_FALSE(s_task == NULL, ESP_ERR_INVALID_STATE, TAG, "already started");
     ESP_RETURN_ON_ERROR(bme680_open(bus, &s_sensor), TAG, "open BME680");
+    s_stopped = xSemaphoreCreateBinaryStatic(&s_stopped_buffer);
 
     esp_err_t ret = ESP_OK;
     ESP_GOTO_ON_ERROR(sensing_bsec_init(), fail, TAG, "BSEC");
@@ -151,4 +176,16 @@ void sensing_get_snapshot(sensing_snapshot_t* out)
     taskENTER_CRITICAL(&s_lock);
     *out = s_snapshot;
     taskEXIT_CRITICAL(&s_lock);
+}
+
+esp_err_t sensing_stop(void)
+{
+    ESP_RETURN_ON_FALSE(s_task != NULL, ESP_ERR_INVALID_STATE, TAG, "not started");
+    ESP_RETURN_ON_FALSE(!atomic_exchange(&s_stop_requested, true), ESP_ERR_INVALID_STATE, TAG, "already stopped");
+
+    xTaskNotifyGive(s_task);
+    ESP_RETURN_ON_FALSE(
+        xSemaphoreTake(s_stopped, pdMS_TO_TICKS(STOP_TIMEOUT_MS)) == pdTRUE, ESP_ERR_TIMEOUT, TAG, "no confirmation");
+
+    return ESP_OK;
 }

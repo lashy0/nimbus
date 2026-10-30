@@ -39,3 +39,15 @@ esp_err_t sensing_start(i2c_master_bus_handle_t bus, BaseType_t core);
  * @param out Non-NULL destination owned by the caller.
  */
 void sensing_get_snapshot(sensing_snapshot_t* out);
+
+/**
+ * Stops the sensing task after its current step and saves the calibration.
+ * The snapshot keeps its last value. Sensing cannot start again until a reset.
+ *
+ * Call from a task. Waits up to 2 s.
+ *
+ * @retval ESP_OK The task has stopped; a failed save is only logged.
+ * @retval ESP_ERR_INVALID_STATE Sensing has not started or is already stopped.
+ * @retval ESP_ERR_TIMEOUT The task did not stop in time.
+ */
+esp_err_t sensing_stop(void);
