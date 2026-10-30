@@ -9,6 +9,7 @@
 
 #include "board.h"
 #include "buttons.h"
+#include "deep_sleep.h"
 #include "display.h"
 #include "power.h"
 #include "sensing.h"
@@ -18,6 +19,7 @@
 #define POWER_CORE 0
 #define UI_CORE 1
 
+#define WATCH_PERIOD_MS 100
 #define LOG_PERIOD_MS 3000
 
 // LVGL reads it through CONFIG_LV_FS_STDIO_PATH.
@@ -62,6 +64,14 @@ static esp_err_t start_ui(void)
     ESP_RETURN_ON_ERROR(display_open(&config, &display), TAG, "display");
 
     return ui_start(&display, UI_CORE);
+}
+
+static esp_err_t start_sensing(void)
+{
+    i2c_master_bus_handle_t bus;
+    ESP_RETURN_ON_ERROR(board_create_i2c_bus(&bus), TAG, "I2C bus");
+
+    return sensing_start(bus, SENSING_CORE);
 }
 
 static esp_err_t init_nvs(void)
@@ -114,8 +124,25 @@ static void log_snapshot(const sensing_snapshot_t* snapshot)
     }
 }
 
+// Sleep goes on after a failed stop: staying awake would drain the battery.
+static void power_off(deep_sleep_reason_t reason)
+{
+    esp_err_t err = ui_stop();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "UI stop: %s", esp_err_to_name(err));
+    }
+
+    err = sensing_stop();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "sensing stop: %s", esp_err_to_name(err));
+    }
+
+    deep_sleep_enter(reason);
+}
+
 void app_main(void)
 {
+    deep_sleep_restore();
     ESP_LOGI(TAG, "Nimbus %s, ESP-IDF %s", esp_app_get_description()->version, esp_get_idf_version());
 
     // Not fatal: components run without saved data.
@@ -136,6 +163,10 @@ void app_main(void)
         ESP_LOGE(TAG, "power: %s", esp_err_to_name(err));
     }
 
+    if (!power_startup_allowed()) {
+        deep_sleep_enter(DEEP_SLEEP_LOW_START);
+    }
+
     // Not fatal: the pages just do not switch.
     err = start_buttons();
     if (err != ESP_OK) {
@@ -148,26 +179,32 @@ void app_main(void)
         ESP_LOGE(TAG, "UI: %s", esp_err_to_name(err));
     }
 
-    i2c_master_bus_handle_t bus;
-    err = board_create_i2c_bus(&bus);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "I2C bus: %s", esp_err_to_name(err));
-
-        return;
-    }
-
-    err = sensing_start(bus, SENSING_CORE);
+    // Not fatal: the UI stays on the start page.
+    err = start_sensing();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "sensing: %s", esp_err_to_name(err));
-
-        return;
     }
 
+    TickType_t logged = xTaskGetTickCount();
     for (;;) {
-        sensing_snapshot_t snapshot;
-        sensing_get_snapshot(&snapshot);
-        log_snapshot(&snapshot);
+        if (ui_power_off_requested()) {
+            power_off(DEEP_SLEEP_USER);
+        }
 
-        vTaskDelay(pdMS_TO_TICKS(LOG_PERIOD_MS));
+        power_status_t power;
+        power_get_status(&power);
+        if (power.critical) {
+            power_off(DEEP_SLEEP_CRITICAL);
+        }
+
+        if (xTaskGetTickCount() - logged >= pdMS_TO_TICKS(LOG_PERIOD_MS)) {
+            logged = xTaskGetTickCount();
+
+            sensing_snapshot_t snapshot;
+            sensing_get_snapshot(&snapshot);
+            log_snapshot(&snapshot);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(WATCH_PERIOD_MS));
     }
 }
