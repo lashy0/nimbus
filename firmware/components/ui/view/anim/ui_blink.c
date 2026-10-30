@@ -41,7 +41,7 @@ static void on_step(lv_timer_t* timer)
 
 static void start(ui_blink_t* blink)
 {
-    if (ui_anim_enabled() && blink->closed != NULL) {
+    if (blink->closed != NULL) {
         wait_for_next(blink);
         lv_timer_resume(blink->timer);
     }

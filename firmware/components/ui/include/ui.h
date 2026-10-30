@@ -32,7 +32,8 @@
  * @retval ESP_OK LVGL runs; the first frame follows shortly.
  * @retval ESP_ERR_INVALID_ARG The chip has no such core.
  * @retval ESP_ERR_INVALID_STATE The UI has already started.
- * @retval ESP_ERR_NO_MEM LVGL buffers could not be allocated.
+ * @retval ESP_ERR_NO_MEM LVGL buffers, the PM lock or a task could not be allocated.
+ * @retval ESP_ERR_NOT_SUPPORTED Power management is off in the configuration.
  * @retval ESP_FAIL The LVGL task could not be created.
  */
 esp_err_t ui_start(const display_t* display, BaseType_t core);
@@ -49,7 +50,7 @@ bool ui_power_off_requested(void);
  * Stops drawing, saves a pending brightness change and turns the backlight
  * and the panel off. The UI cannot start again until a reset.
  *
- * Call from a task other than the LVGL one.
+ * Call from a task other than the LVGL one. Waits up to 0.5 s while the screen is dark.
  *
  * @retval ESP_OK The screen is dark and the panel sleeps.
  * @retval ESP_ERR_INVALID_STATE The UI is not running.

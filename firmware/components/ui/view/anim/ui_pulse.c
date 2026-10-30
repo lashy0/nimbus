@@ -34,7 +34,7 @@ static void stop(lv_obj_t* image)
 static void on_screen(lv_event_t* event)
 {
     lv_obj_t* image = lv_event_get_user_data(event);
-    if (lv_event_get_code(event) == LV_EVENT_SCREEN_LOADED && ui_anim_enabled()) {
+    if (lv_event_get_code(event) == LV_EVENT_SCREEN_LOADED) {
         start(image);
     } else {
         stop(image);

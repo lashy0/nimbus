@@ -1,6 +1,5 @@
 #include "ui_view.h"
 
-#include "ui_anim.h"
 #include "ui_battery.h"
 #include "ui_page.h"
 
@@ -274,11 +273,6 @@ void ui_view_update_power(const power_status_t* status)
 bool ui_view_usb_notice_shown(void)
 {
     return s_notice;
-}
-
-void ui_view_set_dark(bool dark)
-{
-    ui_anim_set_enabled(!dark);
 }
 
 void ui_view_close_dialogs(void)

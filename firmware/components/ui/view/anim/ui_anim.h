@@ -1,19 +1,14 @@
 #pragma once
 
-#include <stdbool.h>
-
 #include "lvgl.h"
 
 /**
  * @file
  * Animations of page images. Each runs only while the screen holding its
- * image is shown and animations are enabled.
+ * image is shown.
  */
 
 typedef struct ui_blink ui_blink_t;
-
-/** Starts or stops every animation, such as while the display is dark. Enabled at first. */
-void ui_anim_set_enabled(bool enabled);
 
 /** Blinking for a face image; the face stays still until ui_blink_set(). */
 ui_blink_t* ui_blink_create(lv_obj_t* face);

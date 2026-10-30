@@ -6,12 +6,14 @@
 #include "esp_lcd_panel_ops.h"
 #include "esp_log.h"
 #include "esp_lvgl_port.h"
+#include "esp_pm.h"
 #include "esp_random.h"
 #include "lvgl.h"
 
 #include "buttons.h"
 #include "power.h"
 #include "sensing.h"
+#include "ui_pause.h"
 #include "ui_settings.h"
 #include "ui_view.h"
 
@@ -26,7 +28,7 @@
 typedef enum {
     SCREEN_ON,
     SCREEN_DIM,
-    SCREEN_OFF, // Backlight and panel output off; drawing goes on.
+    SCREEN_OFF, // Backlight and panel output off; LVGL pauses.
 } screen_t;
 
 static const char* TAG = "ui";
@@ -37,6 +39,7 @@ static uint8_t s_brightness; // On the backlight; changed only in the LVGL task.
 static lv_timer_t* s_save_timer;
 static screen_t s_screen; // Changed only in the LVGL task.
 static lv_timer_t* s_idle_timer;
+static esp_pm_lock_handle_t s_pm_lock;      // Held while the screen is lit: the backlight PWM stops in light sleep.
 static screen_t s_after_notice = SCREEN_ON; // Screen the USB notice lit; SCREEN_ON when none.
 static bool s_stopped;
 static atomic_bool s_power_off_requested;
@@ -97,7 +100,15 @@ static void save_pending(void)
     }
 }
 
-// The panel keeps its RAM with the output off, so the page is current when it comes back.
+static void hold_awake(bool awake)
+{
+    const esp_err_t err = awake ? esp_pm_lock_acquire(s_pm_lock) : esp_pm_lock_release(s_pm_lock);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "PM lock: %s", esp_err_to_name(err));
+    }
+}
+
+// The panel keeps its last frame with the output off, so it can come back at once.
 static void set_screen(screen_t screen)
 {
     const screen_t previous = s_screen;
@@ -107,7 +118,6 @@ static void set_screen(screen_t screen)
 
     s_screen = screen;
     esp_err_t err = ESP_OK;
-    ui_view_set_dark(screen == SCREEN_OFF);
     if (screen == SCREEN_OFF) {
         ui_view_close_dialogs();
         save_pending();
@@ -115,8 +125,10 @@ static void set_screen(screen_t screen)
         if (err == ESP_OK) {
             err = esp_lcd_panel_disp_on_off(s_panel, false);
         }
+        hold_awake(false);
     } else {
         if (previous == SCREEN_OFF) {
+            hold_awake(true);
             err = esp_lcd_panel_disp_on_off(s_panel, true);
         }
         if (err == ESP_OK) {
@@ -165,6 +177,10 @@ static void on_power(lv_timer_t* timer)
     } else if (!shown && s_after_notice != SCREEN_ON) {
         set_screen(s_after_notice);
         s_after_notice = SCREEN_ON;
+    }
+
+    if (s_screen == SCREEN_OFF) {
+        ui_pause_request();
     }
 }
 
@@ -217,6 +233,8 @@ static uint8_t load_brightness(void)
 esp_err_t ui_start(const display_t* display, BaseType_t core)
 {
     ESP_RETURN_ON_FALSE(s_display == NULL, ESP_ERR_INVALID_STATE, TAG, "already started");
+    ESP_RETURN_ON_ERROR(esp_pm_lock_create(ESP_PM_NO_LIGHT_SLEEP, 0, "ui", &s_pm_lock), TAG, "PM lock");
+    ESP_RETURN_ON_ERROR(esp_pm_lock_acquire(s_pm_lock), TAG, "PM lock");
 
     lvgl_port_cfg_t port_config = ESP_LVGL_PORT_INIT_CONFIG();
     port_config.task_affinity = core == tskNO_AFFINITY ? -1 : core;
@@ -242,6 +260,7 @@ esp_err_t ui_start(const display_t* display, BaseType_t core)
         return ESP_ERR_NO_MEM;
     }
 
+    ESP_RETURN_ON_ERROR(ui_pause_start(core), TAG, "pause");
     s_panel = display->panel;
     const uint8_t saved_brightness = load_brightness();
 
@@ -271,6 +290,7 @@ esp_err_t ui_stop(void)
 {
     ESP_RETURN_ON_FALSE(s_display != NULL && !s_stopped, ESP_ERR_INVALID_STATE, TAG, "not running");
 
+    ui_pause_disable();
     lvgl_port_lock(0);
     lvgl_port_stop();
     s_stopped = true;

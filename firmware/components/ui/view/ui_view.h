@@ -34,9 +34,6 @@ void ui_view_update_power(const power_status_t* status);
 /** Handles a button press. A press over the USB notice only closes it. */
 void ui_view_press(const buttons_event_t* event);
 
-/** Stops the animations while the display is dark. */
-void ui_view_set_dark(bool dark);
-
 /** Leaves the brightness page and the power-off question; a confirmed power-off stays. */
 void ui_view_close_dialogs(void);
 
