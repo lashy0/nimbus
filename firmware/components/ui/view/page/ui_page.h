@@ -28,6 +28,9 @@ void ui_page_hum_update(const sensing_snapshot_t* snapshot);
 /** Shown while the latest measurement has failed. */
 lv_obj_t* ui_page_error_create(void);
 
+lv_obj_t* ui_page_brightness_create(void);
+void ui_page_brightness_update(uint8_t percent);
+
 /** Rounds a measurement to the whole number shown on a page. */
 static inline int ui_page_round(float value, int min, int max)
 {

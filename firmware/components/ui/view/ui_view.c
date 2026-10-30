@@ -1,6 +1,13 @@
 #include "ui_view.h"
 
+#include <stdbool.h>
+
 #include "ui_page.h"
+
+#define BRIGHTNESS_MIN 5
+#define BRIGHTNESS_MAX 100
+#define BRIGHTNESS_STEP 5
+#define BRIGHTNESS_DEFAULT 40
 
 typedef struct {
     lv_obj_t* (*create)(void);
@@ -18,14 +25,25 @@ static const page_t PAGES[] = {
 
 static lv_obj_t* s_start;
 static lv_obj_t* s_error;
+static lv_obj_t* s_brightness_page;
 static lv_obj_t* s_pages[PAGE_COUNT];
 static size_t s_selected;
 static sensing_snapshot_t s_snapshot; // NO_DATA until the first update.
+static bool s_brightness_open;
+static uint8_t s_brightness;
 
-void ui_view_create(void)
+static bool brightness_valid(uint8_t percent)
 {
+    return percent >= BRIGHTNESS_MIN && percent <= BRIGHTNESS_MAX && percent % BRIGHTNESS_STEP == 0;
+}
+
+void ui_view_create(uint8_t brightness)
+{
+    s_brightness = brightness_valid(brightness) ? brightness : BRIGHTNESS_DEFAULT;
+
     s_start = ui_page_start_create();
     s_error = ui_page_error_create();
+    s_brightness_page = ui_page_brightness_create();
     for (size_t i = 0; i < PAGE_COUNT; i++) {
         s_pages[i] = PAGES[i].create();
     }
@@ -44,6 +62,13 @@ static void show(lv_obj_t* page)
 
 static void refresh(void)
 {
+    if (s_brightness_open) {
+        ui_page_brightness_update(s_brightness);
+        show(s_brightness_page);
+
+        return;
+    }
+
     switch (s_snapshot.status) {
         case SENSING_STATUS_NO_DATA:
             show(s_start);
@@ -64,14 +89,53 @@ void ui_view_update(const sensing_snapshot_t* snapshot)
     refresh();
 }
 
-void ui_view_press(const buttons_event_t* event)
+static void press_brightness(const buttons_event_t* event)
 {
-    // Long presses have no action yet.
-    if (event->press != BUTTONS_PRESS_SHORT || s_snapshot.status != SENSING_STATUS_OK) {
+    if (event->press == BUTTONS_PRESS_LONG) {
+        if (event->id == BUTTONS_NEXT) {
+            s_brightness_open = false;
+        }
+
         return;
     }
 
-    const size_t step = event->id == BUTTONS_NEXT ? 1 : PAGE_COUNT - 1;
-    s_selected = (s_selected + step) % PAGE_COUNT;
+    const int step = event->id == BUTTONS_NEXT ? BRIGHTNESS_STEP : -BRIGHTNESS_STEP;
+    const int percent = s_brightness + step;
+    if (percent >= BRIGHTNESS_MIN && percent <= BRIGHTNESS_MAX) {
+        s_brightness = (uint8_t)percent;
+    }
+}
+
+// The start and error pages stand in for the measurement pages.
+static void press_measurement(const buttons_event_t* event)
+{
+    // Long PREV is left for the power-off question.
+    if (event->press == BUTTONS_PRESS_LONG) {
+        if (event->id == BUTTONS_NEXT) {
+            s_brightness_open = true;
+        }
+
+        return;
+    }
+
+    if (s_snapshot.status == SENSING_STATUS_OK) {
+        const size_t step = event->id == BUTTONS_NEXT ? 1 : PAGE_COUNT - 1;
+        s_selected = (s_selected + step) % PAGE_COUNT;
+    }
+}
+
+void ui_view_press(const buttons_event_t* event)
+{
+    if (s_brightness_open) {
+        press_brightness(event);
+    } else {
+        press_measurement(event);
+    }
+
     refresh();
+}
+
+uint8_t ui_view_brightness(void)
+{
+    return s_brightness;
 }

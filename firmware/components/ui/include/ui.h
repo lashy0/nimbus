@@ -10,7 +10,8 @@
  * Screen content. LVGL runs in the esp_lvgl_port task; only that task
  * touches LVGL after start. The pages show the latest sensing snapshot,
  * read once a second; sensing may start before or after the UI. Button
- * presses switch the pages; start the buttons first.
+ * presses switch the pages and set the backlight brightness, which is kept
+ * in NVS; start the buttons first.
  */
 
 /**
@@ -19,7 +20,8 @@
  *
  * Call once, from a task. The display handles are owned by LVGL from now on.
  * Mount the assets partition at /assets first; without it the screens show
- * no images.
+ * no images. Initialize NVS first; without it the brightness starts at its
+ * default and is not kept.
  *
  * @param display Open display with nothing drawn on it.
  * @param core Core for the LVGL task, or tskNO_AFFINITY.

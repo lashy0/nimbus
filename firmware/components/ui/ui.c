@@ -8,16 +8,19 @@
 
 #include "buttons.h"
 #include "sensing.h"
+#include "ui_settings.h"
 #include "ui_view.h"
 
-#define BRIGHTNESS_PERCENT 100
 #define UPDATE_PERIOD_MS 1000
 #define BUTTONS_PERIOD_MS 20
+#define SAVE_DELAY_MS 2000 // After the last change, so several presses write once.
 
 static const char* TAG = "ui";
 
 static lv_display_t* s_display;
 static esp_lcd_panel_handle_t s_panel;
+static uint8_t s_brightness; // On the backlight; changed only in the LVGL task.
+static lv_timer_t* s_save_timer;
 
 // Runs in the LVGL task once the first frame is drawn. The panel sends the
 // command only after the pending pixel data.
@@ -27,7 +30,7 @@ static void on_first_frame(lv_event_t* event)
 
     esp_err_t err = esp_lcd_panel_disp_on_off(s_panel, true);
     if (err == ESP_OK) {
-        err = display_set_brightness(BRIGHTNESS_PERCENT);
+        err = display_set_brightness(s_brightness);
     }
 
     if (err != ESP_OK) {
@@ -43,6 +46,17 @@ static void on_update(lv_timer_t* timer)
     ui_view_update(&snapshot);
 }
 
+// Runs in the LVGL task, which waits for the flash write.
+static void on_save(lv_timer_t* timer)
+{
+    lv_timer_pause(timer);
+
+    esp_err_t err = ui_settings_save_brightness(s_brightness);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "brightness not saved: %s", esp_err_to_name(err));
+    }
+}
+
 // Runs in the LVGL task.
 static void on_buttons(lv_timer_t* timer)
 {
@@ -50,6 +64,31 @@ static void on_buttons(lv_timer_t* timer)
     while (buttons_receive(&event)) {
         ui_view_press(&event);
     }
+
+    const uint8_t brightness = ui_view_brightness();
+    if (brightness == s_brightness) {
+        return;
+    }
+
+    s_brightness = brightness;
+    esp_err_t err = display_set_brightness(brightness);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "brightness: %s", esp_err_to_name(err));
+    }
+
+    lv_timer_reset(s_save_timer);
+    lv_timer_resume(s_save_timer);
+}
+
+static uint8_t load_brightness(void)
+{
+    uint8_t brightness = 0;
+    esp_err_t err = ui_settings_load_brightness(&brightness);
+    if (err != ESP_OK && err != ESP_ERR_NOT_FOUND) {
+        ESP_LOGW(TAG, "saved brightness: %s", esp_err_to_name(err));
+    }
+
+    return brightness;
 }
 
 esp_err_t ui_start(const display_t* display, BaseType_t core)
@@ -82,12 +121,16 @@ esp_err_t ui_start(const display_t* display, BaseType_t core)
     }
 
     s_panel = display->panel;
+    const uint8_t saved_brightness = load_brightness();
 
     // Drawing happens in the LVGL task, on its own stack.
     lvgl_port_lock(0);
-    ui_view_create();
+    ui_view_create(saved_brightness);
+    s_brightness = ui_view_brightness();
     lv_timer_create(on_update, UPDATE_PERIOD_MS, NULL);
     lv_timer_create(on_buttons, BUTTONS_PERIOD_MS, NULL);
+    s_save_timer = lv_timer_create(on_save, SAVE_DELAY_MS, NULL);
+    lv_timer_pause(s_save_timer);
     lv_display_add_event_cb(s_display, on_first_frame, LV_EVENT_REFR_READY, NULL);
     lvgl_port_unlock();
 
