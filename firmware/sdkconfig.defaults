@@ -11,6 +11,9 @@ CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 # Core dump: kept in flash after a crash
 CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y
 
+# Task watchdog: reset on a timeout
+CONFIG_ESP_TASK_WDT_PANIC=y
+
 # LVGL: what Kconfig cannot set is in components/ui/lv_conf.h
 CONFIG_LV_CONF_SKIP=n
 CONFIG_LV_USE_LOG=y

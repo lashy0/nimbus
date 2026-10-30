@@ -9,6 +9,7 @@ typedef enum {
     DEEP_SLEEP_USER,      /**< Confirmed on screen. */
     DEEP_SLEEP_CRITICAL,  /**< The battery is flat. */
     DEEP_SLEEP_LOW_START, /**< Too low to start the display and the sensor. */
+    DEEP_SLEEP_CRASHES,   /**< The firmware keeps crashing. */
 } deep_sleep_reason_t;
 
 /**

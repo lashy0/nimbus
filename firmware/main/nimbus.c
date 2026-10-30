@@ -4,12 +4,14 @@
 #include "esp_log.h"
 #include "esp_pm.h"
 #include "esp_spiffs.h"
+#include "esp_task_wdt.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
 
 #include "board.h"
 #include "buttons.h"
+#include "crash_guard.h"
 #include "deep_sleep.h"
 #include "display.h"
 #include "power.h"
@@ -139,18 +141,22 @@ static void log_snapshot(const sensing_snapshot_t* snapshot)
 }
 
 // Sleep goes on after a failed stop: staying awake would drain the battery.
+// Each step ends well within the task watchdog timeout.
 static void power_off(deep_sleep_reason_t reason)
 {
+    esp_task_wdt_reset();
     esp_err_t err = ui_stop();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "UI stop: %s", esp_err_to_name(err));
     }
 
+    esp_task_wdt_reset();
     err = sensing_stop();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "sensing stop: %s", esp_err_to_name(err));
     }
 
+    esp_task_wdt_reset();
     deep_sleep_enter(reason);
 }
 
@@ -158,6 +164,10 @@ void app_main(void)
 {
     deep_sleep_restore();
     ESP_LOGI(TAG, "Nimbus %s, ESP-IDF %s", esp_app_get_description()->version, esp_get_idf_version());
+
+    if (crash_guard_check()) {
+        deep_sleep_enter(DEEP_SLEEP_CRASHES);
+    }
 
     // Not fatal: the chip just stays awake.
     esp_err_t err = configure_power_management();
@@ -205,8 +215,17 @@ void app_main(void)
         ESP_LOGE(TAG, "sensing: %s", esp_err_to_name(err));
     }
 
+    // A hung coordinator could no longer power off; the reset counts as a crash.
+    err = esp_task_wdt_add(NULL);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "watchdog: %s", esp_err_to_name(err));
+    }
+
     TickType_t logged = xTaskGetTickCount();
     for (;;) {
+        esp_task_wdt_reset();
+        crash_guard_poll();
+
         if (ui_power_off_requested()) {
             power_off(DEEP_SLEEP_USER);
         }

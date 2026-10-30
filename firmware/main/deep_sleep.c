@@ -40,6 +40,7 @@ static const char* reason_name(uint8_t reason)
         [DEEP_SLEEP_USER] = "power-off",
         [DEEP_SLEEP_CRITICAL] = "critical battery",
         [DEEP_SLEEP_LOW_START] = "low voltage at start",
+        [DEEP_SLEEP_CRASHES] = "repeated crashes",
     };
 
     return reason < sizeof(NAMES) / sizeof(NAMES[0]) ? NAMES[reason] : "unknown";
