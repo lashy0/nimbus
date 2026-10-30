@@ -10,7 +10,8 @@
       "cacheVariables": {
         "IDF_TARGET": "esp32",
         "SDKCONFIG": "./build/dev/sdkconfig",
-        "SDKCONFIG_DEFAULTS": "sdkconfig.defaults;sdkconfig.defaults.dev"
+        "SDKCONFIG_DEFAULTS": "sdkconfig.defaults;sdkconfig.defaults.dev",
+        "NIMBUS_VERSION_SUFFIX": "-dev"
       }
     },
     {

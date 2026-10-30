@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-set(PROJECT_VER "v1.0.0")
+set(PROJECT_VER "v1.0.0${NIMBUS_VERSION_SUFFIX}")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 idf_build_set_property(MINIMAL_BUILD ON)
