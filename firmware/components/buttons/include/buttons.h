@@ -3,13 +3,15 @@
 #include <stdbool.h>
 
 #include "esp_err.h"
+#include "freertos/FreeRTOS.h"
 #include "soc/gpio_num.h"
 
 #include "buttons_types.h"
 
 /**
  * @file
- * The two buttons below the display.
+ * The two buttons below the display. While neither is pressed, nothing polls
+ * them and the chip may light-sleep; a press wakes it.
  */
 
 /** Pins are active low. A pin without an internal pull-up needs one on the board. */
@@ -41,3 +43,12 @@ esp_err_t buttons_start(const buttons_config_t* config);
  * @return false if nothing is queued or the buttons have not started.
  */
 bool buttons_receive(buttons_event_t* out);
+
+/**
+ * Waits until a press is queued, without taking it.
+ *
+ * Safe from any task. Before the buttons start, it waits out the timeout.
+ *
+ * @return true if a press is queued.
+ */
+bool buttons_wait(TickType_t timeout);

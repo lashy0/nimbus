@@ -6,6 +6,7 @@
 #include "esp_check.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
+#include "freertos/task.h"
 #include "hal/gpio_types.h"
 #include "iot_button.h"
 #include "sdkconfig.h"
@@ -59,6 +60,7 @@ static esp_err_t create_button(gpio_num_t pin, buttons_id_t id)
         .gpio_num = pin,
         .active_level = 0,
         .disable_pull = !GPIO_IS_VALID_OUTPUT_GPIO(pin), // Input-only pins have no internal pull.
+        .enable_power_save = true,
     };
 
     button_handle_t button;
@@ -87,4 +89,17 @@ esp_err_t buttons_start(const buttons_config_t* config)
 bool buttons_receive(buttons_event_t* out)
 {
     return s_queue != NULL && xQueueReceive(s_queue, out, 0) == pdTRUE;
+}
+
+bool buttons_wait(TickType_t timeout)
+{
+    if (s_queue == NULL) {
+        vTaskDelay(timeout);
+
+        return false;
+    }
+
+    buttons_event_t event;
+
+    return xQueuePeek(s_queue, &event, timeout) == pdTRUE;
 }
