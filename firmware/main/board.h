@@ -21,6 +21,10 @@
 #define BOARD_PIN_LCD_RESET GPIO_NUM_23
 #define BOARD_PIN_LCD_BACKLIGHT GPIO_NUM_4
 
+// Active low. GPIO35 is input-only and pulled up on the board.
+#define BOARD_PIN_BUTTON_PREV GPIO_NUM_0
+#define BOARD_PIN_BUTTON_NEXT GPIO_NUM_35
+
 /** Creates the I2C bus of the BME680. */
 esp_err_t board_create_i2c_bus(i2c_master_bus_handle_t* out);
 

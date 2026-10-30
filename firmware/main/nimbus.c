@@ -8,6 +8,7 @@
 #include "nvs_flash.h"
 
 #include "board.h"
+#include "buttons.h"
 #include "display.h"
 #include "sensing.h"
 #include "ui.h"
@@ -23,6 +24,16 @@
 #define ASSETS_MAX_FILES 4
 
 static const char* TAG = "nimbus";
+
+static esp_err_t start_buttons(void)
+{
+    const buttons_config_t config = {
+        .prev = BOARD_PIN_BUTTON_PREV,
+        .next = BOARD_PIN_BUTTON_NEXT,
+    };
+
+    return buttons_start(&config);
+}
 
 static esp_err_t start_ui(void)
 {
@@ -105,6 +116,12 @@ void app_main(void)
     err = mount_assets();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "assets: %s", esp_err_to_name(err));
+    }
+
+    // Not fatal: the pages just do not switch. Before the UI, which reads the presses.
+    err = start_buttons();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "buttons: %s", esp_err_to_name(err));
     }
 
     // Not fatal: sensing still runs and logs.
