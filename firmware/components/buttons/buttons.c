@@ -4,7 +4,6 @@
 
 #include "button_gpio.h"
 #include "esp_check.h"
-#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -64,13 +63,8 @@ static esp_err_t create_button(gpio_num_t pin, buttons_id_t id)
         .enable_power_save = true,
     };
 
-    // Every button installs the shared GPIO ISR service; a repeat only logs an error.
-    const esp_log_level_t gpio_level = esp_log_level_get("gpio");
-    esp_log_level_set("gpio", ESP_LOG_NONE);
     button_handle_t button;
-    const esp_err_t err = iot_button_new_gpio_device(&config, &gpio_config, &button);
-    esp_log_level_set("gpio", gpio_level);
-    ESP_RETURN_ON_ERROR(err, TAG, "GPIO %d", pin);
+    ESP_RETURN_ON_ERROR(iot_button_new_gpio_device(&config, &gpio_config, &button), TAG, "GPIO %d", pin);
 
     // Not LONG_PRESS_START: it reads past its callback array.
     void* arg = (void*)(intptr_t)id;
