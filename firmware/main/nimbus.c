@@ -2,6 +2,7 @@
 #include "esp_check.h"
 #include "esp_idf_version.h"
 #include "esp_log.h"
+#include "esp_pm.h"
 #include "esp_spiffs.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -19,7 +20,7 @@
 #define POWER_CORE 0
 #define UI_CORE 1
 
-#define WATCH_PERIOD_MS 100
+#define WATCH_PERIOD_MS 500
 #define LOG_PERIOD_MS 3000
 
 // LVGL reads it through CONFIG_LV_FS_STDIO_PATH.
@@ -72,6 +73,19 @@ static esp_err_t start_sensing(void)
     ESP_RETURN_ON_ERROR(board_create_i2c_bus(&bus), TAG, "I2C bus");
 
     return sensing_start(bus, SENSING_CORE);
+}
+
+// Light sleep whenever no lock forbids it. The frequency stays fixed: the
+// backlight PWM runs on APB, which a lower CPU frequency would slow down.
+static esp_err_t configure_power_management(void)
+{
+    const esp_pm_config_t config = {
+        .max_freq_mhz = CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ,
+        .min_freq_mhz = CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ,
+        .light_sleep_enable = true,
+    };
+
+    return esp_pm_configure(&config);
 }
 
 static esp_err_t init_nvs(void)
@@ -145,8 +159,14 @@ void app_main(void)
     deep_sleep_restore();
     ESP_LOGI(TAG, "Nimbus %s, ESP-IDF %s", esp_app_get_description()->version, esp_get_idf_version());
 
+    // Not fatal: the chip just stays awake.
+    esp_err_t err = configure_power_management();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "power management: %s", esp_err_to_name(err));
+    }
+
     // Not fatal: components run without saved data.
-    esp_err_t err = init_nvs();
+    err = init_nvs();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "NVS: %s", esp_err_to_name(err));
     }

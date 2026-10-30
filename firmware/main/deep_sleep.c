@@ -1,5 +1,6 @@
 #include "deep_sleep.h"
 
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -64,7 +65,12 @@ static esp_err_t release_low(gpio_num_t pin)
 void deep_sleep_restore(void)
 {
     if (s_record.valid) {
-        ESP_LOGI(TAG, "woke after %s at %u mV", reason_name(s_record.reason), s_record.battery_mv);
+        ESP_LOGI(
+            TAG,
+            "woke after %s at %u mV, causes 0x%" PRIx32,
+            reason_name(s_record.reason),
+            s_record.battery_mv,
+            esp_sleep_get_wakeup_causes());
         s_record.valid = false;
     }
 
@@ -110,6 +116,8 @@ static bool stays_released(gpio_num_t pin, uint32_t* high_polls)
 
 static esp_err_t arm_wake(void)
 {
+    // The buttons enable GPIO wake for light sleep; in deep sleep it wakes at once.
+    ESP_RETURN_ON_ERROR(esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL), TAG, "clear");
     ESP_RETURN_ON_ERROR(gpio_set_direction(BOARD_PIN_BUTTON_PREV, GPIO_MODE_INPUT), TAG, "PREV input");
     ESP_RETURN_ON_ERROR(gpio_set_direction(BOARD_PIN_BUTTON_NEXT, GPIO_MODE_INPUT), TAG, "NEXT input");
 
