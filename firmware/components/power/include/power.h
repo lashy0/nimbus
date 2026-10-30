@@ -17,7 +17,7 @@ typedef struct {
 } power_config_t;
 
 /**
- * Sets up the battery ADC and starts the power task.
+ * Sets up the battery ADC, takes the first reading and starts the power task.
  *
  * Call once, from a task.
  *
@@ -41,3 +41,11 @@ esp_err_t power_start(const power_config_t* config, BaseType_t core);
  * @param out Non-NULL destination owned by the caller.
  */
 void power_get_status(power_status_t* out);
+
+/**
+ * Whether the supply can start the display and the sensor, by the latest status.
+ * After a brownout reset it needs a margin, and an unknown voltage is refused.
+ *
+ * Safe from any task. Without power_start() the voltage is unknown.
+ */
+bool power_startup_allowed(void);

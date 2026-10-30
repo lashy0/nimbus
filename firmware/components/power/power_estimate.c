@@ -8,6 +8,8 @@
 #define PLAUSIBLE_MAX_MV 6000
 #define CRITICAL_MV 3300
 #define CRITICAL_READINGS 12 // About 6 s.
+#define STARTUP_MIN_MV 3400
+#define STARTUP_AFTER_BROWNOUT_MV 3500 // Otherwise the brownout repeats.
 
 #define FILTER_SHIFT 5     // About 16 s.
 #define PERCENT_RISE_MIN 3 // A smaller rise is recovery after a load.
@@ -105,4 +107,18 @@ void power_estimate_update(power_estimate_t* estimate, bool ok, uint32_t battery
     }
 
     status->critical = estimate->low_readings >= CRITICAL_READINGS;
+}
+
+bool power_estimate_startup_allowed(const power_status_t* status, bool after_brownout)
+{
+    switch (status->source) {
+        case POWER_SOURCE_UNKNOWN:
+            return !after_brownout;
+        case POWER_SOURCE_BATTERY:
+            return status->battery_mv >= (after_brownout ? STARTUP_AFTER_BROWNOUT_MV : STARTUP_MIN_MV);
+        case POWER_SOURCE_EXTERNAL:
+            break;
+    }
+
+    return true;
 }

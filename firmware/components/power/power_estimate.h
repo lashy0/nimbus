@@ -20,3 +20,6 @@ void power_estimate_init(power_estimate_t* estimate);
 
 /** Feeds one reading; ok is false after a failed read. */
 void power_estimate_update(power_estimate_t* estimate, bool ok, uint32_t battery_mv);
+
+/** Whether the supply can start the display and the sensor; an unknown one can, but not after a brownout. */
+bool power_estimate_startup_allowed(const power_status_t* status, bool after_brownout);
