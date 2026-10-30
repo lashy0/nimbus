@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "lvgl.h"
@@ -32,3 +33,6 @@ void ui_view_press(const buttons_event_t* event);
 
 /** Backlight percent chosen on the brightness page. */
 uint8_t ui_view_brightness(void);
+
+/** True once the user has confirmed powering off; presses are ignored from then on. */
+bool ui_view_power_off_confirmed(void);

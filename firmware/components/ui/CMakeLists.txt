@@ -14,6 +14,7 @@ idf_component_register(
         "view/page/ui_page_error.c"
         "view/page/ui_page_hum.c"
         "view/page/ui_page_iaq.c"
+        "view/page/ui_page_power_off.c"
         "view/page/ui_page_start.c"
         "view/page/ui_page_temp.c"
     INCLUDE_DIRS "include"

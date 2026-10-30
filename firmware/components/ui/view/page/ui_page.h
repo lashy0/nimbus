@@ -1,6 +1,7 @@
 #pragma once
 
 #include <math.h>
+#include <stdbool.h>
 
 #include "lvgl.h"
 
@@ -28,6 +29,9 @@ lv_obj_t* ui_page_error_create(void);
 
 lv_obj_t* ui_page_brightness_create(void);
 void ui_page_brightness_update(uint8_t percent);
+
+lv_obj_t* ui_page_power_off_create(void);
+void ui_page_power_off_update(bool yes_selected);
 
 /** Rounds a measurement to the whole number shown on a page. */
 static inline int ui_page_round(float value, int min, int max)

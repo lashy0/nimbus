@@ -1,5 +1,7 @@
 #include "ui.h"
 
+#include <stdatomic.h>
+
 #include "esp_check.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_log.h"
@@ -23,6 +25,8 @@ static lv_display_t* s_display;
 static esp_lcd_panel_handle_t s_panel;
 static uint8_t s_brightness; // On the backlight; changed only in the LVGL task.
 static lv_timer_t* s_save_timer;
+static bool s_stopped;
+static atomic_bool s_power_off_requested;
 
 // Runs in the LVGL task once the first frame is drawn. The panel sends the
 // command only after the pending pixel data.
@@ -73,6 +77,10 @@ static void on_buttons(lv_timer_t* timer)
     buttons_event_t event;
     while (buttons_receive(&event)) {
         ui_view_press(&event);
+    }
+
+    if (ui_view_power_off_confirmed()) {
+        atomic_store(&s_power_off_requested, true);
     }
 
     const uint8_t brightness = ui_view_brightness();
@@ -145,4 +153,37 @@ esp_err_t ui_start(const display_t* display, BaseType_t core)
     lvgl_port_unlock();
 
     return ESP_OK;
+}
+
+bool ui_power_off_requested(void)
+{
+    return atomic_load(&s_power_off_requested);
+}
+
+esp_err_t ui_stop(void)
+{
+    ESP_RETURN_ON_FALSE(s_display != NULL && !s_stopped, ESP_ERR_INVALID_STATE, TAG, "not running");
+
+    lvgl_port_lock(0);
+    lvgl_port_stop();
+    s_stopped = true;
+
+    if (!lv_timer_get_paused(s_save_timer)) {
+        on_save(s_save_timer);
+    }
+
+    esp_err_t err = display_set_brightness(0);
+    if (err == ESP_OK) {
+        err = esp_lcd_panel_disp_on_off(s_panel, false);
+    }
+    if (err == ESP_OK) {
+        err = esp_lcd_panel_disp_sleep(s_panel, true);
+    }
+    lvgl_port_unlock();
+
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "screen off: %s", esp_err_to_name(err));
+    }
+
+    return err;
 }
