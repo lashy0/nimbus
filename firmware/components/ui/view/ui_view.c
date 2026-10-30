@@ -8,7 +8,7 @@
 #define BRIGHTNESS_STEP 5
 #define BRIGHTNESS_DEFAULT 40
 
-#define QUESTION_TIMEOUT_MS 15000 // Without presses.
+#define DIALOG_TIMEOUT_MS 15000 // Without presses.
 
 typedef struct {
     lv_obj_t* (*create)(void);
@@ -41,7 +41,7 @@ static sensing_snapshot_t s_snapshot; // NO_DATA until the first update.
 static view_mode_t s_mode;
 static uint8_t s_brightness;
 static bool s_yes_selected;
-static lv_timer_t* s_question_timer;
+static lv_timer_t* s_dialog_timer;
 
 static bool brightness_valid(uint8_t percent)
 {
@@ -88,13 +88,20 @@ static void refresh(void)
     }
 }
 
+static void open_dialog(view_mode_t mode)
+{
+    s_mode = mode;
+    lv_timer_reset(s_dialog_timer);
+    lv_timer_resume(s_dialog_timer);
+}
+
 static void close_dialog(void)
 {
-    lv_timer_pause(s_question_timer);
+    lv_timer_pause(s_dialog_timer);
     s_mode = MODE_MEASUREMENT;
 }
 
-static void on_question_timeout(lv_timer_t* timer)
+static void on_dialog_timeout(lv_timer_t* timer)
 {
     close_dialog();
     refresh();
@@ -112,8 +119,8 @@ void ui_view_create(uint8_t brightness)
         s_pages[i] = PAGES[i].create();
     }
 
-    s_question_timer = lv_timer_create(on_question_timeout, QUESTION_TIMEOUT_MS, NULL);
-    lv_timer_pause(s_question_timer);
+    s_dialog_timer = lv_timer_create(on_dialog_timeout, DIALOG_TIMEOUT_MS, NULL);
+    lv_timer_pause(s_dialog_timer);
 
     ui_battery_create();
     ui_battery_set_visible(false);
@@ -133,11 +140,13 @@ static void press_brightness(const buttons_event_t* event)
 {
     if (event->press == BUTTONS_PRESS_LONG) {
         if (event->id == BUTTONS_NEXT) {
-            s_mode = MODE_MEASUREMENT;
+            close_dialog();
         }
 
         return;
     }
+
+    lv_timer_reset(s_dialog_timer);
 
     const int step = event->id == BUTTONS_NEXT ? BRIGHTNESS_STEP : -BRIGHTNESS_STEP;
     const int percent = s_brightness + step;
@@ -153,13 +162,13 @@ static void press_question(const buttons_event_t* event)
         return;
     }
 
-    lv_timer_reset(s_question_timer);
+    lv_timer_reset(s_dialog_timer);
 
     const bool yes = event->id == BUTTONS_PREV;
     if (yes != s_yes_selected) {
         s_yes_selected = yes;
     } else if (yes) {
-        lv_timer_pause(s_question_timer);
+        lv_timer_pause(s_dialog_timer);
         s_mode = MODE_POWER_OFF_CONFIRMED;
     } else {
         close_dialog();
@@ -170,12 +179,10 @@ static void press_measurement(const buttons_event_t* event)
 {
     if (event->press == BUTTONS_PRESS_LONG) {
         if (event->id == BUTTONS_NEXT) {
-            s_mode = MODE_BRIGHTNESS;
+            open_dialog(MODE_BRIGHTNESS);
         } else {
-            s_mode = MODE_POWER_OFF_QUESTION;
             s_yes_selected = true;
-            lv_timer_reset(s_question_timer);
-            lv_timer_resume(s_question_timer);
+            open_dialog(MODE_POWER_OFF_QUESTION);
         }
 
         return;
