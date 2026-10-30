@@ -6,10 +6,12 @@
 #include "esp_lvgl_port.h"
 #include "lvgl.h"
 
+#include "sensing.h"
 #include "ui_view.h"
 
 #define BUFFER_LINES 24
 #define BRIGHTNESS_PERCENT 100
+#define UPDATE_PERIOD_MS 1000
 
 static const char* TAG = "ui";
 
@@ -30,6 +32,14 @@ static void on_first_frame(lv_event_t* event)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "screen on: %s", esp_err_to_name(err));
     }
+}
+
+// Runs in the LVGL task.
+static void on_update(lv_timer_t* timer)
+{
+    sensing_snapshot_t snapshot;
+    sensing_get_snapshot(&snapshot);
+    ui_view_update(&snapshot);
 }
 
 esp_err_t ui_start(const display_t* display, BaseType_t core)
@@ -64,7 +74,8 @@ esp_err_t ui_start(const display_t* display, BaseType_t core)
 
     // Drawing happens in the LVGL task, on its own stack.
     lvgl_port_lock(0);
-    ui_view_create(lv_display_get_screen_active(s_display));
+    ui_view_create();
+    lv_timer_create(on_update, UPDATE_PERIOD_MS, NULL);
     lv_display_add_event_cb(s_display, on_first_frame, LV_EVENT_REFR_READY, NULL);
     lvgl_port_unlock();
 
