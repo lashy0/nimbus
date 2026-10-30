@@ -7,11 +7,13 @@
 #include "lvgl.h"
 
 #include "buttons.h"
+#include "power.h"
 #include "sensing.h"
 #include "ui_settings.h"
 #include "ui_view.h"
 
-#define UPDATE_PERIOD_MS 1000
+#define SENSING_PERIOD_MS 1000
+#define POWER_PERIOD_MS 250
 #define BUTTONS_PERIOD_MS 20
 #define SAVE_DELAY_MS 2000 // After the last change.
 
@@ -39,11 +41,19 @@ static void on_first_frame(lv_event_t* event)
 }
 
 // Runs in the LVGL task.
-static void on_update(lv_timer_t* timer)
+static void on_sensing(lv_timer_t* timer)
 {
     sensing_snapshot_t snapshot;
     sensing_get_snapshot(&snapshot);
     ui_view_update(&snapshot);
+}
+
+// Runs in the LVGL task.
+static void on_power(lv_timer_t* timer)
+{
+    power_status_t status;
+    power_get_status(&status);
+    ui_view_update_power(&status);
 }
 
 // Runs in the LVGL task.
@@ -126,7 +136,8 @@ esp_err_t ui_start(const display_t* display, BaseType_t core)
     lvgl_port_lock(0);
     ui_view_create(saved_brightness);
     s_brightness = ui_view_brightness();
-    lv_timer_create(on_update, UPDATE_PERIOD_MS, NULL);
+    lv_timer_create(on_sensing, SENSING_PERIOD_MS, NULL);
+    lv_timer_create(on_power, POWER_PERIOD_MS, NULL);
     lv_timer_create(on_buttons, BUTTONS_PERIOD_MS, NULL);
     s_save_timer = lv_timer_create(on_save, SAVE_DELAY_MS, NULL);
     lv_timer_pause(s_save_timer);

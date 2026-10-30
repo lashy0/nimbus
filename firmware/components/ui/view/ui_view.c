@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 
+#include "ui_battery.h"
 #include "ui_page.h"
 
 #define BRIGHTNESS_MIN 5
@@ -48,6 +49,9 @@ void ui_view_create(uint8_t brightness)
         s_pages[i] = PAGES[i].create();
     }
 
+    ui_battery_create();
+    ui_battery_set_visible(false);
+
     lv_obj_t* initial = lv_screen_active();
     lv_screen_load(s_start);
     lv_obj_delete(initial);
@@ -57,6 +61,7 @@ static void show(lv_obj_t* page)
 {
     if (lv_screen_active() != page) {
         lv_screen_load(page);
+        ui_battery_set_visible(page != s_start);
     }
 }
 
@@ -131,6 +136,11 @@ void ui_view_press(const buttons_event_t* event)
     }
 
     refresh();
+}
+
+void ui_view_update_power(const power_status_t* status)
+{
+    ui_battery_update(status);
 }
 
 uint8_t ui_view_brightness(void)

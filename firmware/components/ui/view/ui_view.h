@@ -5,6 +5,7 @@
 #include "lvgl.h"
 
 #include "buttons_types.h"
+#include "power_types.h"
 #include "sensing_types.h"
 
 /**
@@ -22,6 +23,9 @@ void ui_view_create(uint8_t brightness);
 
 /** Shows a new snapshot. */
 void ui_view_update(const sensing_snapshot_t* snapshot);
+
+/** Updates the battery indicator. */
+void ui_view_update_power(const power_status_t* status);
 
 /** Handles a button press. */
 void ui_view_press(const buttons_event_t* event);

@@ -8,8 +8,8 @@
 /**
  * @file
  * Screen content. LVGL runs in the esp_lvgl_port task; only that task
- * touches LVGL after start. Reads sensing and the buttons; sensing may start
- * before or after the UI, the buttons before it.
+ * touches LVGL after start. Reads sensing, power and the buttons; sensing and
+ * power may start before or after the UI, the buttons before it.
  */
 
 /**
