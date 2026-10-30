@@ -10,7 +10,6 @@
 #include "sensing.h"
 #include "ui_view.h"
 
-#define BUFFER_LINES 24
 #define BRIGHTNESS_PERCENT 100
 #define UPDATE_PERIOD_MS 1000
 #define BUTTONS_PERIOD_MS 20
@@ -64,8 +63,9 @@ esp_err_t ui_start(const display_t* display, BaseType_t core)
     const lvgl_port_display_cfg_t display_config = {
         .io_handle = display->io,
         .panel_handle = display->panel,
-        .buffer_size = DISPLAY_WIDTH * BUFFER_LINES,
-        .double_buffer = true,
+        // A whole frame is drawn before it is sent, so a page never appears in stripes.
+        .buffer_size = DISPLAY_WIDTH * DISPLAY_HEIGHT,
+        .double_buffer = false,
         .hres = DISPLAY_WIDTH,
         .vres = DISPLAY_HEIGHT,
         .color_format = LV_COLOR_FORMAT_RGB565,
