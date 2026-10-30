@@ -24,3 +24,7 @@ CONFIG_LV_FS_STDIO_PATH="/assets/"
 
 # SPIFFS: asset paths are longer than the default 32 characters
 CONFIG_SPIFFS_OBJ_NAME_LEN=64
+
+# Buttons: 50 ms debounce
+CONFIG_BUTTON_PERIOD_TIME_MS=10
+CONFIG_BUTTON_DEBOUNCE_TICKS=5
