@@ -1,3 +1,4 @@
+#include "ui_anim.h"
 #include "ui_assets.h"
 #include "ui_font.h"
 #include "ui_page.h"
@@ -12,16 +13,17 @@
 typedef struct {
     int max_iaq;
     const char* face;
+    const char* face_closed; // NULL: no closed-eyes image.
     const char* plate;
 } level_t;
 
 static const level_t LEVELS[] = {
-    {50, UI_IMAGE("face/ultra_happy"), UI_IMAGE("status/good")},
-    {100, UI_IMAGE("face/happy"), UI_IMAGE("status/good")},
-    {200, UI_IMAGE("face/ordinary"), UI_IMAGE("status/mid")},
-    {300, UI_IMAGE("face/sad"), UI_IMAGE("status/bad")},
-    {400, UI_IMAGE("face/dizzy"), UI_IMAGE("status/warn")},
-    {IAQ_MAX, UI_IMAGE("face/dead"), UI_IMAGE("status/crit")},
+    {50, UI_IMAGE("face/ultra_happy"), NULL, UI_IMAGE("status/good")},
+    {100, UI_IMAGE("face/happy"), UI_IMAGE("face/happy_closed_eyes"), UI_IMAGE("status/good")},
+    {200, UI_IMAGE("face/ordinary"), UI_IMAGE("face/ordinary_closed_eyes"), UI_IMAGE("status/mid")},
+    {300, UI_IMAGE("face/sad"), NULL, UI_IMAGE("status/bad")},
+    {400, UI_IMAGE("face/dizzy"), NULL, UI_IMAGE("status/warn")},
+    {IAQ_MAX, UI_IMAGE("face/dead"), NULL, UI_IMAGE("status/crit")},
 };
 
 #define LEVEL_COUNT (sizeof(LEVELS) / sizeof(LEVELS[0]))
@@ -30,6 +32,7 @@ static lv_obj_t* s_title;
 static lv_obj_t* s_plate;
 static lv_obj_t* s_value;
 static lv_obj_t* s_face;
+static ui_blink_t* s_blink;
 static lv_obj_t* s_caption;
 static int s_shown = SHOWN_NOTHING;
 
@@ -44,6 +47,7 @@ lv_obj_t* ui_page_iaq_create(void)
     s_plate = lv_image_create(screen);
     lv_obj_set_pos(s_plate, 67, 34);
     s_face = lv_image_create(screen);
+    s_blink = ui_blink_create(s_face);
 
     return screen;
 }
@@ -64,7 +68,7 @@ static void show_calibrating(void)
     lv_obj_set_x(s_title, 41);
     lv_obj_add_flag(s_plate, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(s_value, LV_OBJ_FLAG_HIDDEN);
-    lv_image_set_src(s_face, UI_IMAGE("face/ordinary_nimbus"));
+    ui_blink_set(s_blink, UI_IMAGE("face/ordinary_nimbus"), NULL);
     lv_obj_set_pos(s_face, 25, 83);
     lv_obj_remove_flag(s_caption, LV_OBJ_FLAG_HIDDEN);
 }
@@ -78,7 +82,7 @@ static void show_value(int iaq)
     lv_obj_remove_flag(s_plate, LV_OBJ_FLAG_HIDDEN);
     lv_label_set_text_fmt(s_value, "%03d", iaq);
     lv_obj_remove_flag(s_value, LV_OBJ_FLAG_HIDDEN);
-    lv_image_set_src(s_face, level->face);
+    ui_blink_set(s_blink, level->face, level->face_closed);
     lv_obj_set_pos(s_face, 32, 137);
     lv_obj_add_flag(s_caption, LV_OBJ_FLAG_HIDDEN);
 }

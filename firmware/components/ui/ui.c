@@ -6,6 +6,7 @@
 #include "esp_lcd_panel_ops.h"
 #include "esp_log.h"
 #include "esp_lvgl_port.h"
+#include "esp_random.h"
 #include "lvgl.h"
 
 #include "buttons.h"
@@ -106,6 +107,7 @@ static void set_screen(screen_t screen)
 
     s_screen = screen;
     esp_err_t err = ESP_OK;
+    ui_view_set_dark(screen == SCREEN_OFF);
     if (screen == SCREEN_OFF) {
         ui_view_close_dialogs();
         save_pending();
@@ -245,6 +247,7 @@ esp_err_t ui_start(const display_t* display, BaseType_t core)
 
     // Drawing happens in the LVGL task, on its own stack.
     lvgl_port_lock(0);
+    lv_rand_set_seed(esp_random());
     ui_view_create(saved_brightness);
     s_brightness = ui_view_brightness();
     lv_timer_create(on_sensing, SENSING_PERIOD_MS, NULL);

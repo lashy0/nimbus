@@ -1,5 +1,6 @@
 #include <limits.h>
 
+#include "ui_anim.h"
 #include "ui_assets.h"
 #include "ui_font.h"
 #include "ui_page.h"
@@ -11,7 +12,7 @@
 
 static lv_obj_t* s_plate;
 static lv_obj_t* s_value;
-static lv_obj_t* s_face;
+static ui_blink_t* s_blink;
 static int s_shown = INT_MIN; // Rounded humidity on screen.
 
 lv_obj_t* ui_page_hum_create(void)
@@ -23,8 +24,9 @@ lv_obj_t* ui_page_hum_create(void)
 
     s_plate = lv_image_create(screen);
     lv_obj_set_pos(s_plate, 73, 34);
-    s_face = lv_image_create(screen);
-    lv_obj_set_pos(s_face, 32, 137);
+    lv_obj_t* face = lv_image_create(screen);
+    lv_obj_set_pos(face, 32, 137);
+    s_blink = ui_blink_create(face);
 
     return screen;
 }
@@ -45,12 +47,12 @@ void ui_page_hum_update(const sensing_snapshot_t* snapshot)
 
     if (percent < DRY_BELOW) {
         lv_image_set_src(s_plate, UI_IMAGE("status/dry"));
-        lv_image_set_src(s_face, UI_IMAGE("face/ordinary"));
+        ui_blink_set(s_blink, UI_IMAGE("face/ordinary"), UI_IMAGE("face/ordinary_closed_eyes"));
     } else if (percent < DAMP_FROM) {
         lv_image_set_src(s_plate, UI_IMAGE("status/good"));
-        lv_image_set_src(s_face, UI_IMAGE("face/happy"));
+        ui_blink_set(s_blink, UI_IMAGE("face/happy"), UI_IMAGE("face/happy_closed_eyes"));
     } else {
         lv_image_set_src(s_plate, UI_IMAGE("status/damp"));
-        lv_image_set_src(s_face, UI_IMAGE("face/diver"));
+        ui_blink_set(s_blink, UI_IMAGE("face/diver"), UI_IMAGE("face/diver_closed_eyes"));
     }
 }

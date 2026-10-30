@@ -1,5 +1,6 @@
 #include <limits.h>
 
+#include "ui_anim.h"
 #include "ui_assets.h"
 #include "ui_font.h"
 #include "ui_page.h"
@@ -12,7 +13,7 @@
 
 static lv_obj_t* s_plate;
 static lv_obj_t* s_value;
-static lv_obj_t* s_face;
+static ui_blink_t* s_blink;
 static int s_shown = INT_MIN; // Rounded temperature on screen.
 
 lv_obj_t* ui_page_temp_create(void)
@@ -23,17 +24,18 @@ lv_obj_t* ui_page_temp_create(void)
     ui_dots_create(screen, 1);
 
     s_plate = lv_image_create(screen);
-    s_face = lv_image_create(screen);
-    lv_obj_set_pos(s_face, 31, 127);
+    lv_obj_t* face = lv_image_create(screen);
+    lv_obj_set_pos(face, 31, 127);
+    s_blink = ui_blink_create(face);
 
     return screen;
 }
 
-static void show_level(const char* plate, int32_t plate_x, const char* face)
+static void show_level(const char* plate, int32_t plate_x, const char* face, const char* face_closed)
 {
     lv_image_set_src(s_plate, plate);
     lv_obj_set_pos(s_plate, plate_x, 41);
-    lv_image_set_src(s_face, face);
+    ui_blink_set(s_blink, face, face_closed);
 }
 
 void ui_page_temp_update(const sensing_snapshot_t* snapshot)
@@ -47,10 +49,11 @@ void ui_page_temp_update(const sensing_snapshot_t* snapshot)
     lv_label_set_text_fmt(s_value, "%d°", celsius);
 
     if (celsius < 0) {
-        show_level(UI_IMAGE("status/minus"), 97, UI_IMAGE("face/temp_minus"));
+        show_level(UI_IMAGE("status/minus"), 97, UI_IMAGE("face/temp_minus"), UI_IMAGE("face/temp_minus_closed_eyes"));
     } else if (celsius <= NORMAL_MAX_C) {
-        show_level(UI_IMAGE("status/nothing"), 99, UI_IMAGE("face/temp_normal"));
+        show_level(
+            UI_IMAGE("status/nothing"), 99, UI_IMAGE("face/temp_normal"), UI_IMAGE("face/temp_normal_closed_eyes"));
     } else {
-        show_level(UI_IMAGE("status/plus"), 97, UI_IMAGE("face/temp_plus"));
+        show_level(UI_IMAGE("status/plus"), 97, UI_IMAGE("face/temp_plus"), NULL);
     }
 }

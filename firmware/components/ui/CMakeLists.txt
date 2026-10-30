@@ -2,6 +2,9 @@ idf_component_register(
     SRCS
         "ui.c"
         "ui_settings.c"
+        "view/anim/ui_anim.c"
+        "view/anim/ui_blink.c"
+        "view/anim/ui_pulse.c"
         "view/ui_battery.c"
         "view/ui_view.c"
         "view/ui_widgets.c"
@@ -19,7 +22,7 @@ idf_component_register(
         "view/page/ui_page_temp.c"
         "view/page/ui_page_usb.c"
     INCLUDE_DIRS "include"
-    PRIV_INCLUDE_DIRS "view" "view/font" "view/page"
+    PRIV_INCLUDE_DIRS "view" "view/anim" "view/font" "view/page"
     REQUIRES display
     PRIV_REQUIRES buttons esp_lcd nvs_flash power sensing
 )
