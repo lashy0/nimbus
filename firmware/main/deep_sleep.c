@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "driver/gpio.h"
 #include "driver/rtc_io.h"
@@ -53,6 +54,18 @@ static void log_failure(const char* what, esp_err_t err)
     }
 }
 
+// 0 mV is no reading yet.
+static const char* voltage_text(uint16_t battery_mv, char* text, size_t size)
+{
+    if (battery_mv == 0) {
+        return "voltage unknown";
+    }
+
+    snprintf(text, size, "%u mV", battery_mv);
+
+    return text;
+}
+
 // LOW on the digital output first, so the pin does not float on the way.
 static esp_err_t release_low(gpio_num_t pin)
 {
@@ -66,11 +79,12 @@ static esp_err_t release_low(gpio_num_t pin)
 void deep_sleep_restore(void)
 {
     if (s_record.valid) {
+        char voltage[16];
         ESP_LOGI(
             TAG,
-            "woke after %s at %u mV, causes 0x%" PRIx32,
+            "woke after %s, %s, causes 0x%" PRIx32,
             reason_name(s_record.reason),
-            s_record.battery_mv,
+            voltage_text(s_record.battery_mv, voltage, sizeof(voltage)),
             esp_sleep_get_wakeup_causes());
         s_record.valid = false;
     }
@@ -164,6 +178,7 @@ void deep_sleep_enter(deep_sleep_reason_t reason)
     log_failure("panel reset", reset_panel());
     log_failure("wake", arm_wake());
 
-    ESP_LOGI(TAG, "%s at %u mV", reason_name(reason), power.battery_mv);
+    char voltage[16];
+    ESP_LOGI(TAG, "%s, %s", reason_name(reason), voltage_text(power.battery_mv, voltage, sizeof(voltage)));
     esp_deep_sleep_start();
 }
